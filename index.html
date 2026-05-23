@@ -4597,6 +4597,14 @@ function submitScore() {
   // Debounce: bare send hvert sekund maks
   if (scoreSubmitTimer) clearTimeout(scoreSubmitTimer);
   scoreSubmitTimer = setTimeout(() => {
+    // Buddy info
+    let buddyName = '';
+    let buddyCatches = 0;
+    if (state.buddyId) {
+      const buddyPoke = POKEMONS.find(p => p.id === state.buddyId);
+      if (buddyPoke) buddyName = buddyPoke.name;
+      buddyCatches = state.buddyCatches[state.buddyId] || 0;
+    }
     fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4608,7 +4616,10 @@ function submitScore() {
         coins: state.coins,
         lastPokemonId: state.lastCaughtId || 0,
         lastPokemonName: state.lastCaughtName || '',
-        lastShiny: !!state.lastCaughtShiny
+        lastShiny: !!state.lastCaughtShiny,
+        buddyId: state.buddyId || 0,
+        buddyName: buddyName,
+        buddyCatches: buddyCatches
       })
     }).catch(e => console.warn('Kunne ikke sende score:', e));
   }, 800);
@@ -4635,7 +4646,7 @@ async function renderLeaderboard() {
 
     let html = `<table class="leaderboard-table">
       <thead><tr>
-        <th>#</th><th>Player</th><th>Caught</th><th>✨ Shiny</th><th>📖 Seen</th><th>💰 Coins</th>
+        <th>#</th><th>Player</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
       </tr></thead><tbody>`;
 
     entries.forEach((e, i) => {
@@ -4643,13 +4654,38 @@ async function renderLeaderboard() {
       const isMe = e.name === state.username;
       const rankClass = rank <= 3 ? `rank-${rank}` : '';
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+      // Buddy-celle med stjerner
+      let buddyCell = '<span style="color:#888;font-size:11px;">none</span>';
+      if (e.buddyId && e.buddyName) {
+        const cat = e.buddyCatches || 0;
+        let stars;
+        if (cat >= 1000) stars = '<span style="background:linear-gradient(90deg,#ff0040,#ffd700,#7873f5);background-size:200%;color:white;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;text-shadow:0 0 3px black;">🌈★</span>';
+        else if (cat >= 100) {
+          const numStars = Math.min(9, Math.floor(cat / 100));
+          stars = `<span style="color:gold;text-shadow:0 0 4px gold;font-size:11px;">${'★'.repeat(numStars)}</span>`;
+        } else {
+          stars = `<span style="color:#888;font-size:10px;">${cat}/100</span>`;
+        }
+        const sprite = e.buddyId < 9000
+          ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${e.buddyId}.png`
+          : '';
+        buddyCell = `<div style="display:flex;align-items:center;gap:4px;">
+          ${sprite ? `<img src="${sprite}" style="width:32px;height:32px;image-rendering:pixelated;" alt="">` : ''}
+          <div style="display:flex;flex-direction:column;">
+            <span style="font-size:12px;color:#fff;">${escapeHtml(e.buddyName)}</span>
+            ${stars}
+          </div>
+        </div>`;
+      }
       html += `<tr class="${isMe ? 'me' : ''}">
         <td class="rank-cell ${rankClass}">${medal}</td>
         <td><strong>${escapeHtml(e.name)}${isMe ? ' (you)' : ''}</strong></td>
         <td>${e.totalCaught || 0}</td>
         <td style="color:gold;">${e.shinies || 0}</td>
         <td>${e.uniqueSeen || 0}</td>
-        <td>${e.coins || 0}💰</td>
+        <td>${e.coins || 0}</td>
+        <td>${buddyCell}</td>
       </tr>`;
     });
     html += '</tbody></table>';
