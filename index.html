@@ -2577,6 +2577,7 @@
     <div class="filter-btns">
       <button class="filter-btn active" onclick="setFilter('all')">All</button>
       <button class="filter-btn" onclick="setFilter('owned')">Owned</button>
+      <button class="filter-btn" onclick="setFilter('favorites')" style="background:#f39c12;color:#fff;">⭐ Favorites</button>
       <button class="filter-btn" onclick="setFilter('shiny')">✨ Shiny</button>
       <button class="filter-btn" onclick="setFilter('event')">🎉 Event</button>
       <button class="filter-btn" onclick="setFilter('common')">Common</button>
@@ -4078,11 +4079,24 @@ function renderPokedex() {
   const seenCount = Object.keys(state.seen).length;
   const shinyCount = Object.keys(state.shinySeen).length;
   const eventCount = Object.keys(state.eventsSeen).length;
+  // Buddy info
+  let buddyHtml = '';
+  if (state.buddyId) {
+    const buddyPoke = POKEMONS.find(p => p.id === state.buddyId);
+    if (buddyPoke) {
+      const catches = state.buddyCatches[state.buddyId] || 0;
+      const info = getBuddyStarInfo(catches);
+      let starText = info.rainbow ? '🌈 BEST FRIEND ★' : (info.stars > 0 ? '★'.repeat(info.stars) : '(no stars yet)');
+      buddyHtml = `<br><span style="color:#a8e6cf;">★ Buddy: <strong>${escapeHtml(buddyPoke.name)}</strong> ${starText} (${catches} catches together)</span>`;
+    }
+  }
   document.getElementById('pokedexStats').innerHTML = `
     <strong>Seen: ${seenCount} / ${total}</strong>
     (${Math.round(seenCount/total*100)}%)
     <br><span style="color:gold;">✨ Shiny: ${shinyCount} / ${total}</span>
     <br><span style="color:#ff6ec4;">🎉 Event variants: ${eventCount}</span>
+    <br><span style="color:#f39c12;">⭐ Favorites: ${state.favorites.length} / ${state.maxFavorites}</span>
+    ${buddyHtml}
     <br><span style="font-size:14px;color:#ccc;">Total caught: ${state.totalCatches}</span>
   `;
   const favCounter = document.getElementById('favCounter');
@@ -4093,6 +4107,7 @@ function renderPokedex() {
 
   let list = POKEMONS;
   if (currentFilter === 'owned') list = list.filter(p => state.seen[p.id]);
+  else if (currentFilter === 'favorites') list = list.filter(p => state.favorites.includes(p.id));
   else if (currentFilter === 'shiny') list = list.filter(p => state.shinySeen[p.id]);
   else if (currentFilter === 'event') list = list.filter(p => Object.keys(state.eventsSeen).some(k => k.startsWith(p.id + '-')));
   else if (currentFilter !== 'all') list = list.filter(p => p.rarity === currentFilter);
@@ -4137,10 +4152,19 @@ function renderPokedex() {
     const spriteHtml = isCustomDuo(p.id)
       ? duoImgHtml(p.id, { shiny: hasShiny, size: 100 })
       : `<img src="${hasShiny ? SHINY_SPRITE_URL(p.id) : SPRITE_URL(p.id)}" alt="${p.name}" loading="lazy">`;
+    // Buddy stars-badge hvis dette er buddy-en din
+    let buddyStarsHtml = '';
+    if (state.buddyId === p.id) {
+      const bcatches = state.buddyCatches[p.id] || 0;
+      const binfo = getBuddyStarInfo(bcatches);
+      const starText = binfo.rainbow ? '🌈★' : ('★'.repeat(binfo.stars) || '☆');
+      buddyStarsHtml = `<div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,0.7);color:gold;padding:2px 6px;border-radius:8px;font-size:12px;font-weight:bold;text-shadow:0 0 4px gold;letter-spacing:1px;">${starText}</div>`;
+    }
     div.innerHTML = `
       ${hasShiny ? `<div class="shiny-badge">✨ x${shinyCt}</div>` : ''}
       ${eventCountTotal > 0 ? `<div class="event-badge">🎉 ${eventCountTotal}</div>` : ''}
       ${count > 0 ? `<div class="count">x${count}</div>` : ''}
+      ${buddyStarsHtml}
       ${spriteHtml}
       <div class="name">${seen ? p.name : '???'}</div>
       <span class="rarity-tag rarity-${p.rarity}">${RARITY_NAMES[p.rarity]}</span>
