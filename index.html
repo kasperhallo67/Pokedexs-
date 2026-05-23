@@ -3671,6 +3671,8 @@ if (state.nextPokemonOverride === undefined) state.nextPokemonOverride = null;
 if (!state.unlockedAchievements) state.unlockedAchievements = [];
 if (state.rocketWins === undefined) state.rocketWins = 0;
 if (state.rocketLosses === undefined) state.rocketLosses = 0;
+if (!state.unlockedBackgrounds) state.unlockedBackgrounds = ['default'];
+if (!state.activeBackground) state.activeBackground = 'default';
 if (!state.character) {
   state.character = {
     gender: 'male',
@@ -4619,7 +4621,14 @@ function submitScore() {
         lastShiny: !!state.lastCaughtShiny,
         buddyId: state.buddyId || 0,
         buddyName: buddyName,
-        buddyCatches: buddyCatches
+        buddyCatches: buddyCatches,
+        character: state.character ? {
+          gender: state.character.gender,
+          hat: state.character.equipped.hat,
+          top: state.character.equipped.top,
+          bottom: state.character.equipped.bottom,
+          shoes: state.character.equipped.shoes
+        } : null
       })
     }).catch(e => console.warn('Kunne ikke sende score:', e));
   }, 800);
@@ -4646,7 +4655,7 @@ async function renderLeaderboard() {
 
     let html = `<table class="leaderboard-table">
       <thead><tr>
-        <th>#</th><th>Player</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
+        <th>#</th><th>👤</th><th>Player</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
       </tr></thead><tbody>`;
 
     entries.forEach((e, i) => {
@@ -4678,8 +4687,25 @@ async function renderLeaderboard() {
           </div>
         </div>`;
       }
+      // Mini-avatar
+      const ch = e.character;
+      const colorOr = (key, def) => key && CLOTHES_CATALOG[key] ? CLOTHES_CATALOG[key].color : def;
+      const topCol = ch ? colorOr(ch.top, '#fcd9b6') : '#5a4a3a';
+      const botCol = ch ? colorOr(ch.bottom, '#fcd9b6') : '#5a4a3a';
+      const shoesCol = ch ? colorOr(ch.shoes, '#fcd9b6') : '#fcd9b6';
+      const hatCol = ch && ch.hat ? colorOr(ch.hat, 'transparent') : 'transparent';
+      const hairCol = ch && ch.gender === 'female' ? '#5d4037' : '#3d2914';
+      const miniAvatar = `<div style="width:30px;height:54px;position:relative;margin:0 auto;">
+        ${hatCol !== 'transparent' ? `<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:18px;height:6px;background:${hatCol};border-radius:50% 50% 2px 2px;border:1px solid #000;z-index:4;"></div>` : ''}
+        <div style="position:absolute;top:3px;left:50%;transform:translateX(-50%);width:14px;height:5px;background:${hairCol};border:1px solid #000;border-radius:50% 50% 2px 2px;z-index:3;"></div>
+        <div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#fcd9b6;border:1px solid #000;z-index:2;"></div>
+        <div style="position:absolute;top:20px;left:50%;transform:translateX(-50%);width:18px;height:16px;background:${topCol};border:1px solid #000;border-radius:3px 3px 0 0;"></div>
+        <div style="position:absolute;top:35px;left:50%;transform:translateX(-50%);width:15px;height:14px;background:${botCol};border:1px solid #000;"></div>
+        <div style="position:absolute;top:48px;left:50%;transform:translateX(-50%);width:18px;height:5px;background:${shoesCol};border-radius:2px;border:1px solid #000;"></div>
+      </div>`;
       html += `<tr class="${isMe ? 'me' : ''}">
         <td class="rank-cell ${rankClass}">${medal}</td>
+        <td>${miniAvatar}</td>
         <td><strong>${escapeHtml(e.name)}${isMe ? ' (you)' : ''}</strong></td>
         <td>${e.totalCaught || 0}</td>
         <td style="color:gold;">${e.shinies || 0}</td>
@@ -5163,6 +5189,7 @@ function renderWardrobe() {
           <button class="trade-tab" data-slot="bottom" onclick="switchWardrobe('bottom')">👖 Bottoms</button>
           <button class="trade-tab" data-slot="shoes" onclick="switchWardrobe('shoes')">👟 Shoes</button>
           <button class="trade-tab" data-slot="hat" onclick="switchWardrobe('hat')">🎩 Hats</button>
+          <button class="trade-tab" data-slot="background" onclick="switchWardrobe('background')">🌅 Backgrounds</button>
         </div>
         <div id="wardrobeItems" style="margin-top:15px;"></div>
       </div>
@@ -5179,6 +5206,31 @@ function switchWardrobe(slot) {
   document.querySelectorAll('#wardrobeModal .trade-tab').forEach(t => t.classList.toggle('active', t.dataset.slot === slot));
   const items = document.getElementById('wardrobeItems');
   const ch = state.character;
+  // Background-fane håndteres separat
+  if (slot === 'background') {
+    let html = '<div style="max-height:340px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    for (const [key, bg] of Object.entries(BACKGROUNDS)) {
+      const owned = state.unlockedBackgrounds.includes(key);
+      const active = state.activeBackground === key;
+      const isAchBg = !!bg.achievement;
+      const preview = `background:${bg.bg};${bg.bgSize ? 'background-size:' + bg.bgSize + ';' : ''}`;
+      html += `<div style="background:${active ? 'rgba(255,215,0,0.3)' : (isAchBg && !owned ? 'rgba(120,115,245,0.2)' : 'rgba(0,0,0,0.3)')};padding:10px;border-radius:8px;text-align:center;border:2px solid ${active ? 'gold' : (isAchBg ? '#7873f5' : 'transparent')};">
+        <div style="width:100%;height:60px;${preview};border-radius:6px;border:2px solid #000;${isAchBg ? 'box-shadow:0 0 8px #7873f5;' : ''}"></div>
+        <div style="font-weight:bold;font-size:13px;margin-top:5px;">${bg.emoji} ${bg.name}${isAchBg ? ' 🏆' : ''}</div>
+        ${owned
+          ? (active
+              ? '<div style="color:gold;font-size:12px;margin-top:5px;font-weight:bold;">✓ Active</div>'
+              : `<button class="casino-btn" onclick="setBackground('${key}')" style="background:#27ae60;font-size:12px;padding:5px 8px;margin-top:5px;">Use</button>`)
+          : (isAchBg
+              ? `<div style="font-size:11px;color:#a8a3ff;margin-top:5px;background:rgba(120,115,245,0.2);padding:4px;border-radius:4px;">🏆 ${escapeHtml(bg.achievement)}</div>`
+              : `<button class="casino-btn" onclick="buyBackground('${key}')" style="font-size:12px;padding:5px 8px;margin-top:5px;${state.coins < bg.price ? 'opacity:0.5;cursor:not-allowed;' : ''}">${bg.price}💰</button>`)
+        }
+      </div>`;
+    }
+    html += '</div>';
+    items.innerHTML = html;
+    return;
+  }
   const itemsInSlot = Object.entries(CLOTHES_CATALOG).filter(([k, v]) => v.slot === slot);
   let html = '<div style="max-height:340px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
   itemsInSlot.forEach(([key, item]) => {
@@ -5957,6 +6009,57 @@ async function ackPvP(battleId, won, bet, wasFrom) {
 // Battle-funksjonen er deaktivert
 function checkPvPBadge() {}
 
+// ========== BACKGROUNDS ==========
+const BACKGROUNDS = {
+  default:   { name: 'Forest (default)', emoji: '🌳', price: 0,
+    bg: 'linear-gradient(180deg, #87ceeb 0%, #b0e0e6 45%, #fff5b8 55%, #a8e063 60%, #56ab2f 100%)' },
+  beach:     { name: 'Beach', emoji: '🏖️', price: 500,
+    bg: 'linear-gradient(180deg, #87ceeb 0%, #bce4f5 50%, #4fc3f7 60%, #f4e1c0 70%, #f0c785 100%)' },
+  desert:    { name: 'Desert', emoji: '🏜️', price: 2000,
+    bg: 'linear-gradient(180deg, #fbb040 0%, #f8c374 50%, #e6a85c 80%, #c98c4c 100%)' },
+  volcanic:  { name: 'Volcanic', emoji: '🌋', price: 5000,
+    bg: 'linear-gradient(180deg, #2c0a0a 0%, #5c1a0a 40%, #d35400 60%, #f39c12 100%)' },
+  mountain:  { name: 'Mountain', emoji: '⛰️', price: 8000,
+    bg: 'linear-gradient(180deg, #1a3a6c 0%, #b0d0e0 50%, #f5f5f5 65%, #b8c5d4 100%)' },
+  // 🏆 Achievement-låst (4 stk)
+  night:     { name: 'Starry Night', emoji: '🌙', price: 0, achievement: 'Catch 500 Pokémon',
+    bg: 'linear-gradient(180deg, #0a0030 0%, #1a0050 40%, #1a4060 80%, #2c5f2d 100%)' },
+  cherry:    { name: 'Cherry Blossom', emoji: '🌸', price: 0, achievement: 'See 10 different shinies',
+    bg: 'linear-gradient(180deg, #ffd6e7 0%, #ffb3d0 40%, #ff85b8 60%, #ddb892 70%, #82c785 100%)' },
+  castle:    { name: 'Castle', emoji: '🏰', price: 0, achievement: 'Reach 50,000 coins',
+    bg: 'linear-gradient(180deg, #4a4e69 0%, #9a8c98 40%, #c9ada7 60%, #f2e9e4 80%, #5d6d4d 100%)' },
+  space:     { name: 'Space', emoji: '🌌', price: 0, achievement: 'Unlock 20 achievements',
+    bg: 'radial-gradient(white 1px, transparent 1px), radial-gradient(white 2px, transparent 2px), linear-gradient(180deg, #000010 0%, #0a0030 40%, #2c003e 80%, #5c1a4c 100%)',
+    bgSize: '50px 50px, 100px 100px, 100% 100%' }
+};
+
+function applyBackground(key) {
+  const bg = BACKGROUNDS[key] || BACKGROUNDS.default;
+  document.body.style.background = bg.bg;
+  document.body.style.backgroundAttachment = 'fixed';
+  if (bg.bgSize) document.body.style.backgroundSize = bg.bgSize;
+  else document.body.style.backgroundSize = '';
+}
+
+function buyBackground(key) {
+  const bg = BACKGROUNDS[key];
+  if (!bg) return;
+  if (state.coins < bg.price) { alert(`You need ${bg.price} 💰`); return; }
+  if (state.unlockedBackgrounds.includes(key)) return;
+  state.coins -= bg.price;
+  state.unlockedBackgrounds.push(key);
+  save(); updateUI();
+  renderWardrobe();
+}
+
+function setBackground(key) {
+  if (!state.unlockedBackgrounds.includes(key)) return;
+  state.activeBackground = key;
+  applyBackground(key);
+  save();
+  renderWardrobe();
+}
+
 // ========== ACHIEVEMENTS ==========
 const ACHIEVEMENTS = {
   // CATCH milestones
@@ -6005,7 +6108,16 @@ const ACHIEVEMENTS = {
   variety_master:   { name: 'Variety Master', desc: 'See 200 different Pokémon', icon: '⚡', reward: 3000, clothesReward: 'lightning_boots',
     check: s => Object.keys(s.seen || {}).length >= 200 },
   perfect_trainer:  { name: 'Perfect Trainer', desc: 'Unlock 25 achievements', icon: '🌈', reward: 25000, clothesReward: 'master_crown',
-    check: s => (s.unlockedAchievements || []).length >= 25 }
+    check: s => (s.unlockedAchievements || []).length >= 25 },
+  // 🌅 BACKGROUND REWARDS (4 nye)
+  night_hunter:   { name: 'Night Hunter', desc: 'Catch 500 Pokémon', icon: '🌙', reward: 2000, bgReward: 'night',
+    check: s => s.totalCatches >= 500 },
+  cherry_lover:   { name: 'Cherry Lover', desc: 'See 10 different shinies', icon: '🌸', reward: 3000, bgReward: 'cherry',
+    check: s => Object.keys(s.shinySeen || {}).length >= 10 },
+  royal_trainer:  { name: 'Royal Trainer', desc: 'Reach 50,000 coins', icon: '🏰', reward: 3000, bgReward: 'castle',
+    check: s => s.coins >= 50000 },
+  cosmic_trainer: { name: 'Cosmic Trainer', desc: 'Unlock 20 achievements', icon: '🌌', reward: 10000, bgReward: 'space',
+    check: s => (s.unlockedAchievements || []).length >= 20 }
 };
 
 function checkAchievements() {
@@ -6019,6 +6131,12 @@ function checkAchievements() {
         if (ach.clothesReward && state.character) {
           if (!state.character.unlockedItems.includes(ach.clothesReward)) {
             state.character.unlockedItems.push(ach.clothesReward);
+          }
+        }
+        // Bakgrunn-belønning
+        if (ach.bgReward) {
+          if (!state.unlockedBackgrounds.includes(ach.bgReward)) {
+            state.unlockedBackgrounds.push(ach.bgReward);
           }
         }
         showAchievementPopup(ach);
@@ -6036,7 +6154,7 @@ function showAchievementPopup(ach) {
       <div class="achievement-header">🏆 ACHIEVEMENT UNLOCKED!</div>
       <div class="achievement-name">${escapeHtml(ach.name)}</div>
       <div class="achievement-desc">${escapeHtml(ach.desc)}</div>
-      <div class="achievement-reward">+${ach.reward} 💰${ach.clothesReward ? ` + 👕 ${CLOTHES_CATALOG[ach.clothesReward]?.name || ach.clothesReward}` : ''}</div>
+      <div class="achievement-reward">+${ach.reward} 💰${ach.clothesReward ? ` + 👕 ${CLOTHES_CATALOG[ach.clothesReward]?.name || ach.clothesReward}` : ''}${ach.bgReward ? ` + 🌅 ${BACKGROUNDS[ach.bgReward]?.name || ach.bgReward}` : ''}</div>
     </div>
   `;
   document.body.appendChild(popup);
@@ -6069,7 +6187,7 @@ function renderAchievements() {
       <div class="achievement-card-icon">${isUnlocked ? ach.icon : '🔒'}</div>
       <div class="achievement-card-name">${escapeHtml(ach.name)}</div>
       <div class="achievement-card-desc">${escapeHtml(ach.desc)}</div>
-      <div class="achievement-card-reward">${isUnlocked ? '✓ Unlocked' : `Reward: ${ach.reward}💰${ach.clothesReward ? ' + 👕' : ''}`}</div>
+      <div class="achievement-card-reward">${isUnlocked ? '✓ Unlocked' : `Reward: ${ach.reward}💰${ach.clothesReward ? ' + 👕' : ''}${ach.bgReward ? ' + 🌅' : ''}`}</div>
     </div>`;
   }
   html += '</div>';
@@ -8615,6 +8733,7 @@ async function loadFullPokedex() {
 
 updateUI();
 loadFullPokedex();
+applyBackground(state.activeBackground);
 setTimeout(checkAchievements, 1000);
 
 // Vis login-skjerm ved oppstart
