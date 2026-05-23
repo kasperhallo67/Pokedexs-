@@ -6073,11 +6073,11 @@ function startRocketEncounter() {
   document.getElementById('rocketResult').textContent = '';
   document.getElementById('rocketResult').className = 'rocket-result';
   document.getElementById('rocketTimerFill').style.width = '100%';
-  document.getElementById('rocketTimerText').textContent = '⏱ 10 seconds';
+  document.getElementById('rocketTimerText').textContent = '⏱ 30 seconds';
   document.getElementById('rocketModal').classList.add('active');
   setTimeout(() => document.getElementById('rocketInput').focus(), 100);
 
-  let timeLeft = 10000; // ms
+  let timeLeft = 30000; // ms
   const startTime = Date.now();
   if (rocketTimer) clearInterval(rocketTimer);
   rocketTimer = setInterval(() => {
