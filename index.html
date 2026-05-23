@@ -2492,7 +2492,7 @@
   .cheat-btn {
     position: fixed;
     bottom: 15px;
-    left: 15px;
+    right: 15px;
     width: 22px;
     height: 22px;
     background: rgba(255,255,255,0.08);
@@ -4743,44 +4743,93 @@ function renderSendForm() {
     return;
   }
 
-  // Pokemons du har
-  const myPokemon = POKEMONS.filter(p => state.caught[p.id] > 0 || state.shinies[p.id] > 0);
-  const myOptions = [];
-  myPokemon.forEach(p => {
-    if ((state.caught[p.id] || 0) > 0) {
-      myOptions.push(`<option value="${p.id}|normal">${p.name} (x${state.caught[p.id]})</option>`);
-    }
-    if ((state.shinies[p.id] || 0) > 0) {
-      myOptions.push(`<option value="${p.id}|shiny">✨ ${p.name} SHINY (x${state.shinies[p.id]})</option>`);
-    }
-  });
-
-  // Alle pokemons du kan ønske
-  const wantOptions = POKEMONS.map(p =>
-    `<option value="${p.id}|normal">${p.name}</option><option value="${p.id}|shiny">✨ ${p.name} SHINY</option>`
-  ).join('');
-
+  // Pokemons du har (med søk)
   container.innerHTML = `
     <div class="trade-form">
       <div class="trade-side">
         <h4>👤 Send to</h4>
-        <select id="tradeTo">
+        <select id="tradeTo" onchange="loadRecipientCollection()">
           ${players.map(p => `<option>${escapeHtml(p)}</option>`).join('')}
         </select>
         <h4>📤 You offer</h4>
-        <select id="tradeOffer">
-          ${myOptions.length ? myOptions.join('') : '<option disabled>You have no Pokémon</option>'}
-        </select>
+        <input type="text" id="tradeOfferSearch" placeholder="🔍 Search your Pokémon..." style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:5px;margin-bottom:5px;" oninput="filterOfferList()">
+        <select id="tradeOffer" size="6" style="height:auto;min-height:120px;"></select>
       </div>
       <div class="trade-arrow">⇄</div>
       <div class="trade-side">
         <h4>🎁 You want</h4>
-        <select id="tradeWant">${wantOptions}</select>
+        <div id="recipientStatus" style="font-size:12px;color:#aaa;margin-bottom:5px;">Loading their collection...</div>
+        <input type="text" id="tradeWantSearch" placeholder="🔍 Search their Pokémon..." style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:5px;margin-bottom:5px;" oninput="filterWantList()">
+        <select id="tradeWant" size="6" style="height:auto;min-height:120px;"></select>
       </div>
     </div>
-    <button class="trade-send-btn" onclick="sendTrade()" ${myOptions.length === 0 ? 'disabled' : ''}>📤 Send offer</button>
+    <button class="trade-send-btn" onclick="sendTrade()" id="tradeSendBtn">📤 Send offer</button>
     <div id="tradeSendMsg" style="margin-top:10px;text-align:center;"></div>
   `;
+  filterOfferList();
+  loadRecipientCollection();
+}
+
+function filterOfferList() {
+  const search = (document.getElementById('tradeOfferSearch')?.value || '').toLowerCase().trim();
+  const select = document.getElementById('tradeOffer');
+  if (!select) return;
+  const myPokemon = POKEMONS.filter(p => (state.caught[p.id] || 0) > 0 || (state.shinies[p.id] || 0) > 0);
+  const options = [];
+  myPokemon.forEach(p => {
+    if (search && !p.name.toLowerCase().includes(search)) return;
+    if ((state.caught[p.id] || 0) > 0) {
+      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} (x${state.caught[p.id]})</option>`);
+    }
+    if ((state.shinies[p.id] || 0) > 0) {
+      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY (x${state.shinies[p.id]})</option>`);
+    }
+  });
+  select.innerHTML = options.length ? options.join('') : '<option disabled>No matches</option>';
+}
+
+let recipientCollection = { caught: {}, shinies: {} };
+
+async function loadRecipientCollection() {
+  const recipient = document.getElementById('tradeTo')?.value;
+  if (!recipient) return;
+  const statusEl = document.getElementById('recipientStatus');
+  if (statusEl) statusEl.textContent = '⏳ Loading...';
+  try {
+    const res = await fetch('/api/user/collection?username=' + encodeURIComponent(recipient));
+    const data = await res.json();
+    recipientCollection = data;
+    const totalCaught = Object.keys(data.caught || {}).length;
+    const totalShiny = Object.keys(data.shinies || {}).length;
+    if (statusEl) {
+      statusEl.innerHTML = `📊 <strong>${escapeHtml(recipient)}</strong> has <strong style="color:#ddd;">${totalCaught}</strong> unique Pokémon, <strong style="color:gold;">${totalShiny}</strong> shinies`;
+    }
+    filterWantList();
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '⚠️ Could not load collection';
+    recipientCollection = { caught: {}, shinies: {} };
+    filterWantList();
+  }
+}
+
+function filterWantList() {
+  const search = (document.getElementById('tradeWantSearch')?.value || '').toLowerCase().trim();
+  const select = document.getElementById('tradeWant');
+  if (!select) return;
+  const caught = recipientCollection.caught || {};
+  const shinies = recipientCollection.shinies || {};
+  const theirPokemon = POKEMONS.filter(p => (caught[p.id] || 0) > 0 || (shinies[p.id] || 0) > 0);
+  const options = [];
+  theirPokemon.forEach(p => {
+    if (search && !p.name.toLowerCase().includes(search)) return;
+    if ((caught[p.id] || 0) > 0) {
+      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} (they have ${caught[p.id]})</option>`);
+    }
+    if ((shinies[p.id] || 0) > 0) {
+      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY (they have ${shinies[p.id]})</option>`);
+    }
+  });
+  select.innerHTML = options.length ? options.join('') : '<option disabled>They have no Pokémon</option>';
 }
 
 async function sendTrade() {

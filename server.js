@@ -238,6 +238,24 @@ app.post('/api/account/sync', (req, res) => {
   res.json({ ok: true });
 });
 
+// Hent en annen brukers samling (for trading - bare se hvilke Pokémon de har)
+app.get('/api/user/collection', (req, res) => {
+  const u = (req.query.username || '').trim();
+  if (!u) return res.json({ caught: {}, shinies: {}, seen: {} });
+  const users = readJson(USERS_FILE, {});
+  if (!users[u] || !users[u].state) return res.json({ caught: {}, shinies: {}, seen: {} });
+  try {
+    const s = JSON.parse(users[u].state);
+    res.json({
+      caught: s.caught || {},
+      shinies: s.shinies || {},
+      seen: s.seen || {}
+    });
+  } catch (e) {
+    res.json({ caught: {}, shinies: {}, seen: {} });
+  }
+});
+
 // === POKER ROOMS ===
 function processPokerRound(room) {
   // Texas-mode: nothing to process here; advance is separate
