@@ -5078,6 +5078,12 @@ const CLOTHES_CATALOG = {
   pikachu_hat:  { name: 'Pikachu Ears', slot: 'hat',    price: 500,  color: '#ffeb3b' },
   top_hat:      { name: 'Top Hat',      slot: 'hat',    price: 1500, color: '#000' },
   crown:        { name: 'Royal Crown',  slot: 'hat',    price: 12000, color: '#ffd700' },
+  // 🏆 Achievement-only items (kan ikke kjøpes - må fortjenes!)
+  trainer_hat:     { name: 'Trainer Hat',     slot: 'hat',    price: 0, color: '#c0392b', achievement: 'Catch 50 Pokémon' },
+  champion_jacket: { name: 'Champion Jacket', slot: 'top',    price: 0, color: '#ffd700', achievement: 'Catch 2,500 Pokémon' },
+  diamond_pants:   { name: 'Diamond Pants',   slot: 'bottom', price: 0, color: '#00bcd4', achievement: 'Have 100,000 coins' },
+  lightning_boots: { name: 'Lightning Boots', slot: 'shoes',  price: 0, color: '#ffeb3b', achievement: 'See 200 different Pokémon' },
+  master_crown:    { name: 'Master Crown',    slot: 'hat',    price: 0, color: '#7873f5', achievement: 'Unlock 25 achievements' }
 };
 
 function renderCharacter() {
@@ -5178,14 +5184,17 @@ function switchWardrobe(slot) {
   itemsInSlot.forEach(([key, item]) => {
     const owned = ch.unlockedItems.includes(key);
     const equipped = ch.equipped[slot] === key;
-    html += `<div style="background:${equipped ? 'rgba(255,215,0,0.3)' : 'rgba(0,0,0,0.3)'};padding:10px;border-radius:8px;text-align:center;border:2px solid ${equipped ? 'gold' : 'transparent'};">
-      <div style="width:40px;height:40px;background:${item.color};margin:0 auto;border-radius:6px;border:2px solid #000;"></div>
-      <div style="font-weight:bold;font-size:13px;margin-top:5px;">${item.name}</div>
+    const isAchItem = !!item.achievement;
+    html += `<div style="background:${equipped ? 'rgba(255,215,0,0.3)' : (isAchItem && !owned ? 'rgba(120,115,245,0.2)' : 'rgba(0,0,0,0.3)')};padding:10px;border-radius:8px;text-align:center;border:2px solid ${equipped ? 'gold' : (isAchItem ? '#7873f5' : 'transparent')};">
+      <div style="width:40px;height:40px;background:${item.color};margin:0 auto;border-radius:6px;border:2px solid #000;${isAchItem ? 'box-shadow:0 0 8px #7873f5;' : ''}"></div>
+      <div style="font-weight:bold;font-size:13px;margin-top:5px;">${item.name}${isAchItem ? ' 🏆' : ''}</div>
       ${owned
         ? (equipped
             ? '<button class="casino-btn" onclick="unequipItem(\'' + slot + '\')" style="background:#e74c3c;font-size:12px;padding:5px 8px;margin-top:5px;">Take off</button>'
             : '<button class="casino-btn" onclick="equipItem(\'' + key + '\')" style="background:#27ae60;font-size:12px;padding:5px 8px;margin-top:5px;">Wear</button>')
-        : `<button class="casino-btn" onclick="buyItem('${key}')" style="font-size:12px;padding:5px 8px;margin-top:5px;${state.coins < item.price ? 'opacity:0.5;cursor:not-allowed;' : ''}">${item.price}💰</button>`
+        : (isAchItem
+            ? `<div style="font-size:11px;color:#a8a3ff;margin-top:5px;background:rgba(120,115,245,0.2);padding:4px;border-radius:4px;">🏆 ${escapeHtml(item.achievement)}</div>`
+            : `<button class="casino-btn" onclick="buyItem('${key}')" style="font-size:12px;padding:5px 8px;margin-top:5px;${state.coins < item.price ? 'opacity:0.5;cursor:not-allowed;' : ''}">${item.price}💰</button>`)
       }
     </div>`;
   });
@@ -5985,7 +5994,18 @@ const ACHIEVEMENTS = {
   rocket_win_10: { name: 'Math Genius', desc: 'Defeat Team Rocket 10 times', icon: '🎓', reward: 3000, check: s => (s.rocketWins || 0) >= 10 },
   // SOCIAL
   favorite_3: { name: 'Top 3', desc: 'Have 3 favorites', icon: '⭐', reward: 500, check: s => (s.favorites || []).length >= 3 },
-  trainer:    { name: 'True Trainer', desc: 'Wear a hat and shoes', icon: '🎩', reward: 1000, check: s => s.character && s.character.equipped.hat && s.character.equipped.shoes }
+  trainer:    { name: 'True Trainer', desc: 'Wear a hat and shoes', icon: '🎩', reward: 1000, check: s => s.character && s.character.equipped.hat && s.character.equipped.shoes },
+  // 🏆 CLOTHES REWARDS (5 nye - hver gir et eksklusivt klesplagg)
+  aspiring_trainer: { name: 'Aspiring Trainer', desc: 'Catch 50 Pokémon', icon: '🎩', reward: 500, clothesReward: 'trainer_hat',
+    check: s => s.totalCatches >= 50 },
+  champion_spirit:  { name: 'Champion Spirit', desc: 'Catch 2,500 Pokémon', icon: '🥇', reward: 10000, clothesReward: 'champion_jacket',
+    check: s => s.totalCatches >= 2500 },
+  diamond_wealth:   { name: 'Diamond Wealth', desc: 'Reach 100,000 coins', icon: '💎', reward: 5000, clothesReward: 'diamond_pants',
+    check: s => s.coins >= 100000 },
+  variety_master:   { name: 'Variety Master', desc: 'See 200 different Pokémon', icon: '⚡', reward: 3000, clothesReward: 'lightning_boots',
+    check: s => Object.keys(s.seen || {}).length >= 200 },
+  perfect_trainer:  { name: 'Perfect Trainer', desc: 'Unlock 25 achievements', icon: '🌈', reward: 25000, clothesReward: 'master_crown',
+    check: s => (s.unlockedAchievements || []).length >= 25 }
 };
 
 function checkAchievements() {
@@ -5995,6 +6015,12 @@ function checkAchievements() {
       if (ach.check(state)) {
         state.unlockedAchievements.push(key);
         state.coins += ach.reward;
+        // Klesbelønning - lås opp og automatisk legg i garderoben
+        if (ach.clothesReward && state.character) {
+          if (!state.character.unlockedItems.includes(ach.clothesReward)) {
+            state.character.unlockedItems.push(ach.clothesReward);
+          }
+        }
         showAchievementPopup(ach);
       }
     } catch (e) {}
@@ -6010,7 +6036,7 @@ function showAchievementPopup(ach) {
       <div class="achievement-header">🏆 ACHIEVEMENT UNLOCKED!</div>
       <div class="achievement-name">${escapeHtml(ach.name)}</div>
       <div class="achievement-desc">${escapeHtml(ach.desc)}</div>
-      <div class="achievement-reward">+${ach.reward} 💰</div>
+      <div class="achievement-reward">+${ach.reward} 💰${ach.clothesReward ? ` + 👕 ${CLOTHES_CATALOG[ach.clothesReward]?.name || ach.clothesReward}` : ''}</div>
     </div>
   `;
   document.body.appendChild(popup);
@@ -6043,7 +6069,7 @@ function renderAchievements() {
       <div class="achievement-card-icon">${isUnlocked ? ach.icon : '🔒'}</div>
       <div class="achievement-card-name">${escapeHtml(ach.name)}</div>
       <div class="achievement-card-desc">${escapeHtml(ach.desc)}</div>
-      <div class="achievement-card-reward">${isUnlocked ? '✓ Unlocked' : `Reward: ${ach.reward}💰`}</div>
+      <div class="achievement-card-reward">${isUnlocked ? '✓ Unlocked' : `Reward: ${ach.reward}💰${ach.clothesReward ? ' + 👕' : ''}`}</div>
     </div>`;
   }
   html += '</div>';
