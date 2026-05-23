@@ -1273,6 +1273,30 @@
   }
   .avatar-head::before { left: 9px; }
   .avatar-head::after  { right: 9px; }
+  /* Smil under øynene */
+  .avatar-mouth {
+    position: absolute;
+    top: 38px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 7px;
+    border: 2px solid #2c3e50;
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    z-index: 4;
+  }
+  /* Briller på øynene */
+  .avatar-glasses {
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    line-height: 1;
+    z-index: 5;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
   /* Hår synlig under caps */
   .avatar-hair {
     position: absolute;
@@ -2635,6 +2659,8 @@
     <div class="avatar-hat" id="avHat"></div>
     <div class="avatar-hair" id="avHair"></div>
     <div class="avatar-head"></div>
+    <div class="avatar-glasses" id="avGlasses"></div>
+    <div class="avatar-mouth"></div>
     <div class="avatar-torso" id="avTorso"></div>
     <div class="avatar-legs" id="avLegs"></div>
     <div class="avatar-feet" id="avFeet"></div>
@@ -3677,8 +3703,12 @@ if (!state.character) {
   state.character = {
     gender: 'male',
     unlockedItems: ['dirty_shirt', 'dirty_pants'],
-    equipped: { top: 'dirty_shirt', bottom: 'dirty_pants', hat: null, shoes: null }
+    equipped: { top: 'dirty_shirt', bottom: 'dirty_pants', hat: null, shoes: null, glasses: null }
   };
+}
+// Migrer eksisterende characters - sørg for glasses-slot finnes
+if (state.character && state.character.equipped && !('glasses' in state.character.equipped)) {
+  state.character.equipped.glasses = null;
 }
 if (state.totalCatches === undefined) {
   state.totalCatches = Object.values(state.caught).reduce((a,b)=>a+b, 0);
@@ -5114,6 +5144,12 @@ const CLOTHES_CATALOG = {
   pikachu_hat:  { name: 'Pikachu Ears', slot: 'hat',    price: 500,  color: '#ffeb3b' },
   top_hat:      { name: 'Top Hat',      slot: 'hat',    price: 1500, color: '#000' },
   crown:        { name: 'Royal Crown',  slot: 'hat',    price: 12000, color: '#ffd700' },
+  // 👓 Glasses (briller)
+  reading_glasses:{ name: 'Reading Glasses', slot: 'glasses', price: 200,  emoji: '👓' },
+  sunglasses:     { name: 'Sunglasses',      slot: 'glasses', price: 500,  emoji: '🕶️' },
+  star_glasses:   { name: 'Star Glasses',    slot: 'glasses', price: 1500, emoji: '🌟' },
+  monocle:        { name: 'Monocle',         slot: 'glasses', price: 3000, emoji: '🧐' },
+  vr_goggles:     { name: 'VR Goggles',      slot: 'glasses', price: 10000, emoji: '🥽' },
   // 🏆 Achievement-only items (kan ikke kjøpes - må fortjenes!)
   trainer_hat:     { name: 'Trainer Hat',     slot: 'hat',    price: 0, color: '#c0392b', achievement: 'Catch 50 Pokémon' },
   champion_jacket: { name: 'Champion Jacket', slot: 'top',    price: 0, color: '#ffd700', achievement: 'Catch 2,500 Pokémon' },
@@ -5148,6 +5184,12 @@ function renderCharacter() {
     hatEl.style.background = 'transparent';
     hatEl.style.borderColor = 'transparent';
     hatEl.classList.remove('has-hat');
+  }
+  // Briller
+  const glasses = c.equipped.glasses ? CLOTHES_CATALOG[c.equipped.glasses] : null;
+  const glassesEl = document.getElementById('avGlasses');
+  if (glassesEl) {
+    glassesEl.textContent = glasses && glasses.emoji ? glasses.emoji : '';
   }
 
   // Hår basert på kjønn
@@ -5199,6 +5241,7 @@ function renderWardrobe() {
           <button class="trade-tab" data-slot="bottom" onclick="switchWardrobe('bottom')">👖 Bottoms</button>
           <button class="trade-tab" data-slot="shoes" onclick="switchWardrobe('shoes')">👟 Shoes</button>
           <button class="trade-tab" data-slot="hat" onclick="switchWardrobe('hat')">🎩 Hats</button>
+          <button class="trade-tab" data-slot="glasses" onclick="switchWardrobe('glasses')">👓 Glasses</button>
           <button class="trade-tab" data-slot="background" onclick="switchWardrobe('background')">🌅 Backgrounds</button>
         </div>
         <div id="wardrobeItems" style="margin-top:15px;"></div>
@@ -5247,8 +5290,11 @@ function switchWardrobe(slot) {
     const owned = ch.unlockedItems.includes(key);
     const equipped = ch.equipped[slot] === key;
     const isAchItem = !!item.achievement;
+    const previewHtml = item.emoji
+      ? `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:30px;background:rgba(0,0,0,0.2);border-radius:6px;border:2px solid #555;">${item.emoji}</div>`
+      : `<div style="width:40px;height:40px;background:${item.color};margin:0 auto;border-radius:6px;border:2px solid #000;${isAchItem ? 'box-shadow:0 0 8px #7873f5;' : ''}"></div>`;
     html += `<div style="background:${equipped ? 'rgba(255,215,0,0.3)' : (isAchItem && !owned ? 'rgba(120,115,245,0.2)' : 'rgba(0,0,0,0.3)')};padding:10px;border-radius:8px;text-align:center;border:2px solid ${equipped ? 'gold' : (isAchItem ? '#7873f5' : 'transparent')};">
-      <div style="width:40px;height:40px;background:${item.color};margin:0 auto;border-radius:6px;border:2px solid #000;${isAchItem ? 'box-shadow:0 0 8px #7873f5;' : ''}"></div>
+      ${previewHtml}
       <div style="font-weight:bold;font-size:13px;margin-top:5px;">${item.name}${isAchItem ? ' 🏆' : ''}</div>
       ${owned
         ? (equipped
