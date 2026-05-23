@@ -6160,7 +6160,7 @@ const ACHIEVEMENTS = {
   buddy_set: { name: 'Best Friends', desc: 'Set a buddy Pokémon', icon: '★', reward: 100, check: s => s.buddyId !== null },
   buddy_star: { name: 'Star Buddy', desc: 'Get 1 star with buddy (100 catches)', icon: '⭐', reward: 500, check: s => Object.values(s.buddyCatches || {}).some(c => c >= 100) },
   buddy_5stars: { name: '5-Star Friend', desc: '500 catches with one buddy', icon: '⭐⭐⭐⭐⭐', reward: 5000, check: s => Object.values(s.buddyCatches || {}).some(c => c >= 500) },
-  buddy_rainbow: { name: 'Rainbow Bond', desc: '1,000 catches with one buddy', icon: '🌈★', reward: 25000, check: s => Object.values(s.buddyCatches || {}).some(c => c >= 1000) },
+  buddy_rainbow: { name: 'Best Buddy', desc: 'Get a rainbow star (1,000 catches with one buddy)', icon: '🌈★', reward: 25000, check: s => Object.values(s.buddyCatches || {}).some(c => c >= 1000) },
   // EVENT
   first_event: { name: 'Party Time', desc: 'Catch first event Pokémon', icon: '🎉', reward: 500, check: s => Object.keys(s.eventsSeen || {}).length >= 1 },
   events_10:   { name: 'Costume Collector', desc: '10 event variants', icon: '🎭', reward: 3000, check: s => Object.keys(s.eventsSeen || {}).length >= 10 },
