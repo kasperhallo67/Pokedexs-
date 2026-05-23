@@ -4657,7 +4657,8 @@ function submitScore() {
           hat: state.character.equipped.hat,
           top: state.character.equipped.top,
           bottom: state.character.equipped.bottom,
-          shoes: state.character.equipped.shoes
+          shoes: state.character.equipped.shoes,
+          glasses: state.character.equipped.glasses
         } : null
       })
     }).catch(e => console.warn('Kunne ikke sende score:', e));
