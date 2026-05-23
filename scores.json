@@ -1,0 +1,93 @@
+{
+    "test55":  {
+                   "shinies":  0,
+                   "lastUpdated":  "2026-05-23T13:15:27",
+                   "totalCaught":  2,
+                   "coins":  60,
+                   "uniqueSeen":  2
+               },
+    "Skynet1og":  {
+                      "shinies":  6,
+                      "lastUpdated":  "2026-05-23T13:13:53",
+                      "totalCaught":  1000,
+                      "coins":  1061,
+                      "uniqueSeen":  12
+                  },
+    "687":  {
+                "shinies":  0,
+                "lastUpdated":  "2026-05-23T13:28:10",
+                "totalCaught":  1,
+                "coins":  75,
+                "uniqueSeen":  1
+            },
+    "Mr_space":  {
+                     "shinies":  0,
+                     "lastUpdated":  "2026-05-23T16:39:27",
+                     "totalCaught":  8,
+                     "coins":  260,
+                     "uniqueSeen":  8
+                 },
+    "Skynet1":  {
+                    "shinies":  11,
+                    "lastUpdated":  "2026-05-23T11:37:33",
+                    "totalCaught":  871,
+                    "coins":  106721,
+                    "uniqueSeen":  535
+                },
+    "hei":  {
+                "shinies":  0,
+                "lastUpdated":  "2026-05-23T13:21:18",
+                "totalCaught":  1,
+                "coins":  75,
+                "uniqueSeen":  1
+            },
+    "67":  {
+               "shinies":  0,
+               "lastUpdated":  "2026-05-23T13:28:09",
+               "totalCaught":  1,
+               "coins":  55,
+               "uniqueSeen":  1
+           },
+    "Kasperhallo67":  {
+                          "shinies":  0,
+                          "lastUpdated":  "2026-05-23T13:51:07",
+                          "totalCaught":  6,
+                          "coins":  5,
+                          "uniqueSeen":  6
+                      },
+    "678":  {
+                "shinies":  0,
+                "lastUpdated":  "2026-05-23T13:21:16",
+                "totalCaught":  1,
+                "coins":  75,
+                "uniqueSeen":  1
+            },
+    "98":  {
+               "shinies":  0,
+               "lastUpdated":  "2026-05-23T13:16:11",
+               "totalCaught":  1,
+               "coins":  55,
+               "uniqueSeen":  1
+           },
+    "Test123":  {
+                    "shinies":  0,
+                    "lastUpdated":  "2026-05-23T11:21:54",
+                    "totalCaught":  69,
+                    "coins":  345,
+                    "uniqueSeen":  62
+                },
+    "Pokedexs":  {
+                     "shinies":  1,
+                     "lastUpdated":  "2026-05-23T19:28:39",
+                     "totalCaught":  110,
+                     "coins":  115,
+                     "uniqueSeen":  96
+                 },
+    "Kasperhallo":  {
+                        "shinies":  0,
+                        "lastUpdated":  "2026-05-23T11:22:10",
+                        "totalCaught":  44,
+                        "coins":  315,
+                        "uniqueSeen":  43
+                    }
+}
