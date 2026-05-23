@@ -3,3 +3,12 @@ node_modules/
 tunnel.log*
 .DS_Store
 .env
+
+# Persistent data - skal IKKE være i git så Render ikke nullstiller dem
+scores.json
+users.json
+trades.json
+poker.json
+battles.json
+chat.json
+dm.json
