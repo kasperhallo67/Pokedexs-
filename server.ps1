@@ -5,6 +5,7 @@ $tradesFile = Join-Path $root "trades.json"
 $usersFile   = Join-Path $root "users.json"
 $battlesFile = Join-Path $root "battles.json"
 $pokerFile   = Join-Path $root "poker.json"
+$chatFile    = Join-Path $root "chat.json"
 $listener = New-Object System.Net.HttpListener
 
 $prefixes = @("http://localhost:$port/", "http://192.168.1.115:$port/")
@@ -35,6 +36,9 @@ if (-not (Test-Path $battlesFile)) {
 }
 if (-not (Test-Path $pokerFile)) {
   [System.IO.File]::WriteAllText($pokerFile, '{}', [System.Text.UTF8Encoding]::new($false))
+}
+if (-not (Test-Path $chatFile)) {
+  [System.IO.File]::WriteAllText($chatFile, '[]', [System.Text.UTF8Encoding]::new($false))
 }
 
 function Read-PokerRooms {
@@ -861,6 +865,54 @@ while ($listener.IsListening) {
         Write-Users $usersFile $users
         Send-Json $res @{ ok = $true }
       }
+    }
+    elseif ($path -eq "/api/chat/send" -and $method -eq "POST") {
+      $data = Read-Body $req
+      $username = "$($data.username)".Trim()
+      $message  = "$($data.message)".Trim()
+      if (-not $username -or -not $message) {
+        Send-Json $res @{ ok = $false; error = "Missing fields" } 400
+      } else {
+        if ($username.Length -gt 30) { $username = $username.Substring(0, 30) }
+        if ($message.Length -gt 500)  { $message  = $message.Substring(0, 500) }
+        $raw = @(Read-Json $chatFile @())
+        $messages = @()
+        foreach ($m in $raw) {
+          if ($m -and $m.id) { $messages += To-Hashtable $m }
+        }
+        $newMsg = @{
+          id = [Guid]::NewGuid().ToString()
+          username = $username
+          message = $message
+          time = (Get-Date).ToString("o")
+        }
+        $messages += $newMsg
+        if ($messages.Count -gt 100) {
+          $messages = $messages[($messages.Count - 100)..($messages.Count - 1)]
+        }
+        Write-Json $chatFile $messages -AsArray
+        Send-Json $res @{ ok = $true }
+      }
+    }
+    elseif ($path -eq "/api/chat/messages" -and $method -eq "GET") {
+      $raw = @(Read-Json $chatFile @())
+      if ($raw.Count -eq 0) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes('[]')
+      } else {
+        $parts = @()
+        foreach ($m in $raw) {
+          if ($m -and $m.id) {
+            $h = To-Hashtable $m
+            $parts += ($h | ConvertTo-Json -Depth 3)
+          }
+        }
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes("[`n" + ($parts -join ",`n") + "`n]")
+      }
+      $res.StatusCode = 200
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.Headers.Add("Access-Control-Allow-Origin", "*")
+      $res.ContentLength64 = $bytes.Length
+      $res.OutputStream.Write($bytes, 0, $bytes.Length)
     }
     elseif ($path -like "/api/*" -and $method -eq "OPTIONS") {
       $res.Headers.Add("Access-Control-Allow-Origin", "*")

@@ -19,6 +19,7 @@ const TRADES_FILE  = path.join(DATA_DIR, 'trades.json');
 const USERS_FILE   = path.join(DATA_DIR, 'users.json');
 const POKER_FILE   = path.join(DATA_DIR, 'poker.json');
 const BATTLES_FILE = path.join(DATA_DIR, 'battles.json');
+const CHAT_FILE    = path.join(DATA_DIR, 'chat.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -32,6 +33,7 @@ ensureFile(TRADES_FILE, '[]');
 ensureFile(USERS_FILE, '{}');
 ensureFile(POKER_FILE, '{}');
 ensureFile(BATTLES_FILE, '[]');
+ensureFile(CHAT_FILE, '[]');
 
 function readJson(file, def) {
   try {
@@ -343,6 +345,29 @@ app.post('/api/poker/close', (req, res) => {
     writeJson(POKER_FILE, rooms);
   }
   res.json({ ok: true });
+});
+
+// === CHAT ===
+app.post('/api/chat/send', (req, res) => {
+  const { username, message } = req.body || {};
+  const u = (username || '').trim().slice(0, 30);
+  const m = (message  || '').trim().slice(0, 500);
+  if (!u || !m) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const messages = readJson(CHAT_FILE, []);
+  messages.push({
+    id: crypto.randomUUID(),
+    username: u,
+    message: m,
+    time: new Date().toISOString()
+  });
+  // Keep only last 100 messages
+  if (messages.length > 100) messages.splice(0, messages.length - 100);
+  writeJson(CHAT_FILE, messages);
+  res.json({ ok: true });
+});
+
+app.get('/api/chat/messages', (req, res) => {
+  res.json(readJson(CHAT_FILE, []));
 });
 
 // === LEGACY BATTLE ENDPOINTS (used by older code paths, stubbed) ===
