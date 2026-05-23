@@ -1100,6 +1100,68 @@
     font-size: 13px;
   }
   .chat-input-row button:hover { background: #27ae60; }
+  .chat-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px 6px 0;
+    background: rgba(0,0,0,0.4);
+  }
+  .chat-tab {
+    background: rgba(255,255,255,0.1);
+    color: #ccc;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .chat-tab.active { background: rgba(255,215,0,0.3); color: gold; }
+  .chat-tab:hover:not(.active) { background: rgba(255,255,255,0.15); }
+  .chat-back-btn {
+    background: #555;
+    color: white;
+    border: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-left: 5px;
+  }
+  .online-user {
+    background: rgba(46,204,113,0.15);
+    border-left: 3px solid #2ecc71;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    transition: background 0.15s;
+  }
+  .online-user:hover { background: rgba(46,204,113,0.3); }
+  .online-user .online-dot {
+    width: 8px;
+    height: 8px;
+    background: #2ecc71;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #2ecc71;
+    flex-shrink: 0;
+  }
+  .online-user .online-info { flex: 1; min-width: 0; }
+  .online-user .online-name { color: white; font-weight: bold; font-size: 13px; }
+  .online-user .online-last {
+    color: #aaffaa;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .online-user .online-last img {
+    width: 20px; height: 20px;
+    image-rendering: pixelated;
+  }
 
   /* ====== AVATAR / TRAINER ====== */
   .avatar-area {
@@ -2661,11 +2723,16 @@
 <!-- Chat box (nede til venstre) -->
 <div class="chat-box collapsed" id="chatBox">
   <div class="chat-header" onclick="toggleChat()">
-    💬 Chat <span class="chat-badge" id="chatBadge">0</span>
+    💬 <span id="chatTitle">Chat</span> <span class="chat-badge" id="chatBadge">0</span>
     <span class="chat-toggle-icon" id="chatToggleIcon">▲</span>
   </div>
+  <div class="chat-tabs" id="chatTabs">
+    <button class="chat-tab active" data-view="public" onclick="setChatView('public')">🌐 Public</button>
+    <button class="chat-tab" data-view="online" onclick="setChatView('online')">👥 Online <span id="onlineCount" style="background:gold;color:#333;padding:1px 5px;border-radius:8px;font-size:10px;margin-left:2px;">0</span></button>
+    <button class="chat-tab" data-view="dms" onclick="setChatView('dms')">💌 DMs <span id="dmCount" style="background:red;color:white;padding:1px 5px;border-radius:8px;font-size:10px;margin-left:2px;display:none;">0</span></button>
+  </div>
   <div class="chat-messages" id="chatMessages"></div>
-  <div class="chat-input-row">
+  <div class="chat-input-row" id="chatInputRow">
     <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500" autocomplete="off">
     <button onclick="sendChatMessage()">Send</button>
   </div>
@@ -3700,6 +3767,11 @@ function throwBall() {
     showCatchPopup(pokemon, isNew, reward, isShiny, eventType);
     if (isShiny) spawnShinyDancer(pokemon, eventType);
 
+    // Lagre sist fanget for online-visning
+    state.lastCaughtId = pokemon.id;
+    state.lastCaughtName = pokemon.name;
+    state.lastCaughtShiny = isShiny;
+
     // Team Rocket-trigger: hver 10. ball
     state.ballsSinceRocket = (state.ballsSinceRocket || 0) + 1;
     if (state.ballsSinceRocket >= 10) {
@@ -4452,7 +4524,10 @@ function submitScore() {
         totalCaught: state.totalCatches,
         shinies: Object.keys(state.shinySeen).length,
         uniqueSeen: Object.keys(state.seen).length,
-        coins: state.coins
+        coins: state.coins,
+        lastPokemonId: state.lastCaughtId || 0,
+        lastPokemonName: state.lastCaughtName || '',
+        lastShiny: !!state.lastCaughtShiny
       })
     }).catch(e => console.warn('Kunne ikke sende score:', e));
   }, 800);
@@ -5707,9 +5782,11 @@ async function ackPvP(battleId, won, bet, wasFrom) {
 // Battle-funksjonen er deaktivert
 function checkPvPBadge() {}
 
-// ========== CHAT ==========
+// ========== CHAT (public + online + DMs) ==========
 let chatSeenIds = new Set();
+let dmSeenIds = new Set();
 let chatOpen = false;
+let chatView = 'public';  // 'public' | 'online' | 'dms' | 'dm:<username>'
 
 function toggleChat() {
   chatOpen = !chatOpen;
@@ -5719,7 +5796,7 @@ function toggleChat() {
     box.classList.remove('collapsed');
     icon.textContent = '▼';
     document.getElementById('chatBadge').style.display = 'none';
-    pollChat(true);
+    setChatView(chatView);
     setTimeout(() => {
       const inp = document.getElementById('chatInput');
       if (inp) inp.focus();
@@ -5730,32 +5807,67 @@ function toggleChat() {
   }
 }
 
+function setChatView(view) {
+  chatView = view;
+  // Update tab active states
+  document.querySelectorAll('.chat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.view === view || (view.startsWith('dm:') && t.dataset.view === 'dms'));
+  });
+  // Update title and input visibility
+  const title = document.getElementById('chatTitle');
+  const inputRow = document.getElementById('chatInputRow');
+  if (view === 'public') {
+    title.textContent = 'Public Chat';
+    inputRow.style.display = 'flex';
+    pollChat(true);
+  } else if (view === 'online') {
+    title.innerHTML = '👥 Online Players';
+    inputRow.style.display = 'none';
+    pollOnline();
+  } else if (view === 'dms') {
+    title.innerHTML = '💌 Direct Messages';
+    inputRow.style.display = 'none';
+    pollDmList();
+  } else if (view.startsWith('dm:')) {
+    const other = view.substring(3);
+    title.innerHTML = `💬 Chat with <span style="color:#ff6ec4">${escapeHtml(other)}</span> <button class="chat-back-btn" onclick="setChatView('dms')">← Back</button>`;
+    inputRow.style.display = 'flex';
+    pollDm(other, true);
+  }
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chatInput');
   const msg = input.value.trim();
   if (!msg) return;
   if (!state.username) { alert('Set a username first (top right)!'); return; }
   try {
-    await fetch('/api/chat/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: state.username, message: msg })
-    });
-    input.value = '';
-    pollChat(true);
-  } catch (e) {
-    console.warn('Chat send failed:', e);
-  }
+    if (chatView === 'public') {
+      await fetch('/api/chat/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: state.username, message: msg })
+      });
+      input.value = '';
+      pollChat(true);
+    } else if (chatView.startsWith('dm:')) {
+      const other = chatView.substring(3);
+      await fetch('/api/dm/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: state.username, to: other, message: msg })
+      });
+      input.value = '';
+      pollDm(other, true);
+    }
+  } catch (e) { console.warn('Chat send failed:', e); }
 }
 
 async function pollChat(markAllSeen = false) {
+  if (chatView !== 'public') return updateChatBadges();
   try {
     const res = await fetch('/api/chat/messages');
     const messages = await res.json();
-    const box = document.getElementById('chatMessages');
     if (!Array.isArray(messages)) return;
     const recent = messages.slice(-50);
-
     let unread = 0;
     const currentIds = new Set();
     recent.forEach(m => {
@@ -5766,31 +5878,153 @@ async function pollChat(markAllSeen = false) {
       chatSeenIds = currentIds;
       unread = 0;
     }
-
-    if (box) {
+    const box = document.getElementById('chatMessages');
+    if (box && chatView === 'public') {
       box.innerHTML = recent.map(m => `
         <div class="chat-message ${m.username === state.username ? 'mine' : ''}">
           <span class="chat-user">${escapeHtml(m.username)}:</span><span class="chat-text">${escapeHtml(m.message)}</span>
-        </div>
-      `).join('');
+        </div>`).join('');
       box.scrollTop = box.scrollHeight;
     }
-
-    const badge = document.getElementById('chatBadge');
-    if (badge) {
-      if (unread > 0 && !chatOpen) {
-        badge.style.display = 'inline-block';
-        badge.textContent = unread > 99 ? '99+' : unread;
-      } else {
-        badge.style.display = 'none';
-      }
-    }
+    updateChatBadges();
   } catch (e) {}
 }
 
-// Poll hver 3. sekund
-setInterval(pollChat, 3000);
-setTimeout(pollChat, 1500);
+async function pollOnline() {
+  try {
+    const res = await fetch('/api/online');
+    const online = await res.json();
+    const box = document.getElementById('chatMessages');
+    const names = Object.keys(online).filter(n => n !== state.username);
+    document.getElementById('onlineCount').textContent = names.length;
+    if (chatView !== 'online' || !box) return;
+    if (names.length === 0) {
+      box.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">No other players online right now</div>';
+      return;
+    }
+    box.innerHTML = names.map(name => {
+      const d = online[name];
+      const lastPokeImg = d.lastPokemonId ? `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${d.lastShiny ? 'shiny/' : ''}${d.lastPokemonId}.png" style="${d.lastShiny ? 'filter:drop-shadow(0 0 4px gold);' : ''}">` : '';
+      const lastInfo = d.lastPokemonName ? `Last: ${d.lastShiny ? '✨ ' : ''}${escapeHtml(d.lastPokemonName)}` : 'No catches yet';
+      return `<div class="online-user" onclick="setChatView('dm:${escapeHtml(name).replace(/'/g,"\\'")}')">
+        <div class="online-dot"></div>
+        <div class="online-info">
+          <div class="online-name">${escapeHtml(name)}</div>
+          <div class="online-last">${lastPokeImg}${lastInfo}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {}
+}
+
+async function pollDmList() {
+  if (!state.username) return;
+  try {
+    const res = await fetch('/api/dm/all?username=' + encodeURIComponent(state.username));
+    const dms = await res.json();
+    if (!Array.isArray(dms)) return;
+    // Group by other user (last message per partner)
+    const partners = {};
+    dms.forEach(m => {
+      const other = m.from === state.username ? m.to : m.from;
+      if (!partners[other] || new Date(m.time) > new Date(partners[other].time)) {
+        partners[other] = m;
+      }
+    });
+    const box = document.getElementById('chatMessages');
+    if (chatView !== 'dms' || !box) return;
+    const list = Object.entries(partners).sort((a, b) => new Date(b[1].time) - new Date(a[1].time));
+    if (list.length === 0) {
+      box.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">No direct messages yet. Click someone in the Online tab to start a chat!</div>';
+      return;
+    }
+    box.innerHTML = list.map(([other, lastMsg]) => {
+      const unread = dms.some(m => m.from === other && !dmSeenIds.has(m.id));
+      return `<div class="online-user" onclick="setChatView('dm:${escapeHtml(other).replace(/'/g,"\\'")}')">
+        <div class="online-dot" style="background:${unread ? 'red' : '#777'};box-shadow:${unread ? '0 0 6px red' : 'none'};"></div>
+        <div class="online-info">
+          <div class="online-name">${escapeHtml(other)}${unread ? ' <span style="color:red;font-size:11px;">NEW</span>' : ''}</div>
+          <div class="online-last" style="color:#bbb;">${lastMsg.from === state.username ? '↗ ' : '↙ '}${escapeHtml(lastMsg.message.slice(0, 50))}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {}
+}
+
+async function pollDm(other, markSeen) {
+  try {
+    const res = await fetch('/api/dm/messages?user1=' + encodeURIComponent(state.username) + '&user2=' + encodeURIComponent(other));
+    const messages = await res.json();
+    if (!Array.isArray(messages)) return;
+    const recent = messages.slice(-50);
+    if (markSeen) {
+      recent.forEach(m => dmSeenIds.add(m.id));
+    }
+    const box = document.getElementById('chatMessages');
+    if (!box || chatView !== 'dm:' + other) return;
+    box.innerHTML = recent.map(m => `
+      <div class="chat-message ${m.from === state.username ? 'mine' : ''}">
+        <span class="chat-user">${escapeHtml(m.from)}:</span><span class="chat-text">${escapeHtml(m.message)}</span>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  } catch (e) {}
+}
+
+async function updateChatBadges() {
+  // Public chat badge
+  if (chatView !== 'public' || !chatOpen) {
+    try {
+      const res = await fetch('/api/chat/messages');
+      const messages = await res.json();
+      let unread = 0;
+      messages.slice(-50).forEach(m => {
+        if (!chatSeenIds.has(m.id) && m.username !== state.username) unread++;
+      });
+      const badge = document.getElementById('chatBadge');
+      if (badge) {
+        if (unread > 0 && !chatOpen) {
+          badge.style.display = 'inline-block';
+          badge.textContent = unread > 99 ? '99+' : unread;
+        } else if (chatOpen && chatView !== 'public') {
+          // Don't show public badge if we're in another tab but chat is open
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    } catch (e) {}
+  }
+  // DM badge
+  if (state.username) {
+    try {
+      const res = await fetch('/api/dm/all?username=' + encodeURIComponent(state.username));
+      const dms = await res.json();
+      let unreadDm = 0;
+      dms.forEach(m => {
+        if (m.from !== state.username && !dmSeenIds.has(m.id)) unreadDm++;
+      });
+      const badge = document.getElementById('dmCount');
+      if (badge) {
+        if (unreadDm > 0) {
+          badge.style.display = 'inline-block';
+          badge.textContent = unreadDm;
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    } catch (e) {}
+  }
+}
+
+// Poll hver 3. sekund - kjør riktig poll basert på view
+function autoPoll() {
+  if (chatView === 'public') pollChat();
+  else if (chatView === 'online') pollOnline();
+  else if (chatView === 'dms') pollDmList();
+  else if (chatView.startsWith('dm:')) pollDm(chatView.substring(3), false);
+  updateChatBadges();
+}
+setInterval(autoPoll, 3000);
+setTimeout(autoPoll, 1500);
 
 // Enter for å sende
 setTimeout(() => {

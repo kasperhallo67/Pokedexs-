@@ -20,6 +20,7 @@ const USERS_FILE   = path.join(DATA_DIR, 'users.json');
 const POKER_FILE   = path.join(DATA_DIR, 'poker.json');
 const BATTLES_FILE = path.join(DATA_DIR, 'battles.json');
 const CHAT_FILE    = path.join(DATA_DIR, 'chat.json');
+const DM_FILE      = path.join(DATA_DIR, 'dm.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -34,6 +35,7 @@ ensureFile(USERS_FILE, '{}');
 ensureFile(POKER_FILE, '{}');
 ensureFile(BATTLES_FILE, '[]');
 ensureFile(CHAT_FILE, '[]');
+ensureFile(DM_FILE, '[]');
 
 function readJson(file, def) {
   try {
@@ -63,17 +65,22 @@ app.use((req, res, next) => {
 
 // === SCORES ===
 app.post('/api/score', (req, res) => {
-  const { username, totalCaught, shinies, uniqueSeen, coins } = req.body || {};
+  const d = req.body || {};
+  const username = (d.username || '').trim();
   if (!username || username.length > 30) {
     return res.status(400).json({ ok: false, error: 'invalid username' });
   }
   const scores = readJson(SCORES_FILE, {});
-  scores[username.trim()] = {
-    totalCaught: parseInt(totalCaught) || 0,
-    shinies:     parseInt(shinies)     || 0,
-    uniqueSeen:  parseInt(uniqueSeen)  || 0,
-    coins:       parseInt(coins)       || 0,
-    lastUpdated: new Date().toISOString().slice(0, 19)
+  scores[username] = {
+    totalCaught: parseInt(d.totalCaught) || 0,
+    shinies:     parseInt(d.shinies)     || 0,
+    uniqueSeen:  parseInt(d.uniqueSeen)  || 0,
+    coins:       parseInt(d.coins)       || 0,
+    lastPokemonId:   parseInt(d.lastPokemonId) || 0,
+    lastPokemonName: (d.lastPokemonName || '').slice(0, 50),
+    lastShiny:       !!d.lastShiny,
+    lastUpdated: new Date().toISOString().slice(0, 19),
+    lastUpdatedMs: Date.now()
   };
   writeJson(SCORES_FILE, scores);
   res.json({ ok: true });
@@ -81,6 +88,54 @@ app.post('/api/score', (req, res) => {
 
 app.get('/api/leaderboard', (req, res) => {
   res.json(readJson(SCORES_FILE, {}));
+});
+
+// Online players (active in last 90 sek)
+app.get('/api/online', (req, res) => {
+  const scores = readJson(SCORES_FILE, {});
+  const now = Date.now();
+  const online = {};
+  for (const [name, data] of Object.entries(scores)) {
+    const lastMs = data.lastUpdatedMs || new Date(data.lastUpdated || 0).getTime();
+    if (now - lastMs < 90000) {
+      online[name] = data;
+    }
+  }
+  res.json(online);
+});
+
+// === DIRECT MESSAGES ===
+app.post('/api/dm/send', (req, res) => {
+  const d = req.body || {};
+  const from = (d.from || '').trim();
+  const to   = (d.to   || '').trim();
+  const msg  = (d.message || '').trim().slice(0, 500);
+  if (!from || !to || !msg) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const messages = readJson(DM_FILE, []);
+  messages.push({
+    id: crypto.randomUUID(),
+    from, to, message: msg,
+    time: new Date().toISOString()
+  });
+  if (messages.length > 1000) messages.splice(0, messages.length - 1000);
+  writeJson(DM_FILE, messages);
+  res.json({ ok: true });
+});
+
+app.get('/api/dm/messages', (req, res) => {
+  const u1 = (req.query.user1 || '').trim();
+  const u2 = (req.query.user2 || '').trim();
+  if (!u1 || !u2) return res.json([]);
+  const messages = readJson(DM_FILE, []);
+  res.json(messages.filter(m =>
+    (m.from === u1 && m.to === u2) || (m.from === u2 && m.to === u1)
+  ));
+});
+
+app.get('/api/dm/all', (req, res) => {
+  const u = (req.query.username || '').trim();
+  const messages = readJson(DM_FILE, []);
+  res.json(messages.filter(m => m.from === u || m.to === u));
 });
 
 // === TRADES ===
