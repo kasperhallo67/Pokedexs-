@@ -3868,6 +3868,9 @@ if (state.character && state.character.equipped && !('glasses' in state.characte
 if (state.totalCatches === undefined) {
   state.totalCatches = Object.values(state.caught).reduce((a,b)=>a+b, 0);
 }
+// shinyProgress: separat teller for milepæl-shiny — øker bare 1 per ball-kast
+// (slik at Triple Ball ikke gir 3x progress mot neste milepæl)
+if (state.shinyProgress === undefined) state.shinyProgress = state.totalCatches;
 // Sørg for at alle baller finnes i inventory (for gamle saves)
 for (const key of Object.keys(BALLS)) {
   if (state.inventory[key] === undefined) state.inventory[key] = key === 'free' ? 999 : 0;
@@ -3948,9 +3951,13 @@ function throwBall() {
 
   setTimeout(() => {
     const numCatches = ball.multiCatch || 1;
+    // Shiny milepæl-progress: +1 per ball-kast (ikke per Pokémon)
+    state.shinyProgress = (state.shinyProgress || 0) + 1;
+    const milestoneThisThrow = state.shinyProgress % SHINY_INTERVAL === 0;
     const catches = [];
     for (let catchIdx = 0; catchIdx < numCatches; catchIdx++) {
-      catches.push(processSingleCatch(ball));
+      // Bare første Pokémon i Triple Ball kan utløse milepæl-shiny
+      catches.push(processSingleCatch(ball, catchIdx === 0 && milestoneThisThrow));
     }
     // Bruk siste catch som "main" for popup (eller multi-popup hvis multiCatch)
     const mainCatch = catches[catches.length - 1];
@@ -3981,7 +3988,7 @@ function throwBall() {
   }, animDuration);
 }
 
-function processSingleCatch(ball) {
+function processSingleCatch(ball, forceMilestoneShiny = false) {
   let pokemon;
   if (state.nextPokemonOverride) {
     pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
@@ -4001,9 +4008,8 @@ function processSingleCatch(ball) {
   const rarity = pokemon.rarity;
   state.totalCatches++;
   if (state.buddyId) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
-  const milestoneShiny = state.totalCatches % SHINY_INTERVAL === 0;
   const luckyShiny = Math.random() * 100 < (ball.shinyChance || 0);
-  const isShiny = milestoneShiny || luckyShiny;
+  const isShiny = forceMilestoneShiny || luckyShiny;
   let isNew;
   if (isShiny) {
     isNew = !state.shinySeen[pokemon.id];
@@ -4286,7 +4292,9 @@ function updateUI() {
 }
 
 function updateShinyProgress() {
-  const into = state.totalCatches % SHINY_INTERVAL;
+  // Bruk shinyProgress (per ball-kast) i stedet for totalCatches (per Pokémon)
+  const progress = state.shinyProgress ?? state.totalCatches;
+  const into = progress % SHINY_INTERVAL;
   const remaining = SHINY_INTERVAL - into;
   document.getElementById('shinyRemaining').textContent = remaining;
   document.getElementById('shinyFill').style.width = (into / SHINY_INTERVAL * 100) + '%';
@@ -7369,7 +7377,7 @@ function renderMines() {
         <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next safe chance:</span><span id="minesNextOdds">—</span></div>
         <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next multiplier:</span><span id="minesNextMult">—</span></div>
         <button class="casino-btn" id="cashoutBtn" onclick="cashOutMines()" disabled style="background:#2ecc71;">💰 Cash out</button>
-        <div style="font-size:11px;opacity:0.6;text-align:center;margin-top:8px;">5% house edge · provably random</div>
+        <div style="font-size:11px;opacity:0.6;text-align:center;margin-top:8px;">10% house edge · provably random</div>
       </div>
     </div>
     <div class="casino-result" id="minesResult"></div>
@@ -7423,9 +7431,9 @@ function renderMinesGrid() {
 }
 
 function calcMinesMultiplier(safeRevealed, mineCount) {
-  // Ekte Mines (Roobet/standard casino-style): 5% house edge
+  // Strengere casino-vanskelighet: 10% house edge
   // mult = (1 - edge) * C(25, picks) / C(25-mines, picks)
-  let mult = 0.95;
+  let mult = 0.90;
   for (let i = 0; i < safeRevealed; i++) {
     mult *= (25 - i) / (25 - mineCount - i);
   }
