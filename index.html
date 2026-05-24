@@ -3196,6 +3196,7 @@
 
 <div class="main-area">
   <div style="background:rgba(255,235,59,0.18);border:2px solid #ffeb3b;border-radius:10px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:#ffeb3b;font-weight:bold;text-align:center;box-shadow:0 0 12px rgba(255,235,59,0.3);max-width:380px;">⚠️ Remember to refresh your game sometimes in case of updates!</div>
+  <div id="veteranCountdown" style="display:none;background:linear-gradient(135deg,#f39c12,#e67e22);border:2px solid #fff;border-radius:10px;padding:8px 14px;margin-bottom:12px;font-size:13px;color:white;font-weight:bold;text-align:center;box-shadow:0 0 12px rgba(243,156,18,0.5);max-width:380px;">⏳ Veteran Ball unlocks in: <span id="veteranTimeLeft">—</span></div>
   <div class="pokeball" id="pokeball" onclick="throwBall()">
     <div class="ball-top"></div>
     <div class="ball-bot"></div>
@@ -4631,15 +4632,49 @@ if (state.playtimeMs === undefined) state.playtimeMs = 0;
 let __playtimeLastTick = Date.now();
 setInterval(() => {
   const now = Date.now();
-  // Bare tell tid hvis ikke mer enn 30s siden siste tick (unngår å telle tid mens fanen er bakgrunns/sovende)
   const diff = now - __playtimeLastTick;
   if (diff > 0 && diff < 30000) {
     state.playtimeMs += diff;
-    // Lagre stille hvert 30. sek
     if (state.playtimeMs % 30000 < 10000) save();
   }
   __playtimeLastTick = now;
+  updateVeteranCountdown();
 }, 10000);
+
+// Oppdater nedtelleren for Veteran Ball — vises bare hvis ennå ikke ulåst
+function updateVeteranCountdown() {
+  const el = document.getElementById('veteranCountdown');
+  const timeEl = document.getElementById('veteranTimeLeft');
+  if (!el || !timeEl) return;
+  const veteran = (typeof BALLS !== 'undefined') ? BALLS.veteran : null;
+  if (!veteran || !veteran.unlockPlaytimeMs) { el.style.display = 'none'; return; }
+  const left = veteran.unlockPlaytimeMs - (state.playtimeMs || 0);
+  if (left <= 0) {
+    // Vis "unlocked" i 5 sek så skjul
+    el.style.background = 'linear-gradient(135deg,#2ecc71,#27ae60)';
+    el.style.borderColor = '#fff';
+    timeEl.textContent = '✓ UNLOCKED! Available in shop now';
+    setTimeout(() => { el.style.display = 'none'; }, 5000);
+    return;
+  }
+  el.style.display = 'block';
+  // Format: Xh Ym Zs
+  const totalSec = Math.ceil(left / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  let str = '';
+  if (h > 0) str += h + 'h ';
+  if (m > 0 || h > 0) str += m + 'm ';
+  str += s + 's';
+  const pct = ((state.playtimeMs || 0) / veteran.unlockPlaytimeMs * 100).toFixed(1);
+  timeEl.innerHTML = `<strong>${str}</strong> <span style="opacity:0.8;font-weight:normal;">(${pct}% done)</span>`;
+}
+
+// Rask oppdatering hvert sekund for sanntids-følelse
+setInterval(updateVeteranCountdown, 1000);
+// Initial call etter DOM klar
+setTimeout(updateVeteranCountdown, 500);
 // buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
 if (state.buddyUid === undefined) state.buddyUid = null;
 // Ved første gangs lasting: sørg for at nåværende konto er i pokeAccounts
