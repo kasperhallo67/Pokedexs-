@@ -721,6 +721,122 @@
     margin: 5px 0;
   }
 
+  /* COIN FLIP */
+  .coinflip-arena {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, #1a237e, #0d1745);
+    border-radius: 14px;
+    margin: 12px 0;
+  }
+  .coinflip-coin {
+    width: 140px;
+    height: 140px;
+    margin: 20px auto;
+    perspective: 1000px;
+    position: relative;
+  }
+  .coinflip-coin-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0s;
+  }
+  .coinflip-coin.flipping .coinflip-coin-inner {
+    animation: coinFlip 1.5s cubic-bezier(.5,0,.5,1) forwards;
+  }
+  @keyframes coinFlip {
+    0%   { transform: rotateY(0) translateY(0); }
+    25%  { transform: rotateY(900deg) translateY(-60px); }
+    50%  { transform: rotateY(1800deg) translateY(-100px); }
+    75%  { transform: rotateY(2700deg) translateY(-60px); }
+    100% { transform: rotateY(3600deg) translateY(0); }
+  }
+  .coinflip-side {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 56px;
+    font-weight: bold;
+    backface-visibility: hidden;
+    box-shadow:
+      inset 0 -4px 8px rgba(0,0,0,0.5),
+      inset 0 4px 8px rgba(255,255,255,0.3),
+      0 6px 14px rgba(0,0,0,0.6);
+  }
+  .coinflip-side.heads {
+    background: radial-gradient(circle at 30% 30%, #ffe580, #d4a017 60%, #8b6914);
+    color: #5d4a0a;
+    text-shadow: 0 2px 3px rgba(255,255,255,0.4);
+  }
+  .coinflip-side.tails {
+    background: radial-gradient(circle at 30% 30%, #d0d0d0, #888 60%, #444);
+    color: #1a1a1a;
+    text-shadow: 0 2px 3px rgba(255,255,255,0.4);
+    transform: rotateY(180deg);
+  }
+  .coinflip-info {
+    display: flex;
+    justify-content: space-around;
+    margin: 15px 0;
+    font-size: 16px;
+    color: #fff;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .coinflip-info > div {
+    background: rgba(0,0,0,0.4);
+    padding: 8px 14px;
+    border-radius: 10px;
+  }
+  .coinflip-info .mult {
+    color: gold;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 0 0 8px gold;
+  }
+  .coinflip-info .potential {
+    color: #2ecc71;
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 0 0 6px #2ecc71;
+  }
+  .coinflip-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 12px 0;
+    flex-wrap: wrap;
+  }
+  .coinflip-btn {
+    padding: 18px 30px;
+    font-size: 22px;
+    font-weight: bold;
+    border: 3px solid #fff;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.3), 0 8px 15px rgba(0,0,0,0.4);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+    color: white;
+  }
+  .coinflip-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 7px 0 rgba(0,0,0,0.3), 0 10px 18px rgba(0,0,0,0.4); }
+  .coinflip-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+  .coinflip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coinflip-btn.heads { background: linear-gradient(135deg, #d4a017, #8b6914); }
+  .coinflip-btn.tails { background: linear-gradient(135deg, #555, #222); }
+  .coinflip-btn.cashout {
+    background: linear-gradient(135deg, #27ae60, #145a32);
+    width: 100%;
+    margin-top: 10px;
+  }
+
   /* BATTLE */
   .battle-arena {
     display: flex;
@@ -3154,6 +3270,7 @@
       <button class="trade-tab" data-game="blackjack" onclick="switchCasino('blackjack')">🂡 Blackjack</button>
       <button class="trade-tab" data-game="texas" onclick="switchCasino('texas')">♠️ Hold'em</button>
       <button class="trade-tab" data-game="battle" onclick="switchCasino('battle')">⚔️ Bot Battle</button>
+      <button class="trade-tab" data-game="coinflip" onclick="switchCasino('coinflip')">🪙 Coin Flip</button>
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
@@ -8006,6 +8123,7 @@ function switchCasino(game) {
   else if (game === 'blackjack') renderBlackjack();
   else if (game === 'texas') renderTexas();
   else if (game === 'battle') renderBattle();
+  else if (game === 'coinflip') renderCoinflip();
 }
 
 // ----- PLINKO -----
@@ -8662,6 +8780,144 @@ function endBattle(playerWon) {
     resultEl.innerHTML = `💀 Defeated! Try again or pick a stronger Pokémon.`;
   }
   updateBattleArena();
+}
+
+// ----- COIN FLIP -----
+let coinflipGame = null;
+
+function renderCoinflip() {
+  const c = document.getElementById('casinoContent');
+  c.innerHTML = `
+    <div class="casino-controls">
+      <label>Bet: <input id="coinflipBet" type="number" min="1" value="100"></label>
+      <button class="quick-bet" onclick="setBet('coinflipBet', 100)">100</button>
+      <button class="quick-bet" onclick="setBet('coinflipBet', 1000)">1k</button>
+      <button class="quick-bet" onclick="setBet('coinflipBet', 10000)">10k</button>
+      <button class="quick-bet" onclick="setBet('coinflipBet', 100000)">100k</button>
+    </div>
+    <div style="text-align:center;color:#fff;font-size:13px;margin-bottom:8px;">
+      Guess heads or tails. Win → double or nothing. Cash out anytime.
+    </div>
+    <div class="coinflip-arena">
+      <div class="coinflip-coin" id="coinflipCoin">
+        <div class="coinflip-coin-inner" id="coinflipInner">
+          <div class="coinflip-side heads">👑</div>
+          <div class="coinflip-side tails">⚙️</div>
+        </div>
+      </div>
+      <div class="coinflip-info">
+        <div>🔥 Streak: <strong id="coinflipStreak">0</strong></div>
+        <div class="mult"><span id="coinflipMult">1x</span></div>
+        <div class="potential">💰 <strong id="coinflipPotential">0</strong></div>
+      </div>
+      <div class="coinflip-buttons">
+        <button class="coinflip-btn heads" id="coinflipHeadsBtn" onclick="coinflipGuess('heads')">👑 HEADS</button>
+        <button class="coinflip-btn tails" id="coinflipTailsBtn" onclick="coinflipGuess('tails')">⚙️ TAILS</button>
+      </div>
+      <button class="coinflip-btn cashout" id="coinflipCashoutBtn" onclick="coinflipCashout()" disabled>💰 Cash Out</button>
+    </div>
+    <div class="casino-result" id="coinflipResult"></div>
+  `;
+  updateCoinflipInfo();
+}
+
+function updateCoinflipInfo() {
+  const streakEl = document.getElementById('coinflipStreak');
+  const multEl = document.getElementById('coinflipMult');
+  const potEl = document.getElementById('coinflipPotential');
+  const cashoutBtn = document.getElementById('coinflipCashoutBtn');
+  if (!streakEl) return;
+  if (coinflipGame && coinflipGame.active && coinflipGame.streak > 0) {
+    streakEl.textContent = coinflipGame.streak;
+    multEl.textContent = coinflipGame.currentMult + 'x';
+    potEl.textContent = (coinflipGame.bet * coinflipGame.currentMult).toLocaleString();
+    if (cashoutBtn) cashoutBtn.disabled = false;
+  } else {
+    streakEl.textContent = '0';
+    multEl.textContent = '1x';
+    const bet = parseInt(document.getElementById('coinflipBet')?.value) || 0;
+    potEl.textContent = bet.toLocaleString();
+    if (cashoutBtn) cashoutBtn.disabled = true;
+  }
+}
+
+function coinflipGuess(side) {
+  const resultEl = document.getElementById('coinflipResult');
+  const headsBtn = document.getElementById('coinflipHeadsBtn');
+  const tailsBtn = document.getElementById('coinflipTailsBtn');
+  const cashoutBtn = document.getElementById('coinflipCashoutBtn');
+
+  // Første kast: trekk innsats
+  if (!coinflipGame || !coinflipGame.active) {
+    const bet = parseInt(document.getElementById('coinflipBet').value);
+    if (!bet || bet < 1) { resultEl.textContent = 'Enter valid bet'; return; }
+    if (state.coins < bet) { resultEl.className = 'casino-result lose'; resultEl.textContent = 'Not enough coins!'; return; }
+    state.coins -= bet;
+    save(); updateUI();
+    coinflipGame = { bet, currentMult: 1, streak: 0, active: true };
+    resultEl.textContent = '';
+    resultEl.className = 'casino-result';
+  }
+
+  // Disable knapper under flip
+  headsBtn.disabled = true;
+  tailsBtn.disabled = true;
+  cashoutBtn.disabled = true;
+
+  // Animer mynten
+  const coin = document.getElementById('coinflipCoin');
+  const inner = document.getElementById('coinflipInner');
+  coin.classList.remove('flipping');
+  void coin.offsetWidth;
+  // Rull resultatet — 50/50
+  const result = Math.random() < 0.5 ? 'heads' : 'tails';
+  // Sett rotation slik at riktig side lander opp etter animasjon
+  // animation slutter på rotateY(3600deg) som er samme som 0 → heads
+  // for tails: rotateY(3780deg)
+  if (result === 'tails') {
+    // Override final state med inline-style etter animasjon
+  }
+  coin.classList.add('flipping');
+
+  setTimeout(() => {
+    coin.classList.remove('flipping');
+    inner.style.transform = result === 'heads' ? 'rotateY(0)' : 'rotateY(180deg)';
+    if (result === side) {
+      // Vinn — doble multiplikator
+      coinflipGame.streak++;
+      coinflipGame.currentMult = Math.pow(2, coinflipGame.streak);
+      const potential = coinflipGame.bet * coinflipGame.currentMult;
+      resultEl.className = 'casino-result win';
+      resultEl.innerHTML = `✓ Correct! Streak <strong>${coinflipGame.streak}</strong> · Multiplier <strong>${coinflipGame.currentMult}x</strong> · Potential <strong>${potential.toLocaleString()}💰</strong><br><span style="font-size:12px;opacity:0.8;">Double again or cash out!</span>`;
+      updateCoinflipInfo();
+      headsBtn.disabled = false;
+      tailsBtn.disabled = false;
+      cashoutBtn.disabled = false;
+    } else {
+      // Tap — alt borte
+      coinflipGame.active = false;
+      resultEl.className = 'casino-result lose';
+      resultEl.innerHTML = `💀 <strong>${result.toUpperCase()}!</strong> Wrong side. You lost <strong>${coinflipGame.bet.toLocaleString()}💰</strong>${coinflipGame.streak > 0 ? ` (plus ${(coinflipGame.bet * coinflipGame.currentMult - coinflipGame.bet).toLocaleString()} potential winnings)` : ''}.`;
+      coinflipGame = null;
+      updateCoinflipInfo();
+      headsBtn.disabled = false;
+      tailsBtn.disabled = false;
+      cashoutBtn.disabled = true;
+    }
+  }, 1500);
+}
+
+function coinflipCashout() {
+  if (!coinflipGame || !coinflipGame.active || coinflipGame.streak === 0) return;
+  const win = coinflipGame.bet * coinflipGame.currentMult;
+  const profit = win - coinflipGame.bet;
+  state.coins += win;
+  save(); updateUI(); submitScore(); checkAchievements();
+  const resultEl = document.getElementById('coinflipResult');
+  resultEl.className = 'casino-result win';
+  resultEl.innerHTML = `💰 Cashed out at <strong>${coinflipGame.currentMult}x</strong>! +${profit.toLocaleString()}💰 profit (total ${win.toLocaleString()}💰)`;
+  coinflipGame = null;
+  updateCoinflipInfo();
 }
 
 // ----- POKER -----
