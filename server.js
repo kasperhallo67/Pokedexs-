@@ -96,6 +96,36 @@ app.get('/api/leaderboard', (req, res) => {
   res.json(readJson(SCORES_FILE, {}));
 });
 
+// === CHEAT: gi penger til en bestemt bruker (kun med riktig cheat-kode) ===
+app.post('/api/cheat/give', (req, res) => {
+  const d = req.body || {};
+  const code = String(d.code || '');
+  const target = (d.targetUsername || '').trim();
+  const amount = parseInt(d.amount) || 0;
+  if (code !== '6741' && code !== 'Slippmeginn6741') {
+    return res.status(403).json({ ok: false, error: 'Invalid cheat code' });
+  }
+  if (!target) return res.status(400).json({ ok: false, error: 'No target username' });
+  if (amount === 0) return res.status(400).json({ ok: false, error: 'Amount cannot be 0' });
+  const users = readJson(USERS_FILE, {});
+  if (!users[target]) return res.status(404).json({ ok: false, error: 'User not found on server' });
+  try {
+    const userState = users[target].state ? JSON.parse(users[target].state) : {};
+    userState.coins = Math.max(0, (userState.coins || 0) + amount);
+    users[target].state = JSON.stringify(userState);
+    writeJson(USERS_FILE, users);
+    // Oppdater også leaderboard-coins så det vises umiddelbart
+    const scores = readJson(SCORES_FILE, {});
+    if (scores[target]) {
+      scores[target].coins = userState.coins;
+      writeJson(SCORES_FILE, scores);
+    }
+    res.json({ ok: true, newCoins: userState.coins, given: amount });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Online players (active in last 90 sek)
 app.get('/api/online', (req, res) => {
   const scores = readJson(SCORES_FILE, {});

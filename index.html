@@ -5220,6 +5220,12 @@ let lockoutUntil = 0;
 function showLogin() {
   const content = document.getElementById('loginContent');
   if (state.username && state.password) {
+    // Auto-login: hopp direkte inn hvis brukeren har lagret passord
+    document.getElementById('loginOverlay').classList.add('hidden');
+    submitScore();
+    return;
+  }
+  if (false) { // dead branch — beholdt for sikkerhets skyld
     content.innerHTML = `
       <h2>Hi, ${escapeHtml(state.username)}!</h2>
       <p>Enter your password to continue:</p>
@@ -5252,9 +5258,39 @@ function showLogin() {
       if (inp) inp.focus();
     }, 50);
   } else {
+    // Vis liste over kjente kontoer på enheten øverst — klikk for å logge inn
+    const accounts = (() => {
+      try { return JSON.parse(localStorage.getItem('pokeAccounts') || '{}'); }
+      catch { return {}; }
+    })();
+    const accountNames = Object.keys(accounts);
+    let savedAccountsHtml = '';
+    if (accountNames.length > 0) {
+      savedAccountsHtml = `
+        <div style="margin-bottom:16px;">
+          <h3 style="margin:0 0 8px 0;color:#fff;">👥 Saved accounts on this device — click to play:</h3>
+          ${accountNames.map(name => {
+            let info = { coins: 0, totalCatches: 0 };
+            try {
+              const s = JSON.parse(accounts[name]);
+              info.coins = s.coins || 0;
+              info.totalCatches = s.totalCatches || 0;
+            } catch {}
+            return `
+              <button onclick="quickLogin('${name.replace(/'/g, "\\'")}')" style="display:block;width:100%;text-align:left;background:linear-gradient(135deg,#3498db,#2980b9);color:white;border:2px solid white;padding:10px 14px;border-radius:8px;cursor:pointer;margin-bottom:6px;font-size:14px;">
+                <strong>👤 ${escapeHtml(name)}</strong>
+                <div style="font-size:11px;opacity:0.9;margin-top:2px;">💰 ${info.coins.toLocaleString()} · 🎯 ${info.totalCatches} catches</div>
+              </button>
+            `;
+          }).join('')}
+          <div style="text-align:center;color:#aaa;font-size:11px;margin:8px 0;">— or create / log in with password —</div>
+        </div>
+      `;
+    }
     content.innerHTML = `
       <h2>Welcome!</h2>
-      <p>Create an account or log in:</p>
+      ${savedAccountsHtml}
+      <p style="font-size:13px;color:#ccc;">Create a new account or log in:</p>
       <input id="newUserInput" type="text" placeholder="Username (max 30 chars)" autocomplete="username">
       <input id="newPassInput" type="password" placeholder="Password (min. 3 chars)" autocomplete="new-password">
       <input id="confirmPassInput" type="password" placeholder="Confirm password">
@@ -5499,6 +5535,32 @@ function forgetUserConfirm() {
   }
   localStorage.removeItem('pokeGame');
   location.reload();
+}
+
+// Quick-login fra liste på login-skjermen — bytter umiddelbart uten passord-spørsmål
+function quickLogin(username) {
+  // Lagre nåværende først (om noen)
+  if (state.username && state.username !== username) {
+    try {
+      const accounts = JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+      accounts[state.username] = JSON.stringify(state);
+      localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+    } catch {}
+  }
+  const accounts = (() => {
+    try { return JSON.parse(localStorage.getItem('pokeAccounts') || '{}'); }
+    catch { return {}; }
+  })();
+  const saved = accounts[username];
+  if (!saved) { alert('No saved data for ' + username); return; }
+  try {
+    const newState = JSON.parse(saved);
+    state = newState;
+    localStorage.setItem('pokeGame', JSON.stringify(state));
+    location.reload();
+  } catch (e) {
+    alert('Could not load account: ' + e.message);
+  }
 }
 
 // Åpne account switcher fra login-skjermen (siden modaler ikke er aktive)
@@ -10419,6 +10481,7 @@ const CHEAT_PASSWORD = 'Slippmeginn123';
 const CHEAT_PASSWORD_ULTIMATE = 'Slippmeginn135';
 const CHEAT_PASSWORD_RESET = 'Slippmeginn1234';
 const CHEAT_PASSWORD_PICK = 'Slippmeginn135!';
+const CHEAT_PASSWORD_GIVE = '6741'; // Gi penger til andre brukere
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -10495,6 +10558,15 @@ function submitCheat() {
       msg.textContent = '✓ Type a Pokémon name or ID and press OK';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_GIVE) {
+      cheatStage = 'give_target';
+      document.getElementById('cheatTitle').textContent = '🎁 GIVE COINS TO PLAYER';
+      input.type = 'text';
+      input.value = '';
+      input.placeholder = 'Target username';
+      msg.textContent = '✓ Type the player\'s username (must exist on server)';
+      msg.className = 'cheat-msg ok';
+      input.focus();
     } else if (input.value === CHEAT_PASSWORD_ULTIMATE) {
       // Ultimate cheat: lås opp alt
       let added = 0;
@@ -10564,8 +10636,47 @@ function submitCheat() {
     msg.textContent = `✓ +${amount} 💰 added!`;
     msg.className = 'cheat-msg ok';
     setTimeout(closeCheat, 1000);
+  } else if (cheatStage === 'give_target') {
+    const target = input.value.trim();
+    if (!target) { msg.textContent = '✗ Type a username'; msg.className = 'cheat-msg err'; return; }
+    cheatGiveTarget = target;
+    cheatStage = 'give_amount';
+    document.getElementById('cheatTitle').textContent = `🎁 GIVE TO ${target}`;
+    input.type = 'number';
+    input.value = '';
+    input.placeholder = 'Amount (use negative to remove)';
+    msg.textContent = `✓ How many coins for ${target}? (negative = remove)`;
+    msg.className = 'cheat-msg ok';
+    input.focus();
+  } else if (cheatStage === 'give_amount') {
+    const amount = parseInt(input.value);
+    if (isNaN(amount) || amount === 0) {
+      msg.textContent = '✗ Enter a non-zero number';
+      msg.className = 'cheat-msg err';
+      return;
+    }
+    msg.textContent = '⏳ Sending to server...';
+    msg.className = 'cheat-msg';
+    fetch('/api/cheat/give', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: CHEAT_PASSWORD_GIVE, targetUsername: cheatGiveTarget, amount })
+    }).then(r => r.json()).then(data => {
+      if (data.ok) {
+        msg.innerHTML = `✓ <strong>${amount > 0 ? '+' : ''}${amount} 💰</strong> ${amount > 0 ? 'given to' : 'taken from'} <strong>${cheatGiveTarget}</strong>!<br>New balance: <strong>${data.newCoins.toLocaleString()}</strong> 💰`;
+        msg.className = 'cheat-msg ok';
+        setTimeout(closeCheat, 2500);
+      } else {
+        msg.textContent = '✗ ' + (data.error || 'Failed');
+        msg.className = 'cheat-msg err';
+      }
+    }).catch(e => {
+      msg.textContent = '✗ Server error: ' + e.message;
+      msg.className = 'cheat-msg err';
+    });
   }
 }
+let cheatGiveTarget = '';
 
 // Enter-tast i cheat-input
 document.getElementById('cheatInput').addEventListener('keydown', e => {
