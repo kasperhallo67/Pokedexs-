@@ -513,6 +513,146 @@ app.get('/api/chat/messages', (req, res) => {
 // === LEGACY BATTLE ENDPOINTS (used by older code paths, stubbed) ===
 app.get('/api/battle/inbox', (req, res) => res.json([]));
 
+// ===== PVP BATTLE — sanntid spiller-mot-spiller =====
+function cleanupPvpRooms(battles) {
+  const now = Date.now();
+  for (const [code, b] of Object.entries(battles)) {
+    // Slett rom etter 15 min inaktivitet, eller 60 sek etter 'done'
+    if (now - (b.lastUpdate || 0) > 900000) delete battles[code];
+    else if (b.status === 'done' && now - (b.lastUpdate || 0) > 60000) delete battles[code];
+  }
+}
+
+function readBattles() {
+  const b = readJson(BATTLES_FILE, {});
+  // Hvis filen var et array fra før, konverter
+  return (b && typeof b === 'object' && !Array.isArray(b)) ? b : {};
+}
+
+app.post('/api/pvp/create', (req, res) => {
+  const d = req.body || {};
+  const username = (d.username || '').trim();
+  const pokeId = parseInt(d.pokeId) || 0;
+  const pokeName = (d.pokeName || '').trim() || 'Pokémon';
+  const cp = parseInt(d.cp) || 100;
+  const isShiny = !!d.isShiny;
+  if (!username || !pokeId) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const battles = readBattles();
+  cleanupPvpRooms(battles);
+  // Fjern eksisterende rom fra denne brukeren (max ett aktivt rom per spiller)
+  for (const [code, b] of Object.entries(battles)) {
+    if (b.host === username && b.status !== 'active') delete battles[code];
+  }
+  let code;
+  do { code = Math.floor(1000 + Math.random() * 9000).toString(); } while (battles[code]);
+  const hp = Math.max(20, cp * 2);
+  battles[code] = {
+    host: username,
+    hostPokeId: pokeId,
+    hostPokeName: pokeName,
+    hostCp: cp,
+    hostHp: hp,
+    hostMaxHp: hp,
+    hostShiny: isShiny,
+    guest: null,
+    status: 'waiting',
+    createdAt: Date.now(),
+    lastUpdate: Date.now()
+  };
+  writeJson(BATTLES_FILE, battles);
+  res.json({ ok: true, code });
+});
+
+app.post('/api/pvp/join', (req, res) => {
+  const d = req.body || {};
+  const code = (d.code || '').trim();
+  const username = (d.username || '').trim();
+  const pokeId = parseInt(d.pokeId) || 0;
+  const pokeName = (d.pokeName || '').trim() || 'Pokémon';
+  const cp = parseInt(d.cp) || 100;
+  const isShiny = !!d.isShiny;
+  const battles = readBattles();
+  cleanupPvpRooms(battles);
+  if (!battles[code]) return res.status(404).json({ ok: false, error: 'Room not found or expired' });
+  const b = battles[code];
+  if (b.guest) return res.status(409).json({ ok: false, error: 'Room is full' });
+  if (b.host === username) return res.status(409).json({ ok: false, error: 'Cannot join your own room' });
+  if (b.status !== 'waiting') return res.status(409).json({ ok: false, error: 'Room is not open' });
+  const hp = Math.max(20, cp * 2);
+  b.guest = username;
+  b.guestPokeId = pokeId;
+  b.guestPokeName = pokeName;
+  b.guestCp = cp;
+  b.guestHp = hp;
+  b.guestMaxHp = hp;
+  b.guestShiny = isShiny;
+  b.status = 'active';
+  b.startedAt = Date.now();
+  b.lastUpdate = Date.now();
+  writeJson(BATTLES_FILE, battles);
+  res.json({ ok: true, battle: b });
+});
+
+app.get('/api/pvp/state', (req, res) => {
+  const code = (req.query.code || '').trim();
+  const battles = readBattles();
+  if (!battles[code]) return res.json({ ok: false, error: 'not_found' });
+  res.json({ ok: true, battle: battles[code] });
+});
+
+app.post('/api/pvp/attack', (req, res) => {
+  const d = req.body || {};
+  const code = (d.code || '').trim();
+  const username = (d.username || '').trim();
+  const dmg = Math.max(1, parseInt(d.dmg) || 1);
+  const battles = readBattles();
+  if (!battles[code]) return res.status(404).json({ ok: false });
+  const b = battles[code];
+  if (b.status !== 'active') return res.status(400).json({ ok: false, error: 'not_active' });
+  if (b.host === username) {
+    b.guestHp = Math.max(0, b.guestHp - dmg);
+    if (b.guestHp <= 0) { b.status = 'done'; b.winner = b.host; }
+  } else if (b.guest === username) {
+    b.hostHp = Math.max(0, b.hostHp - dmg);
+    if (b.hostHp <= 0) { b.status = 'done'; b.winner = b.guest; }
+  } else {
+    return res.status(403).json({ ok: false });
+  }
+  b.lastUpdate = Date.now();
+  writeJson(BATTLES_FILE, battles);
+  res.json({ ok: true, battle: b });
+});
+
+app.post('/api/pvp/leave', (req, res) => {
+  const d = req.body || {};
+  const code = (d.code || '').trim();
+  const username = (d.username || '').trim();
+  const battles = readBattles();
+  if (battles[code]) {
+    const b = battles[code];
+    if (b.status === 'waiting' && b.host === username) {
+      delete battles[code];
+    } else if (b.status === 'active') {
+      // Den som forlater taper
+      b.status = 'done';
+      b.winner = b.host === username ? b.guest : b.host;
+      b.lastUpdate = Date.now();
+    }
+    writeJson(BATTLES_FILE, battles);
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/pvp/list', (req, res) => {
+  const battles = readBattles();
+  cleanupPvpRooms(battles);
+  writeJson(BATTLES_FILE, battles);
+  const rooms = Object.entries(battles)
+    .filter(([_, b]) => b.status === 'waiting')
+    .map(([code, b]) => ({ code, host: b.host, hostPokeName: b.hostPokeName, hostCp: b.hostCp, hostPokeId: b.hostPokeId, hostShiny: b.hostShiny }));
+  res.json({ rooms });
+});
+
 // === Health check ===
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
