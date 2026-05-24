@@ -4583,7 +4583,7 @@ function showCatchPopup(pokemon, isNew, reward, isShiny, eventType, cpArg) {
   if (isNew) info += '<div style="color:#fff;">NEW POKÉMON!</div>';
   const cp = cpArg ?? state.lastCp ?? 0;
   const isBest = state.bestCp[pokemon.id] === cp && cp > 0;
-  info += `<div style="color:#7df;font-size:18px;font-weight:bold;text-shadow:0 0 6px #2af;">⚔️ CP ${cp}${isBest ? ' 🏆 NEW BEST!' : ''}</div>`;
+  info += `<div style="color:#7df;font-size:18px;font-weight:bold;text-shadow:0 0 6px #2af;">⚔️ CP ${cp} · <span style="color:#ff7676;">❤️ HP ${pokeHp(cp)}</span>${isBest ? ' 🏆 NEW BEST!' : ''}</div>`;
   info += `<div style="color:gold;font-size:22px;margin-top:5px;">+${reward} 💰</div>`;
   document.getElementById('catchNew').innerHTML = info;
   let cls = 'catch-popup show';
@@ -4703,8 +4703,7 @@ function renderBuddy() {
   const buddyCp = buddyInd ? buddyInd.cp : (state.bestCp[poke.id] || 0);
   const buddyType = buddyInd ? (buddyInd.type || getPokeType(poke.id)) : getPokeType(poke.id);
   document.getElementById('buddyImg').src = useShiny ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id);
-  const cpText = buddyCp > 0 ? ` ⚔️${buddyCp}` : '';
-  document.getElementById('buddyName').innerHTML = (useShiny ? '✨ ' : '') + poke.name + `<br><span style="font-size:11px;color:#7df;">CP ${buddyCp}</span> ${typeBadgeHtml(buddyType, 9)}`;
+  document.getElementById('buddyName').innerHTML = (useShiny ? '✨ ' : '') + poke.name + `<br><span style="font-size:11px;color:#7df;">⚔️${buddyCp}</span> <span style="font-size:11px;color:#ff7676;">❤️${pokeHp(buddyCp)}</span> ${typeBadgeHtml(buddyType, 9)}`;
 
   // Stjerner og fremgang
   const catches = state.buddyCatches[poke.id] || 0;
@@ -6978,22 +6977,45 @@ function releaseAllWeak() {
   save(); updateUI();
   renderMyPokemons();
 }
-// Upgrade en individuell Pokémon med art-spesifikk candy
+// Beregn oppgradering-kostnad — øker for hver upgrade på samme Pokémon
+function upgradeCost(level) {
+  // Level 0 (første upgrade): 3 candy + 100 coins
+  // Level 1: 5 candy + 400 coins
+  // Level 2: 8 candy + 1600 coins
+  // Level 3: 12 candy + 6400 coins (×4 hver gang)
+  const candy = 3 + level * 2;
+  const coins = Math.round(100 * Math.pow(4, level));
+  return { candy, coins };
+}
+// Beregn HP for en individuell Pokémon (basert på CP)
+function pokeHp(cp) { return Math.max(5, Math.round(cp * 2)); }
+
+// Upgrade en individuell Pokémon med art-spesifikk candy + coins
 function upgradeIndividual(uid) {
   const ind = state.individuals.find(i => i.uid === uid);
   if (!ind) return;
   const range = CP_RANGES[ind.rarity] || CP_RANGES.common;
-  const maxCp = Math.round(range.max * 1.5); // Kan oppgradere opp til 50% over rarity-max
+  const maxCp = Math.round(range.max * 1.5);
   if (ind.cp >= maxCp) { alert(`${ind.name} is already at max CP (${maxCp})!`); return; }
-  const cost = 3; // 3 candy per upgrade
+  if (ind.upgrades === undefined) ind.upgrades = 0;
+  const { candy: candyCost, coins: coinsCost } = upgradeCost(ind.upgrades);
   if (!state.candy || typeof state.candy !== 'object') state.candy = {};
-  const have = state.candy[ind.id] || 0;
-  if (have < cost) { alert(`Need ${cost} 🍬 ${ind.name} Candy. You have ${have}.\nSell more ${ind.name} to get more candy!`); return; }
-  // +10% CP per oppgradering (minst +5)
+  const haveCandy = state.candy[ind.id] || 0;
+  if (haveCandy < candyCost) {
+    alert(`Need ${candyCost} 🍬 ${ind.name} Candy (you have ${haveCandy}).\nSell more ${ind.name} to get candy!`);
+    return;
+  }
+  if (state.coins < coinsCost) {
+    alert(`Need ${coinsCost} 💰 coins (you have ${state.coins}).`);
+    return;
+  }
+  if (!confirm(`Upgrade ${ind.name} (CP ${ind.cp}) to level ${ind.upgrades + 1}?\nCost: ${candyCost} 🍬 + ${coinsCost} 💰`)) return;
   const boost = Math.max(5, Math.round(ind.cp * 0.1));
   const newCp = Math.min(maxCp, ind.cp + boost);
-  state.candy[ind.id] -= cost;
+  state.candy[ind.id] -= candyCost;
+  state.coins -= coinsCost;
   ind.cp = newCp;
+  ind.upgrades = (ind.upgrades || 0) + 1;
   if (!state.bestCp[ind.id] || newCp > state.bestCp[ind.id]) state.bestCp[ind.id] = newCp;
   save(); updateUI();
   renderMyPokemons();
@@ -7062,10 +7084,17 @@ function renderMyPokemons() {
               <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
               <div class="name">${ind.name}</div>
               <div class="cp">⚔️ CP ${ind.cp}</div>
+              <div style="font-size:13px;color:#ff7676;font-weight:bold;">❤️ HP ${pokeHp(ind.cp)}</div>
               <div style="margin:3px 0;">${typeBadgeHtml(type, 10)}</div>
               <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
+              ${(ind.upgrades || 0) > 0 ? `<div style="font-size:10px;color:#9b59b6;font-weight:bold;">⬆️ Lvl ${ind.upgrades}</div>` : ''}
               ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
-              <button class="release-btn" style="background:#9b59b6;" onclick="upgradeIndividual('${ind.uid}')" title="Upgrade CP using ${ind.name} Candy (3 needed)">🍬 ${(state.candy && state.candy[ind.id]) || 0}/3 Upgrade</button>
+              ${(() => {
+                const { candy: cc, coins: cn } = upgradeCost(ind.upgrades || 0);
+                const have = (state.candy && state.candy[ind.id]) || 0;
+                const canUp = have >= cc && state.coins >= cn;
+                return `<button class="release-btn" style="background:${canUp ? '#9b59b6' : '#555'};" onclick="upgradeIndividual('${ind.uid}')" title="Cost: ${cc} ${ind.name} Candy + ${cn} coins">🍬${have}/${cc} 💰${cn}</button>`;
+              })()}
               <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
               <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
             </div>
@@ -8332,12 +8361,15 @@ function cashOutMines() {
 // ----- BOT BATTLE -----
 let battleGame = null;
 const BOT_DIFFICULTIES = [
-  { name: '😊 Easy Bot',    rarity: 'common',    mashRate: 2.5, reward: 50 },
-  { name: '🙂 Medium Bot',  rarity: 'uncommon',  mashRate: 4.0, reward: 250 },
-  { name: '😎 Hard Bot',    rarity: 'rare',      mashRate: 5.5, reward: 1000 },
-  { name: '😈 Elite Bot',   rarity: 'epic',      mashRate: 7.0, reward: 5000 },
-  { name: '👹 Legend Bot',  rarity: 'legendary', mashRate: 9.0, reward: 25000 }
+  { name: '😊 Easy Bot',    rarity: 'common',    mashRate: 2.5, candyReward: 1 },
+  { name: '🙂 Medium Bot',  rarity: 'uncommon',  mashRate: 4.0, candyReward: 2 },
+  { name: '😎 Hard Bot',    rarity: 'rare',      mashRate: 5.5, candyReward: 3 },
+  { name: '😈 Elite Bot',   rarity: 'epic',      mashRate: 7.0, candyReward: 5 },
+  { name: '👹 Legend Bot',  rarity: 'legendary', mashRate: 9.0, candyReward: 10 }
 ];
+// Spilleren angriper hardere enn boten i AI-battles
+const PLAYER_ATTACK_DMG = 10; // spiller gjør 10 skade per klikk
+const BOT_ATTACK_DMG = 1;     // bot gjør 1 skade per auto-attack
 
 function getMyBattlePokemon() {
   // Returner alle Pokémon spilleren har fanget, sortert etter beste CP
@@ -8372,7 +8404,7 @@ function renderBattle() {
     <div style="text-align:center;color:#fff;">
       <label style="font-size:14px;">Choose bot opponent: </label>
       <select id="battleBotSelect" style="padding:6px;border-radius:6px;font-size:14px;">
-        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — Reward: ${b.reward}💰</option>`).join('')}
+        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — Reward: ${b.candyReward}🍬 candy</option>`).join('')}
       </select>
     </div>
     <div style="margin-top:10px;text-align:center;color:#fff;">Your Pokémon (sorted by CP — pick one):</div>
@@ -8382,6 +8414,7 @@ function renderBattle() {
           <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
           <div class="name">${poke.name}</div>
           <div class="cp">⚔️ ${cp}</div>
+          <div style="font-size:11px;color:#ff7676;font-weight:bold;">❤️ ${pokeHp(cp)}</div>
         </div>
       `).join('')}
     </div>
@@ -8431,8 +8464,13 @@ function updateBattleArena() {
   const pImg = document.getElementById('battlePlayerImg');
   pImg.src = myImg;
   pImg.style.display = 'inline-block';
-  document.getElementById('battlePlayerCp').textContent = '⚔️ CP ' + (battleGame.active ? Math.max(0, battleGame.myHp) : myCp);
-  setHpBar('battlePlayerHp', battleGame.active ? battleGame.myHp : myCp, battleGame.myMaxHp || myCp);
+  if (battleGame.active) {
+    document.getElementById('battlePlayerCp').innerHTML = `⚔️ CP ${myCp} · ❤️ HP <strong>${Math.max(0, battleGame.myHp)}/${battleGame.myMaxHp}</strong>`;
+    setHpBar('battlePlayerHp', battleGame.myHp, battleGame.myMaxHp || pokeHp(myCp));
+  } else {
+    document.getElementById('battlePlayerCp').innerHTML = `⚔️ CP ${myCp} · ❤️ HP ${pokeHp(myCp)}`;
+    setHpBar('battlePlayerHp', pokeHp(myCp), pokeHp(myCp));
+  }
 
   if (battleGame.bot) {
     const bot = battleGame.bot;
@@ -8441,7 +8479,7 @@ function updateBattleArena() {
     const bImg = document.getElementById('battleBotImg');
     bImg.src = SPRITE_URL(bot.poke.id);
     bImg.style.display = 'inline-block';
-    document.getElementById('battleBotCp').textContent = '⚔️ CP ' + Math.max(0, bot.hp);
+    document.getElementById('battleBotCp').innerHTML = `⚔️ CP ${bot.cp} · ❤️ HP <strong>${Math.max(0, bot.hp)}/${bot.maxHp}</strong>`;
     setHpBar('battleBotHp', bot.hp, bot.maxHp);
   }
 }
@@ -8460,16 +8498,18 @@ function startBattle() {
   const myPoke = POKEMONS.find(p => p.id === battleGame.selectedPokeId);
   if (!myPoke) return;
   const myCp = state.bestCp[myPoke.id] || 1;
+  const myHp = pokeHp(myCp);
   const botDef = BOT_DIFFICULTIES[battleGame.selectedBotIdx];
   // Bot får en tilfeldig Pokémon i sin rarity
   const botPool = POKEMONS.filter(p => p.rarity === botDef.rarity);
   const botPoke = botPool[Math.floor(Math.random() * botPool.length)] || POKEMONS[0];
   const botCp = rollCp(botDef.rarity, false);
+  const botHp = pokeHp(botCp);
 
   battleGame.active = true;
-  battleGame.myHp = myCp;
-  battleGame.myMaxHp = myCp;
-  battleGame.bot = { poke: botPoke, hp: botCp, maxHp: botCp, mashRate: botDef.mashRate, reward: botDef.reward };
+  battleGame.myHp = myHp;
+  battleGame.myMaxHp = myHp;
+  battleGame.bot = { poke: botPoke, hp: botHp, maxHp: botHp, cp: botCp, mashRate: botDef.mashRate, candyReward: botDef.candyReward };
   battleGame.startTime = Date.now();
 
   document.getElementById('battleStartBtn').style.display = 'none';
@@ -8496,9 +8536,10 @@ function startBattle() {
 
 function battleAttack() {
   if (!battleGame || !battleGame.active) return;
-  // Hver attack gjør 1 skade
-  battleGame.bot.hp -= 1;
-  showBattleDmg('battleBot', 1);
+  // Spilleren gjør mer skade (PLAYER_ATTACK_DMG per klikk)
+  const dmg = PLAYER_ATTACK_DMG;
+  battleGame.bot.hp -= dmg;
+  showBattleDmg('battleBot', dmg);
   const botImg = document.getElementById('battleBotImg');
   if (botImg) {
     botImg.classList.remove('battle-attack-anim');
@@ -8511,8 +8552,10 @@ function battleAttack() {
 
 function botAttack() {
   if (!battleGame || !battleGame.active) return;
-  battleGame.myHp -= 1;
-  showBattleDmg('battlePlayer', 1);
+  // Bot gjør mindre skade (BOT_ATTACK_DMG per auto-attack)
+  const dmg = BOT_ATTACK_DMG;
+  battleGame.myHp -= dmg;
+  showBattleDmg('battlePlayer', dmg);
   const pImg = document.getElementById('battlePlayerImg');
   if (pImg) {
     pImg.classList.remove('battle-attack-anim');
@@ -8548,15 +8591,18 @@ function endBattle(playerWon) {
 
   const resultEl = document.getElementById('battleResult');
   if (playerWon) {
-    let reward = battleGame.bot.reward;
-    // Bonus hvis du vant med høyere CP-bot enn din egen
+    // Ingen coins-belønning — kun candy av botens Pokémon-art
+    let candyAmount = battleGame.bot.candyReward;
     if (battleGame.bot.maxHp > battleGame.myMaxHp) {
-      reward = Math.round(reward * 1.5);
+      candyAmount = Math.round(candyAmount * 1.5);
     }
-    state.coins += reward;
+    const botPokeId = battleGame.bot.poke.id;
+    const botPokeName = battleGame.bot.poke.name;
+    if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+    state.candy[botPokeId] = (state.candy[botPokeId] || 0) + candyAmount;
     save(); updateUI(); submitScore(); checkAchievements();
     resultEl.className = 'casino-result win';
-    resultEl.innerHTML = `🏆 You won! <strong>+${reward}💰</strong>`;
+    resultEl.innerHTML = `🏆 You won! <strong>+${candyAmount} 🍬 ${botPokeName} Candy</strong><br><span style="font-size:12px;opacity:0.7;">No coin rewards from AI battles.</span>`;
   } else {
     resultEl.className = 'casino-result lose';
     resultEl.innerHTML = `💀 Defeated! Try again or pick a stronger Pokémon.`;
