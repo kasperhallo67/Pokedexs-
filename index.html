@@ -3097,6 +3097,7 @@
     <span class="user-icon">👤</span>
     <span id="usernameDisplay">Set username</span>
   </div>
+  <button class="logout-btn" onclick="openAccountSwitcher()" title="Switch account on this device" style="right:55px;background:#9b59b6;">👥</button>
   <button class="logout-btn" onclick="logout()" title="Log out">🚪</button>
 </div>
 
@@ -3236,6 +3237,20 @@
     <button class="close-btn" onclick="closeModal('achievements')">×</button>
     <h2 class="modal-title">🏆 Achievements</h2>
     <div id="achievementsContent"></div>
+  </div>
+</div>
+
+<div class="modal" id="accountSwitcherModal">
+  <div class="modal-content" style="max-width:500px;">
+    <button class="close-btn" onclick="closeAccountSwitcher()">×</button>
+    <h2 class="modal-title">👥 Accounts on this device</h2>
+    <div style="font-size:13px;color:#ccc;margin-bottom:14px;">
+      Switch between accounts saved on this device without re-entering passwords. Each account keeps its own progress.
+    </div>
+    <div id="accountSwitcherList"></div>
+    <div style="margin-top:14px;text-align:center;border-top:1px solid #444;padding-top:14px;">
+      <button onclick="showAddAccount()" style="background:#27ae60;color:white;border:none;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:bold;">➕ Add another account</button>
+    </div>
   </div>
 </div>
 
@@ -4360,6 +4375,16 @@ if (state.storagePurchases === undefined) state.storagePurchases = 0;
 if (state.candy === undefined || typeof state.candy === 'number') state.candy = {};
 // buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
 if (state.buddyUid === undefined) state.buddyUid = null;
+// Ved første gangs lasting: sørg for at nåværende konto er i pokeAccounts
+if (state.username) {
+  try {
+    const accts = JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+    if (!accts[state.username]) {
+      accts[state.username] = JSON.stringify(state);
+      localStorage.setItem('pokeAccounts', JSON.stringify(accts));
+    }
+  } catch {}
+}
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
 for (const ind of state.individuals) {
   ind.type = (typeof getPokeType === 'function') ? getPokeType(ind.id) : (ind.type || 'Normal');
@@ -4420,7 +4445,57 @@ function clearSearch() {
 
 function save() {
   localStorage.setItem('pokeGame', JSON.stringify(state));
+  // Lagre også per-bruker så ikke andre kontoer forsvinner ved login-bytte
+  if (state.username) {
+    try {
+      const accounts = JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+      accounts[state.username] = JSON.stringify(state);
+      localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+    } catch (e) { console.warn('account save fail:', e); }
+  }
   if (typeof syncToServer === 'function') syncToServer();
+}
+
+// Liste alle kjente kontoer på denne enheten
+function getLocalAccounts() {
+  try {
+    return JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+  } catch { return {}; }
+}
+// Bytt til en annen lokal konto uten å miste den nåværende
+function switchToLocalAccount(username) {
+  // Lagre nåværende først (i tilfelle noe ikke er lagret enda)
+  if (state.username) {
+    const accounts = getLocalAccounts();
+    accounts[state.username] = JSON.stringify(state);
+    localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+  }
+  const accounts = getLocalAccounts();
+  const saved = accounts[username];
+  if (!saved) { alert('No saved data for ' + username + ' on this device.'); return; }
+  try {
+    const newState = JSON.parse(saved);
+    state = newState;
+    localStorage.setItem('pokeGame', JSON.stringify(state));
+    location.reload();
+  } catch (e) {
+    alert('Could not load account: ' + e.message);
+  }
+}
+// Fjern én bestemt lokal konto (resten bevares)
+function removeLocalAccount(username) {
+  if (!confirm(`Forget '${username}' on this device?\nThe account remains on the server — you can log back in.`)) return;
+  const accounts = getLocalAccounts();
+  delete accounts[username];
+  localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+  // Hvis du fjerner deg selv, last på nytt
+  if (username === state.username) {
+    localStorage.removeItem('pokeGame');
+    location.reload();
+  } else {
+    // Re-render account-listen
+    renderAccountSwitcher();
+  }
 }
 
 // ========== CATCH LOGIC ==========
@@ -5221,6 +5296,31 @@ async function loginToOther() {
   const pw = document.getElementById('otherPassInput').value;
   const err = document.getElementById('loginError');
   if (!username || !pw) { err.textContent = '✗ Fill in both username and password'; return; }
+
+  // Bevar nåværende konto først
+  if (state.username && state.username !== username) {
+    try {
+      const accounts = getLocalAccounts();
+      accounts[state.username] = JSON.stringify(state);
+      localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+    } catch (e) { console.warn('preserve account fail:', e); }
+  }
+
+  // Sjekk om vi har lokal kopi av kontoen først (rask offline-bytte)
+  const localAccounts = getLocalAccounts();
+  if (localAccounts[username]) {
+    try {
+      const localState = JSON.parse(localAccounts[username]);
+      if (localState.password === pw) {
+        state = localState;
+        localStorage.setItem('pokeGame', JSON.stringify(state));
+        document.getElementById('loginOverlay').classList.add('hidden');
+        location.reload();
+        return;
+      }
+    } catch {}
+  }
+
   err.textContent = '⏳ Logging in...';
   err.className = 'login-error';
   try {
@@ -5338,13 +5438,33 @@ async function createAccount() {
     console.warn('Server offline, creating local only:', e);
   }
 
-  state.username = username;
-  state.password = pw;
+  // Bevar den nåværende kontoen i 'pokeAccounts' før vi bytter
+  if (state.username && state.username !== username) {
+    try {
+      const accounts = getLocalAccounts();
+      accounts[state.username] = JSON.stringify(state);
+      localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+    } catch (e) { console.warn('preserve account fail:', e); }
+  }
+  // Start ny tom state for ny bruker
+  state = {
+    coins: 50, caught: {}, seen: {}, shinies: {}, shinySeen: {},
+    events: {}, eventsSeen: {}, totalCatches: 0,
+    inventory: {}, selectedBall: 'free', lastFreeUse: 0, lastBallUse: 0,
+    ballsSinceRocket: 0, buddyId: null, buddyCatches: {}, favorites: [],
+    individuals: [], storageMax: 350, storagePurchases: 0, candy: {},
+    bestCp: {}, lastCp: 0, shinyProgress: 0,
+    username, password: pw
+  };
+  for (const key of Object.keys(BALLS)) {
+    state.inventory[key] = key === 'free' ? 999 : 0;
+  }
   save();
   updateUI();
   document.getElementById('loginOverlay').classList.add('hidden');
   submitScore();
   syncToServer();
+  location.reload(); // sikrer fersk render for ny konto
 }
 
 // Auto-sync til server (debounced)
@@ -7039,6 +7159,51 @@ function showAchievementPopup(ach) {
 function openAchievements() {
   document.getElementById('achievementsModal').classList.add('active');
   renderAchievements();
+}
+
+// ========== ACCOUNT SWITCHER ==========
+function openAccountSwitcher() {
+  // Sørg for at nåværende konto er lagret i pokeAccounts før vi viser
+  if (state.username) save();
+  document.getElementById('accountSwitcherModal').classList.add('active');
+  renderAccountSwitcher();
+}
+function closeAccountSwitcher() {
+  document.getElementById('accountSwitcherModal').classList.remove('active');
+}
+function renderAccountSwitcher() {
+  const container = document.getElementById('accountSwitcherList');
+  if (!container) return;
+  const accounts = getLocalAccounts();
+  const names = Object.keys(accounts).sort();
+  if (names.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">No accounts saved on this device yet.</div>';
+    return;
+  }
+  container.innerHTML = names.map(name => {
+    let info = { coins: 0, totalCatches: 0, individuals: 0 };
+    try {
+      const s = JSON.parse(accounts[name]);
+      info.coins = s.coins || 0;
+      info.totalCatches = s.totalCatches || 0;
+      info.individuals = (s.individuals || []).length;
+    } catch {}
+    const isActive = name === state.username;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:12px;background:${isActive ? 'rgba(46,204,113,0.2)' : 'rgba(0,0,0,0.3)'};border:2px solid ${isActive ? '#2ecc71' : 'rgba(255,255,255,0.1)'};border-radius:10px;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div style="font-weight:bold;color:white;font-size:16px;">${isActive ? '★ ' : '👤 '}${name}${isActive ? ' <span style="font-size:11px;color:#2ecc71;">(active)</span>' : ''}</div>
+          <div style="font-size:12px;color:#aaa;margin-top:2px;">💰 ${info.coins.toLocaleString()} · 🎯 ${info.totalCatches} catches · 🎒 ${info.individuals} stored</div>
+        </div>
+        ${isActive ? '' : `<button onclick="switchToLocalAccount('${name.replace(/'/g, "\\'")}')" style="background:#3498db;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-weight:bold;">Switch</button>`}
+        <button onclick="removeLocalAccount('${name.replace(/'/g, "\\'")}')" style="background:#e74c3c;color:white;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;" title="Remove from this device">×</button>
+      </div>
+    `;
+  }).join('');
+}
+function showAddAccount() {
+  closeAccountSwitcher();
+  showLogin();
 }
 
 // ========== MY POKÉMON (individuelle) ==========
