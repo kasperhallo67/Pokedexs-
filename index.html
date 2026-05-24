@@ -8551,9 +8551,10 @@ const BOT_DIFFICULTIES = [
 // Spilleren angriper hardere enn boten i AI-battles
 // Skade skalerer med CP: jo bedre Pokémon, jo mer damage per klikk
 function playerAttackDmg(cp) { return Math.max(10, Math.round(cp / 10)); }
-const BOT_ATTACK_DMG = 1;     // bot gjør 1 skade per auto-attack
-// Bots er ekstra tøffe — mye mer HP enn spillerens Pokémon
-function botHp(cp) { return Math.max(50, Math.round(cp * 10)); }
+// Bots gjør nå mer skade — skalerer også med deres CP (farligere bots!)
+function botAttackDmg(cp) { return Math.max(3, Math.round(cp / 50)); }
+// Bot HP — middels tøff
+function botHp(cp) { return Math.max(30, Math.round(cp * 3)); }
 
 function getMyBattlePokemon() {
   // Returner alle Pokémon spilleren har fanget, sortert etter beste CP
@@ -8583,7 +8584,7 @@ function renderBattle() {
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:10px;">
       <strong>⚔️ Press SPACE (or tap the button) to attack!</strong>
-      <div style="font-size:12px;opacity:0.7;">⚠️ You can't hold the key — each tap = one hit. Bots have <strong>10× HP</strong> so they tank a lot of damage!</div>
+      <div style="font-size:12px;opacity:0.7;">⚠️ You can't hold the key — each tap = one hit. Stronger bots hit <strong>HARDER</strong>!</div>
     </div>
     <div style="text-align:center;color:#fff;">
       <label style="font-size:14px;">Choose bot opponent: </label>
@@ -8591,7 +8592,7 @@ function renderBattle() {
         ${BOT_DIFFICULTIES.map((b, i) => {
           const label = b.custom
             ? `${b.name} — choose CP yourself`
-            : `${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}, HP ×10 — tough!)`;
+            : `${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}, ~${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2/50)} dmg/hit)`;
           return `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${label}</option>`;
         }).join('')}
       </select>
@@ -8772,8 +8773,8 @@ function battleAttack() {
 
 function botAttack() {
   if (!battleGame || !battleGame.active) return;
-  // Bot gjør mindre skade (BOT_ATTACK_DMG per auto-attack)
-  const dmg = BOT_ATTACK_DMG;
+  // Bot-skade skalerer med dens egen CP — sterkere bots = farligere angrep
+  const dmg = botAttackDmg(battleGame.bot.cp);
   battleGame.myHp -= dmg;
   showBattleDmg('battlePlayer', dmg);
   const pImg = document.getElementById('battlePlayerImg');
