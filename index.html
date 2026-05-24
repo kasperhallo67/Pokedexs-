@@ -4324,8 +4324,9 @@ const BALLS = {
     price: 5000,
     odds: { common: 0, uncommon: 5, rare: 25, epic: 40, legendary: 29, ultimate: 1 },
     shinyChance: 0.5,
-    unlockPlaytimeMs: 3600000, // 1 time spilltid
-    desc: '⏰ Unlocked after 1h playtime · 1% ULTIMATE chance!'
+    unlockPlaytimeMs: 3600000, // 1 time spilltid før den låses opp
+    useCooldownMs: 3600000,    // 1 time mellom hver bruk
+    desc: '⏰ 1h cooldown · 1% ULTIMATE chance!'
   },
   poke: {
     name: 'Poké Ball',
@@ -4703,34 +4704,57 @@ setInterval(() => {
   updateVeteranCountdown();
 }, 10000);
 
-// Oppdater nedtelleren for Veteran Ball — vises bare hvis ennå ikke ulåst
+// Oppdater nedtelleren for Veteran Ball — viser unlock-progress eller cooldown
 function updateVeteranCountdown() {
   const el = document.getElementById('veteranCountdown');
   const timeEl = document.getElementById('veteranTimeLeft');
   if (!el || !timeEl) return;
   const veteran = (typeof BALLS !== 'undefined') ? BALLS.veteran : null;
-  if (!veteran || !veteran.unlockPlaytimeMs) { el.style.display = 'none'; return; }
-  const left = veteran.unlockPlaytimeMs - (state.playtimeMs || 0);
-  if (left <= 0) {
-    // Vis "unlocked" i 5 sek så skjul
-    el.style.background = 'linear-gradient(135deg,#2ecc71,#27ae60)';
-    el.style.borderColor = '#fff';
-    timeEl.textContent = '✓ UNLOCKED! Available in shop now';
-    setTimeout(() => { el.style.display = 'none'; }, 5000);
+  if (!veteran) { el.style.display = 'none'; return; }
+
+  // 1) Hvis ennå ikke ulåst (playtime < unlock-krav): vis unlock-progress
+  const unlockLeft = (veteran.unlockPlaytimeMs || 0) - (state.playtimeMs || 0);
+  if (unlockLeft > 0) {
+    el.style.display = 'block';
+    el.style.background = 'linear-gradient(135deg,#f39c12,#e67e22)';
+    const totalSec = Math.ceil(unlockLeft / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    let str = '';
+    if (h > 0) str += h + 'h ';
+    if (m > 0 || h > 0) str += m + 'm ';
+    str += s + 's';
+    const pct = ((state.playtimeMs || 0) / veteran.unlockPlaytimeMs * 100).toFixed(1);
+    el.innerHTML = `⏳ Veteran Ball unlocks in: <strong>${str}</strong> <span style="opacity:0.8;font-weight:normal;">(${pct}% done)</span>`;
     return;
   }
-  el.style.display = 'block';
-  // Format: Xh Ym Zs
-  const totalSec = Math.ceil(left / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  let str = '';
-  if (h > 0) str += h + 'h ';
-  if (m > 0 || h > 0) str += m + 'm ';
-  str += s + 's';
-  const pct = ((state.playtimeMs || 0) / veteran.unlockPlaytimeMs * 100).toFixed(1);
-  timeEl.innerHTML = `<strong>${str}</strong> <span style="opacity:0.8;font-weight:normal;">(${pct}% done)</span>`;
+
+  // 2) Hvis ulåst men på cooldown: vis cooldown
+  if (veteran.useCooldownMs && state.ballCooldowns && state.ballCooldowns.veteran) {
+    const cdLeft = (state.ballCooldowns.veteran + veteran.useCooldownMs) - Date.now();
+    if (cdLeft > 0) {
+      el.style.display = 'block';
+      el.style.background = 'linear-gradient(135deg,#9b59b6,#6a3a8a)';
+      const totalSec = Math.ceil(cdLeft / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      let str = '';
+      if (h > 0) str += h + 'h ';
+      if (m > 0 || h > 0) str += m + 'm ';
+      str += s + 's';
+      el.innerHTML = `⏳ Veteran Ball cooldown: <strong>${str}</strong> until next use`;
+      return;
+    }
+  }
+
+  // 3) Ulåst og klar til bruk: skjul (eller vis "Ready" kort)
+  if (el.style.display !== 'none') {
+    el.style.background = 'linear-gradient(135deg,#2ecc71,#27ae60)';
+    el.innerHTML = '✅ Veteran Ball ready to use!';
+    setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
 }
 
 // Rask oppdatering hvert sekund for sanntids-følelse
@@ -4901,6 +4925,18 @@ function throwBall() {
       return;
     }
   }
+  // Per-ball cooldown (f.eks. Veteran Ball: 1 time mellom hver bruk)
+  if (ball.useCooldownMs) {
+    if (!state.ballCooldowns) state.ballCooldowns = {};
+    const lastUse = state.ballCooldowns[state.selectedBall] || 0;
+    const cooldownLeft = (lastUse + ball.useCooldownMs) - now;
+    if (cooldownLeft > 0) {
+      const min = Math.floor(cooldownLeft / 60000);
+      const sec = Math.floor((cooldownLeft % 60000) / 1000);
+      alert(`⏳ ${ball.name} cooldown!\nWait ${min}m ${sec}s before using it again.`);
+      return;
+    }
+  }
   // Storage-sjekk: trenger plass til minst 1 Pokémon
   if (state.individuals.length >= state.storageMax) {
     alert(`📦 Storage full! ${state.individuals.length}/${state.storageMax}\n\nGo to "🎒 My Pokémon" to release some, or buy more storage slots.`);
@@ -4908,6 +4944,11 @@ function throwBall() {
   }
   if (state.selectedBall !== 'free') {
     state.inventory[state.selectedBall]--;
+  }
+  // Lagre tidspunktet for bruk (per-ball cooldown)
+  if (ball.useCooldownMs) {
+    if (!state.ballCooldowns) state.ballCooldowns = {};
+    state.ballCooldowns[state.selectedBall] = now;
   }
   state.lastBallUse = now;
   state.lastFreeUse = now; // bakoverkompatibilitet
