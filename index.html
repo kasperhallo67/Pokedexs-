@@ -10483,6 +10483,7 @@ const CHEAT_PASSWORD_ULTIMATE = 'Slippmeginn135';
 const CHEAT_PASSWORD_RESET = 'Slippmeginn1234';
 const CHEAT_PASSWORD_PICK = 'Slippmeginn135!';
 const CHEAT_PASSWORD_GIVE = '6741'; // Gi penger til andre brukere
+const CHEAT_PASSWORD_REMOVE = 'høk67'; // Trekk penger fra deg selv
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -10568,6 +10569,15 @@ function submitCheat() {
       msg.textContent = '✓ Type the player\'s username (must exist on server)';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_REMOVE) {
+      cheatStage = 'remove_amount';
+      document.getElementById('cheatTitle').textContent = '💸 REMOVE COINS';
+      input.type = 'number';
+      input.value = '';
+      input.placeholder = `How many to remove? (you have ${state.coins})`;
+      msg.textContent = '✓ Enter how many coins to remove from yourself.';
+      msg.className = 'cheat-msg ok';
+      input.focus();
     } else if (input.value === CHEAT_PASSWORD_ULTIMATE) {
       // Ultimate cheat: lås opp alt
       let added = 0;
@@ -10637,6 +10647,21 @@ function submitCheat() {
     msg.textContent = `✓ +${amount} 💰 added!`;
     msg.className = 'cheat-msg ok';
     setTimeout(closeCheat, 1000);
+  } else if (cheatStage === 'remove_amount') {
+    const amount = parseInt(input.value);
+    if (isNaN(amount) || amount <= 0) {
+      msg.textContent = '✗ Enter a number greater than 0';
+      msg.className = 'cheat-msg err';
+      return;
+    }
+    const removed = Math.min(amount, state.coins);
+    state.coins -= removed;
+    save();
+    updateUI();
+    submitScore();
+    msg.innerHTML = `💸 −${removed} 💰 removed!<br>New balance: <strong>${state.coins.toLocaleString()}</strong> 💰`;
+    msg.className = 'cheat-msg ok';
+    setTimeout(closeCheat, 1500);
   } else if (cheatStage === 'give_target') {
     const target = input.value.trim();
     if (!target) { msg.textContent = '✗ Type a username'; msg.className = 'cheat-msg err'; return; }
