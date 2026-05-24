@@ -4238,7 +4238,9 @@ if (state.lastCp === undefined) state.lastCp = 0;
 if (!state.individuals) state.individuals = [];
 if (state.storageMax === undefined) state.storageMax = 350;
 if (state.storagePurchases === undefined) state.storagePurchases = 0;
-if (state.candy === undefined) state.candy = 0;
+// Candy er nå per Pokémon-art: { pokeId: antall }
+// (selger du en Bulbasaur får du Bulbasaur-candy, ikke generisk)
+if (state.candy === undefined || typeof state.candy === 'number') state.candy = {};
 // buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
 if (state.buddyUid === undefined) state.buddyUid = null;
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -4729,7 +4731,11 @@ function renderBuddy() {
 function updateUI() {
   document.getElementById('coins').textContent = state.coins;
   const candyEl = document.getElementById('candyCount');
-  if (candyEl) candyEl.textContent = state.candy || 0;
+  if (candyEl) {
+    const total = state.candy && typeof state.candy === 'object'
+      ? Object.values(state.candy).reduce((s, n) => s + n, 0) : 0;
+    candyEl.textContent = total;
+  }
   document.getElementById('usernameDisplay').textContent = state.username || 'Sett brukernavn';
   renderBuddy();
   const ball = BALLS[state.selectedBall];
@@ -6936,10 +6942,11 @@ function releaseIndividual(uid) {
   // Slipp gir tilbake litt coins basert på CP + 1 candy 🍬
   const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
   const refund = Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
-  if (!confirm(`Sell ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nYou get: ${refund} 💰 + 1 🍬 candy`)) return;
+  if (!confirm(`Sell ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nYou get: ${refund} 💰 + 1 🍬 ${ind.name} Candy`)) return;
   state.individuals.splice(idx, 1);
   state.coins += refund;
-  state.candy = (state.candy || 0) + 1;
+  if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+  state.candy[ind.id] = (state.candy[ind.id] || 0) + 1;
   save(); updateUI();
   renderMyPokemons();
 }
@@ -6950,19 +6957,28 @@ function releaseAllWeak() {
   if (toRelease.length === 0) { alert('No Pokémon under CP ' + threshold + '.'); return; }
   if (!confirm(`Sell ${toRelease.length} Pokémon (all with CP < ${threshold})?\nYou get: coins + ${toRelease.length} 🍬 candy`)) return;
   let totalRefund = 0;
+  const candyBySpecies = {};
   for (const ind of toRelease) {
     const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
     totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+    candyBySpecies[ind.id] = (candyBySpecies[ind.id] || 0) + 1;
   }
   const releasedCount = toRelease.length;
   state.individuals = state.individuals.filter(i => !(i.cp < threshold && !i.isShiny && i.uid !== state.buddyUid));
   state.coins += totalRefund;
-  state.candy = (state.candy || 0) + releasedCount;
-  alert(`Sold ${releasedCount} Pokémon. Got ${totalRefund} 💰 and ${releasedCount} 🍬 candy!`);
+  if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+  const candyLines = [];
+  for (const [pokeIdStr, n] of Object.entries(candyBySpecies)) {
+    const pokeId = parseInt(pokeIdStr);
+    state.candy[pokeId] = (state.candy[pokeId] || 0) + n;
+    const poke = POKEMONS.find(p => p.id === pokeId);
+    candyLines.push(`${n}× ${poke ? poke.name : '#' + pokeId}`);
+  }
+  alert(`Sold ${releasedCount} Pokémon!\n💰 +${totalRefund} coins\n🍬 Candy gained: ${candyLines.join(', ')}`);
   save(); updateUI();
   renderMyPokemons();
 }
-// Upgrade en individuell Pokémon med candy
+// Upgrade en individuell Pokémon med art-spesifikk candy
 function upgradeIndividual(uid) {
   const ind = state.individuals.find(i => i.uid === uid);
   if (!ind) return;
@@ -6970,13 +6986,14 @@ function upgradeIndividual(uid) {
   const maxCp = Math.round(range.max * 1.5); // Kan oppgradere opp til 50% over rarity-max
   if (ind.cp >= maxCp) { alert(`${ind.name} is already at max CP (${maxCp})!`); return; }
   const cost = 3; // 3 candy per upgrade
-  if ((state.candy || 0) < cost) { alert(`Need ${cost} 🍬 candy. You have ${state.candy || 0}.`); return; }
+  if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+  const have = state.candy[ind.id] || 0;
+  if (have < cost) { alert(`Need ${cost} 🍬 ${ind.name} Candy. You have ${have}.\nSell more ${ind.name} to get more candy!`); return; }
   // +10% CP per oppgradering (minst +5)
   const boost = Math.max(5, Math.round(ind.cp * 0.1));
   const newCp = Math.min(maxCp, ind.cp + boost);
-  state.candy -= cost;
+  state.candy[ind.id] -= cost;
   ind.cp = newCp;
-  // Oppdater bestCp hvis ny CP er bedre
   if (!state.bestCp[ind.id] || newCp > state.bestCp[ind.id]) state.bestCp[ind.id] = newCp;
   save(); updateUI();
   renderMyPokemons();
@@ -7010,16 +7027,21 @@ function renderMyPokemons() {
   else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
   else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
+  // Total candy = sum av alle art-spesifikke candy
+  const totalCandy = state.candy && typeof state.candy === 'object'
+    ? Object.values(state.candy).reduce((s, n) => s + n, 0) : 0;
+  const candySpecies = state.candy && typeof state.candy === 'object'
+    ? Object.keys(state.candy).filter(k => state.candy[k] > 0).length : 0;
   content.innerHTML = `
     <div class="my-poke-header">
       <div class="my-poke-count ${countClass}">📦 ${count} / ${max}</div>
-      <div style="font-size:18px;font-weight:bold;color:#ffb3e6;text-shadow:0 0 6px #f3c;">🍬 ${state.candy || 0} candy</div>
+      <div style="font-size:16px;font-weight:bold;color:#ffb3e6;text-shadow:0 0 6px #f3c;" title="Total candy across all species">🍬 ${totalCandy} candy (${candySpecies} species)</div>
       <div class="my-poke-storage-bar"><div class="my-poke-storage-fill ${fillClass}" style="width:${Math.min(100, pct)}%;"></div></div>
       <button class="refresh-btn" style="background:#27ae60;" onclick="buyStorage()">💰 Buy +50 slots (${cost})</button>
       <button class="refresh-btn" style="background:#e74c3c;" onclick="releaseAllWeak()">🗑️ Sell weak (by CP)</button>
     </div>
     <div style="background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12px;color:#fff;">
-      💡 <strong>Sell Pokémon</strong> for coins + 🍬 candy. <strong>Use candy</strong> to upgrade CP (3 🍬 = +10% CP). <strong>Set buddy</strong> to make a Pokémon follow you.
+      💡 <strong>Sell a Bulbasaur</strong> → get <strong>1 Bulbasaur Candy 🍬</strong>. Each species has its own candy. <strong>3 candy = +10% CP</strong> upgrade for that specific Pokémon.
     </div>
     <div class="my-poke-sort">
       <button class="${myPokemonSort==='cp' ? 'active' : ''}" onclick="setMyPokeSort('cp')">⚔️ CP</button>
@@ -7043,7 +7065,7 @@ function renderMyPokemons() {
               <div style="margin:3px 0;">${typeBadgeHtml(type, 10)}</div>
               <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
               ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
-              <button class="release-btn" style="background:#9b59b6;" onclick="upgradeIndividual('${ind.uid}')" title="Upgrade CP with 3 candy">🍬 Upgrade (3)</button>
+              <button class="release-btn" style="background:#9b59b6;" onclick="upgradeIndividual('${ind.uid}')" title="Upgrade CP using ${ind.name} Candy (3 needed)">🍬 ${(state.candy && state.candy[ind.id]) || 0}/3 Upgrade</button>
               <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
               <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
             </div>
@@ -9849,7 +9871,7 @@ function submitCheat() {
       state.individuals = [];
       state.storageMax = 350;
       state.storagePurchases = 0;
-      state.candy = 0;
+      state.candy = {};
       state.buddyUid = null;
       state.inventory = {};
       for (const key of Object.keys(BALLS)) {
