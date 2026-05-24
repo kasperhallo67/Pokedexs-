@@ -7349,10 +7349,11 @@ function renderMines() {
       <button class="quick-bet" onclick="setBet('minesBet', 10000)">10k</button>
       <label>Mines:
         <select id="minesCount">
-          <option value="3">3 (easy)</option>
-          <option value="5" selected>5 (medium)</option>
-          <option value="10">10 (hard)</option>
-          <option value="15">15 (insane)</option>
+          ${Array.from({length: 24}, (_, i) => {
+            const n = i + 1;
+            const label = n === 1 ? ' (easiest)' : n === 3 ? ' (easy)' : n === 5 ? ' (medium)' : n === 10 ? ' (hard)' : n === 15 ? ' (insane)' : n === 24 ? ' (1 gem only!)' : '';
+            return `<option value="${n}"${n === 5 ? ' selected' : ''}>${n}${label}</option>`;
+          }).join('')}
         </select>
       </label>
       <button class="casino-btn" onclick="startMinesGame()">▶️ Start</button>
@@ -7365,7 +7366,10 @@ function renderMines() {
         <div class="info-row"><span>Gems found:</span><span id="minesFound">0</span></div>
         <div class="mult-display" id="minesMult">1.00x</div>
         <div class="info-row" style="font-size:18px;"><span>Potential:</span><strong id="minesPay" style="color:gold;">0 💰</strong></div>
+        <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next safe chance:</span><span id="minesNextOdds">—</span></div>
+        <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next multiplier:</span><span id="minesNextMult">—</span></div>
         <button class="casino-btn" id="cashoutBtn" onclick="cashOutMines()" disabled style="background:#2ecc71;">💰 Cash out</button>
+        <div style="font-size:11px;opacity:0.6;text-align:center;margin-top:8px;">1% house edge · provably random</div>
       </div>
     </div>
     <div class="casino-result" id="minesResult"></div>
@@ -7419,11 +7423,38 @@ function renderMinesGrid() {
 }
 
 function calcMinesMultiplier(safeRevealed, mineCount) {
-  let mult = 0.97; // 3% house edge
+  // Ekte Mines (Stake-style): 1% house edge
+  // mult = (1 - edge) * C(25, picks) / C(25-mines, picks)
+  let mult = 0.99;
   for (let i = 0; i < safeRevealed; i++) {
     mult *= (25 - i) / (25 - mineCount - i);
   }
   return mult;
+}
+
+function updateMinesNextPreview() {
+  const nextOddsEl = document.getElementById('minesNextOdds');
+  const nextMultEl = document.getElementById('minesNextMult');
+  if (!nextOddsEl || !nextMultEl) return;
+  if (!minesGame || minesGame.gameOver) {
+    nextOddsEl.textContent = '—';
+    nextMultEl.textContent = '—';
+    return;
+  }
+  const safe = minesGame.revealed.size;
+  const tilesLeft = 25 - safe;
+  const safeLeft = 25 - minesGame.mineCount - safe;
+  if (safeLeft <= 0 || tilesLeft <= 0) {
+    nextOddsEl.textContent = '—';
+    nextMultEl.textContent = 'MAX';
+    return;
+  }
+  const pct = (safeLeft / tilesLeft) * 100;
+  nextOddsEl.textContent = pct.toFixed(1) + '%';
+  // Fargekoding etter risiko
+  nextOddsEl.style.color = pct >= 70 ? '#2ecc71' : pct >= 40 ? '#f39c12' : '#e74c3c';
+  const nextMult = calcMinesMultiplier(safe + 1, minesGame.mineCount);
+  nextMultEl.textContent = nextMult.toFixed(2) + 'x';
 }
 
 function revealMineTile(idx) {
@@ -7548,6 +7579,7 @@ function updateMinesInfo() {
   document.getElementById('minesFound').textContent = minesGame.revealed.size;
   document.getElementById('minesMult').textContent = minesGame.multiplier.toFixed(2) + 'x';
   document.getElementById('minesPay').textContent = Math.round(minesGame.bet * minesGame.multiplier) + ' 💰';
+  updateMinesNextPreview();
 }
 
 function cashOutMines() {
