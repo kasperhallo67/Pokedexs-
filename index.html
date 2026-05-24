@@ -417,41 +417,188 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 6px;
-    background: rgba(0,0,0,0.4);
-    padding: 15px;
-    border-radius: 12px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(80,50,20,0.3), transparent 50%),
+      radial-gradient(circle at 70% 80%, rgba(60,40,15,0.3), transparent 50%),
+      linear-gradient(135deg, #2c1810, #1a0f08);
+    padding: 18px;
+    border-radius: 14px;
     min-width: 320px;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
   }
   .mine-tile {
-    width: 55px;
-    height: 55px;
-    background: linear-gradient(135deg, #3498db, #2c3e50);
-    border-radius: 8px;
+    width: 58px;
+    height: 58px;
+    background:
+      radial-gradient(circle at 30% 25%, #8b6f47, transparent 50%),
+      radial-gradient(circle at 70% 75%, #4a3520, transparent 50%),
+      linear-gradient(135deg, #6b4d2e, #3d2817);
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
-    transition: all 0.15s;
-    border: 2px solid rgba(255,255,255,0.1);
+    font-size: 30px;
+    transition: transform 0.12s, filter 0.12s;
+    border: 1px solid #2a1a0d;
+    box-shadow:
+      inset 1px 1px 2px rgba(255,200,140,0.25),
+      inset -1px -1px 2px rgba(0,0,0,0.6),
+      0 3px 4px rgba(0,0,0,0.5);
     user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .mine-tile::before {
+    /* små "stein-flekker" i jorden */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle 2px at 15% 30%, rgba(0,0,0,0.4), transparent),
+      radial-gradient(circle 1.5px at 75% 20%, rgba(255,220,180,0.3), transparent),
+      radial-gradient(circle 1px at 40% 70%, rgba(0,0,0,0.35), transparent),
+      radial-gradient(circle 2px at 85% 80%, rgba(0,0,0,0.3), transparent);
+    pointer-events: none;
   }
   .mine-tile:hover:not(.revealed) {
-    background: linear-gradient(135deg, #5dade2, #34495e);
-    transform: scale(1.05);
+    filter: brightness(1.2);
+    transform: translateY(-2px);
+    box-shadow:
+      inset 1px 1px 2px rgba(255,200,140,0.3),
+      inset -1px -1px 2px rgba(0,0,0,0.6),
+      0 6px 8px rgba(0,0,0,0.6);
+  }
+  .mine-tile:active:not(.revealed) {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.7);
   }
   .mine-tile.revealed { cursor: default; }
-  .mine-tile.gem  { background: linear-gradient(135deg, #27ae60, #145a32); animation: gemPop 0.3s ease-out; }
-  .mine-tile.mine { background: linear-gradient(135deg, #e74c3c, #641e16); animation: minePop 0.4s ease-out; }
+  .mine-tile.gem {
+    background:
+      radial-gradient(circle at center, #ffffff 0%, #b9f6ca 25%, #2e7d32 70%, #145a32 100%);
+    animation: gemPop 0.45s cubic-bezier(.5,1.6,.4,1);
+    box-shadow:
+      inset 0 0 12px rgba(255,255,255,0.5),
+      0 0 18px rgba(46,204,113,0.7),
+      0 0 35px rgba(46,204,113,0.3);
+  }
+  .mine-tile.gem::before { display: none; }
+  .mine-tile.mine {
+    background:
+      radial-gradient(circle at center, #000 0%, #2a0808 30%, #5d1a0f 60%, #2a0a05 100%);
+    animation: minePop 0.5s ease-out;
+    box-shadow:
+      inset 0 0 20px #000,
+      0 0 25px #ff4500,
+      0 0 50px rgba(255,69,0,0.6);
+  }
+  .mine-tile.mine::before { display: none; }
+  .mine-tile.digging { animation: dig 0.25s ease-out; }
+  @keyframes dig {
+    0%   { transform: translateY(0) rotateX(0); }
+    50%  { transform: translateY(2px) rotateX(20deg); filter: brightness(0.7); }
+    100% { transform: translateY(0) rotateX(0); }
+  }
   @keyframes gemPop {
-    0%   { transform: scale(0.5); }
-    60%  { transform: scale(1.2); }
-    100% { transform: scale(1); }
+    0%   { transform: scale(0.3) rotate(-20deg); filter: brightness(2); }
+    50%  { transform: scale(1.3) rotate(10deg); filter: brightness(1.5); }
+    100% { transform: scale(1) rotate(0); filter: brightness(1); }
   }
   @keyframes minePop {
-    0%   { transform: scale(0.3) rotate(-30deg); }
-    40%  { transform: scale(1.4) rotate(10deg); }
-    100% { transform: scale(1) rotate(0); }
+    0%   { transform: scale(0.3) rotate(-30deg); filter: brightness(3); }
+    20%  { transform: scale(1.6) rotate(15deg); filter: brightness(2); }
+    50%  { transform: scale(1.1) rotate(-5deg); filter: brightness(1.3); }
+    100% { transform: scale(1) rotate(0); filter: brightness(0.9); }
+  }
+  /* SKJELVING når bombe smeller */
+  @keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-6px, -3px) rotate(-0.5deg); }
+    20% { transform: translate(7px, 2px) rotate(0.5deg); }
+    30% { transform: translate(-5px, 4px) rotate(-0.3deg); }
+    40% { transform: translate(6px, -2px) rotate(0.4deg); }
+    50% { transform: translate(-4px, 3px) rotate(-0.2deg); }
+    60% { transform: translate(3px, -3px) rotate(0.2deg); }
+    70% { transform: translate(-2px, 2px); }
+    80% { transform: translate(2px, -1px); }
+    90% { transform: translate(-1px, 1px); }
+  }
+  .mines-grid.shake { animation: screenShake 0.6s; }
+  /* SJOKKBØLGE */
+  .explosion-shockwave {
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 4px solid #ff6b1a;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: shockwave 0.8s ease-out forwards;
+    z-index: 5;
+    transform: translate(-50%, -50%);
+  }
+  @keyframes shockwave {
+    0%   { width: 20px; height: 20px; opacity: 1; border-width: 5px; }
+    100% { width: 400px; height: 400px; opacity: 0; border-width: 1px; }
+  }
+  /* GNISTER */
+  .mine-spark {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff, #ffeb3b 40%, #ff6b1a 80%);
+    box-shadow: 0 0 10px #ffeb3b, 0 0 20px #ff6b1a;
+    pointer-events: none;
+    animation: sparkFly 0.9s ease-out forwards;
+    z-index: 6;
+  }
+  @keyframes sparkFly {
+    0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0.2); opacity: 0; }
+  }
+  /* DIAMANT-GLITTER */
+  .gem-sparkle {
+    position: absolute;
+    color: #fff;
+    text-shadow: 0 0 6px #b9f6ca, 0 0 12px #2ecc71;
+    font-size: 14px;
+    pointer-events: none;
+    animation: gemSparkle 1s ease-out forwards;
+    z-index: 6;
+  }
+  @keyframes gemSparkle {
+    0%   { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    50%  { transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(1.2) rotate(180deg); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy) - 20px)) scale(0); opacity: 0; }
+  }
+  /* RØYK etter eksplosjon */
+  .mine-smoke {
+    position: absolute;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(80,80,80,0.7), rgba(40,40,40,0));
+    pointer-events: none;
+    animation: smokeRise 1.6s ease-out forwards;
+    z-index: 4;
+  }
+  @keyframes smokeRise {
+    0%   { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+    100% { transform: translate(calc(-50% + var(--sx)), calc(-50% - 80px)) scale(2.5); opacity: 0; }
+  }
+  /* RØD GLØDE-FLASH når bombe smeller */
+  .mines-grid.boom-flash::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,100,0,0.6), transparent 70%);
+    pointer-events: none;
+    animation: boomFlash 0.5s ease-out forwards;
+    z-index: 3;
+  }
+  @keyframes boomFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
   }
   .mines-info {
     background: rgba(0,0,0,0.4);
@@ -7281,21 +7428,118 @@ function calcMinesMultiplier(safeRevealed, mineCount) {
 
 function revealMineTile(idx) {
   if (!minesGame || minesGame.gameOver || minesGame.revealed.has(idx)) return;
-  minesGame.revealed.add(idx);
-  if (minesGame.mines.has(idx)) {
-    // BOOM
-    minesGame.gameOver = true;
-    renderMinesGrid();
-    const resultEl = document.getElementById('minesResult');
-    resultEl.className = 'casino-result lose';
-    resultEl.innerHTML = `💥 BOOM! You lost <strong>${minesGame.bet}💰</strong>`;
-    document.getElementById('cashoutBtn').disabled = true;
-  } else {
-    const safeCount = minesGame.revealed.size;
-    minesGame.multiplier = calcMinesMultiplier(safeCount, minesGame.mineCount);
-    renderMinesGrid();
-    updateMinesInfo();
-    document.getElementById('cashoutBtn').disabled = false;
+  const grid = document.getElementById('minesGrid');
+  const tileEl = grid.children[idx];
+  // "Graving"-animasjon før innholdet vises
+  if (tileEl) tileEl.classList.add('digging');
+
+  setTimeout(() => {
+    minesGame.revealed.add(idx);
+    if (minesGame.mines.has(idx)) {
+      // Liten "fuse"-pause før eksplosjon (drama)
+      if (tileEl) {
+        tileEl.textContent = '🧨';
+        tileEl.style.background = 'radial-gradient(circle, #ffeb3b, #ff6b1a 60%, #2a0a05)';
+      }
+      setTimeout(() => {
+        triggerMineExplosion(idx);
+        minesGame.gameOver = true;
+        renderMinesGrid();
+        const resultEl = document.getElementById('minesResult');
+        resultEl.className = 'casino-result lose';
+        resultEl.innerHTML = `💥 BOOM! You lost <strong>${minesGame.bet}💰</strong>`;
+        document.getElementById('cashoutBtn').disabled = true;
+      }, 280);
+    } else {
+      const safeCount = minesGame.revealed.size;
+      minesGame.multiplier = calcMinesMultiplier(safeCount, minesGame.mineCount);
+      renderMinesGrid();
+      updateMinesInfo();
+      document.getElementById('cashoutBtn').disabled = false;
+      // Diamant-glitter rundt fanget tile
+      spawnGemSparkles(idx);
+    }
+  }, 120);
+}
+
+function triggerMineExplosion(idx) {
+  const grid = document.getElementById('minesGrid');
+  if (!grid) return;
+  grid.classList.add('shake', 'boom-flash');
+  setTimeout(() => grid.classList.remove('shake', 'boom-flash'), 700);
+
+  // Posisjon for sentrum av tile (relativt til grid)
+  const tile = grid.children[idx];
+  if (!tile) return;
+  const tRect = tile.getBoundingClientRect();
+  const gRect = grid.getBoundingClientRect();
+  const cx = tRect.left - gRect.left + tRect.width / 2;
+  const cy = tRect.top - gRect.top + tRect.height / 2;
+
+  // Sjokkbølge-ringer (3 stk forskjøvet)
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => {
+      const wave = document.createElement('div');
+      wave.className = 'explosion-shockwave';
+      wave.style.left = cx + 'px';
+      wave.style.top = cy + 'px';
+      wave.style.borderColor = i === 0 ? '#fff' : i === 1 ? '#ffeb3b' : '#ff6b1a';
+      grid.appendChild(wave);
+      setTimeout(() => wave.remove(), 850);
+    }, i * 90);
+  }
+
+  // Gnister i alle retninger
+  for (let i = 0; i < 22; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'mine-spark';
+    spark.style.left = cx + 'px';
+    spark.style.top = cy + 'px';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 140;
+    spark.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+    spark.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+    spark.style.width = spark.style.height = (3 + Math.random() * 5) + 'px';
+    grid.appendChild(spark);
+    setTimeout(() => spark.remove(), 950);
+  }
+
+  // Røyk som stiger
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const smoke = document.createElement('div');
+      smoke.className = 'mine-smoke';
+      smoke.style.left = cx + 'px';
+      smoke.style.top = cy + 'px';
+      smoke.style.setProperty('--sx', (Math.random() * 60 - 30) + 'px');
+      grid.appendChild(smoke);
+      setTimeout(() => smoke.remove(), 1700);
+    }, i * 80);
+  }
+}
+
+function spawnGemSparkles(idx) {
+  const grid = document.getElementById('minesGrid');
+  if (!grid) return;
+  const tile = grid.children[idx];
+  if (!tile) return;
+  const tRect = tile.getBoundingClientRect();
+  const gRect = grid.getBoundingClientRect();
+  const cx = tRect.left - gRect.left + tRect.width / 2;
+  const cy = tRect.top - gRect.top + tRect.height / 2;
+
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('div');
+    s.className = 'gem-sparkle';
+    s.textContent = ['✦', '✧', '⋆', '✩'][Math.floor(Math.random() * 4)];
+    s.style.left = cx + 'px';
+    s.style.top = cy + 'px';
+    const angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.5;
+    const dist = 25 + Math.random() * 30;
+    s.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+    s.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+    grid.appendChild(s);
+    setTimeout(() => s.remove(), 1050);
   }
 }
 
