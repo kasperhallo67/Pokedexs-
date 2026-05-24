@@ -2967,7 +2967,7 @@
 
 <div class="topbar">
   <h1>🎮 Pokedexs</h1>
-  <div class="coins">💰 <span id="coins">50</span></div>
+  <div class="coins">💰 <span id="coins">50</span> · 🍬 <span id="candyCount">0</span></div>
   <div class="menu-btns">
     <button class="menu-btn" onclick="openModal('shop')">🛒 Shop</button>
     <button class="menu-btn" onclick="openModal('pokedex')">📖 Pokédex</button>
@@ -3190,6 +3190,7 @@
     <div class="rocket-logo">R</div>
     <div class="rocket-title">👹 Team Rocket attacks!</div>
     <div class="rocket-msg">Answer the math correctly — or lose a Pokémon!</div>
+    <div id="rocketTargetPreview" style="display:none;background:rgba(255,0,0,0.2);border:2px dashed #ff5252;border-radius:10px;padding:8px;margin-bottom:10px;text-align:center;"></div>
     <div class="rocket-question" id="rocketQuestion">? + ? = ?</div>
     <input type="number" class="rocket-input" id="rocketInput" autocomplete="off">
     <div class="rocket-timer-bar"><div class="rocket-timer-fill" id="rocketTimerFill" style="width:100%"></div></div>
@@ -3966,6 +3967,64 @@ function rollCp(rarity, isShiny) {
   return Math.max(1, cp);
 }
 
+// ========== POKÉMON TYPES ==========
+const POKE_TYPES = ['Normal','Fire','Water','Grass','Electric','Ice','Fighting','Poison','Ground','Flying','Psychic','Bug','Rock','Ghost','Dragon','Dark','Steel','Fairy'];
+const TYPE_COLORS = {
+  Normal: '#a8a878', Fire: '#f08030', Water: '#6890f0', Grass: '#78c850',
+  Electric: '#f8d030', Ice: '#98d8d8', Fighting: '#c03028', Poison: '#a040a0',
+  Ground: '#e0c068', Flying: '#a890f0', Psychic: '#f85888', Bug: '#a8b820',
+  Rock: '#b8a038', Ghost: '#705898', Dragon: '#7038f8', Dark: '#705848',
+  Steel: '#b8b8d0', Fairy: '#ee99ac'
+};
+const TYPE_EMOJI = {
+  Normal: '⚪', Fire: '🔥', Water: '💧', Grass: '🌿', Electric: '⚡', Ice: '❄️',
+  Fighting: '👊', Poison: '☠️', Ground: '🌍', Flying: '🪶', Psychic: '🔮', Bug: '🐛',
+  Rock: '🪨', Ghost: '👻', Dragon: '🐉', Dark: '🌑', Steel: '⚙️', Fairy: '🧚'
+};
+// Hardkoded for gen 1 (1-151). Andre faller tilbake til deterministisk hash.
+const POKE_TYPE_MAP = {
+  1:'Grass',2:'Grass',3:'Grass',4:'Fire',5:'Fire',6:'Fire',7:'Water',8:'Water',9:'Water',
+  10:'Bug',11:'Bug',12:'Bug',13:'Bug',14:'Bug',15:'Bug',16:'Flying',17:'Flying',18:'Flying',
+  19:'Normal',20:'Normal',21:'Flying',22:'Flying',23:'Poison',24:'Poison',25:'Electric',26:'Electric',
+  27:'Ground',28:'Ground',29:'Poison',30:'Poison',31:'Poison',32:'Poison',33:'Poison',34:'Poison',
+  35:'Fairy',36:'Fairy',37:'Fire',38:'Fire',39:'Fairy',40:'Fairy',41:'Poison',42:'Poison',
+  43:'Grass',44:'Grass',45:'Grass',46:'Bug',47:'Bug',48:'Bug',49:'Bug',50:'Ground',51:'Ground',
+  52:'Normal',53:'Normal',54:'Water',55:'Water',56:'Fighting',57:'Fighting',58:'Fire',59:'Fire',
+  60:'Water',61:'Water',62:'Water',63:'Psychic',64:'Psychic',65:'Psychic',66:'Fighting',67:'Fighting',
+  68:'Fighting',69:'Grass',70:'Grass',71:'Grass',72:'Water',73:'Water',74:'Rock',75:'Rock',
+  76:'Rock',77:'Fire',78:'Fire',79:'Water',80:'Water',81:'Electric',82:'Electric',83:'Flying',
+  84:'Flying',85:'Flying',86:'Water',87:'Water',88:'Poison',89:'Poison',90:'Water',91:'Water',
+  92:'Ghost',93:'Ghost',94:'Ghost',95:'Rock',96:'Psychic',97:'Psychic',98:'Water',99:'Water',
+  100:'Electric',101:'Electric',102:'Grass',103:'Grass',104:'Ground',105:'Ground',106:'Fighting',
+  107:'Fighting',108:'Normal',109:'Poison',110:'Poison',111:'Rock',112:'Rock',113:'Normal',
+  114:'Grass',115:'Normal',116:'Water',117:'Water',118:'Water',119:'Water',120:'Water',121:'Water',
+  122:'Psychic',123:'Bug',124:'Ice',125:'Electric',126:'Fire',127:'Bug',128:'Normal',129:'Water',
+  130:'Water',131:'Water',132:'Normal',133:'Normal',134:'Water',135:'Electric',136:'Fire',
+  137:'Normal',138:'Rock',139:'Rock',140:'Rock',141:'Rock',142:'Rock',143:'Normal',
+  144:'Ice',145:'Electric',146:'Fire',147:'Dragon',148:'Dragon',149:'Dragon',150:'Psychic',151:'Psychic',
+  // Noen populære fra senere gens
+  152:'Grass',155:'Fire',158:'Water',172:'Electric',173:'Fairy',175:'Fairy',196:'Psychic',197:'Dark',
+  249:'Psychic',250:'Fire',252:'Grass',255:'Fire',258:'Water',280:'Psychic',282:'Psychic',
+  302:'Dark',359:'Dark',380:'Dragon',381:'Dragon',384:'Dragon',385:'Steel',
+  387:'Grass',390:'Fire',393:'Water',445:'Ground',448:'Fighting',
+  483:'Steel',484:'Water',487:'Ghost',491:'Dark',493:'Normal',494:'Psychic',
+  495:'Grass',498:'Fire',501:'Water',570:'Dark',
+  642:'Electric',643:'Fire',644:'Dark',
+  649:'Bug',650:'Grass',653:'Fire',656:'Water',658:'Water',
+  // Custom
+  10001:'Electric',10002:'Fighting'  // duo + ultimate
+};
+function getPokeType(id) {
+  if (POKE_TYPE_MAP[id]) return POKE_TYPE_MAP[id];
+  // Deterministisk fallback: hash ID til en av 18 typer
+  return POKE_TYPES[id % POKE_TYPES.length];
+}
+function typeBadgeHtml(type, size = 11) {
+  const color = TYPE_COLORS[type] || '#888';
+  const emoji = TYPE_EMOJI[type] || '';
+  return `<span style="background:${color};color:white;font-size:${size}px;padding:2px 6px;border-radius:8px;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${emoji} ${type}</span>`;
+}
+
 function cpPriceMultiplier(cp, rarity) {
   // Pris skalerer lineært med CP rundt midten av området.
   // CP under midten -> mindre enn base, over midten -> mer enn base.
@@ -4135,6 +4194,13 @@ if (state.lastCp === undefined) state.lastCp = 0;
 if (!state.individuals) state.individuals = [];
 if (state.storageMax === undefined) state.storageMax = 350;
 if (state.storagePurchases === undefined) state.storagePurchases = 0;
+if (state.candy === undefined) state.candy = 0;
+// buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
+if (state.buddyUid === undefined) state.buddyUid = null;
+// Backfill type for individer som ble lagret før types ble lagt til
+for (const ind of state.individuals) {
+  if (!ind.type) ind.type = (typeof getPokeType === 'function') ? getPokeType(ind.id) : 'Normal';
+}
 let __individualUidCounter = state.individuals.length > 0
   ? Math.max(...state.individuals.map(i => parseInt(i.uid?.split('_')[1] || 0) || 0)) + 1
   : 1;
@@ -4156,6 +4222,7 @@ if (!state.individualsMigrated && state.individuals.length === 0 && state.caught
         id: pokeId,
         rarity: poke.rarity,
         name: poke.name,
+        type: getPokeType(pokeId),
         cp: rollCp(poke.rarity, isShinyOne),
         isShiny: isShinyOne,
         eventType: null,
@@ -4346,6 +4413,7 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
       id: pokemon.id,
       rarity: rarity,
       name: pokemon.name,
+      type: getPokeType(pokemon.id),
       cp: cp,
       isShiny: isShiny,
       eventType: null, // settes etter at eventType er beregnet
@@ -4583,8 +4651,14 @@ function renderBuddy() {
   const isShiny = !!state.shinies[poke.id];
   area.className = 'buddy-area ' + pose;
   area.style.display = 'block';
-  document.getElementById('buddyImg').src = isShiny ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id);
-  document.getElementById('buddyName').textContent = (isShiny ? '✨ ' : '') + poke.name;
+  // Hvis spesifikk individ er valgt, bruk dens CP og shiny-status
+  const buddyInd = state.buddyUid ? state.individuals.find(i => i.uid === state.buddyUid) : null;
+  const useShiny = buddyInd ? buddyInd.isShiny : isShiny;
+  const buddyCp = buddyInd ? buddyInd.cp : (state.bestCp[poke.id] || 0);
+  const buddyType = buddyInd ? (buddyInd.type || getPokeType(poke.id)) : getPokeType(poke.id);
+  document.getElementById('buddyImg').src = useShiny ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id);
+  const cpText = buddyCp > 0 ? ` ⚔️${buddyCp}` : '';
+  document.getElementById('buddyName').innerHTML = (useShiny ? '✨ ' : '') + poke.name + `<br><span style="font-size:11px;color:#7df;">CP ${buddyCp}</span> ${typeBadgeHtml(buddyType, 9)}`;
 
   // Stjerner og fremgang
   const catches = state.buddyCatches[poke.id] || 0;
@@ -4610,6 +4684,8 @@ function renderBuddy() {
 
 function updateUI() {
   document.getElementById('coins').textContent = state.coins;
+  const candyEl = document.getElementById('candyCount');
+  if (candyEl) candyEl.textContent = state.candy || 0;
   document.getElementById('usernameDisplay').textContent = state.username || 'Sett brukernavn';
   renderBuddy();
   const ball = BALLS[state.selectedBall];
@@ -5408,11 +5484,14 @@ function filterOfferList() {
   const options = [];
   myPokemon.forEach(p => {
     if (search && !p.name.toLowerCase().includes(search)) return;
+    const bestCp = state.bestCp && state.bestCp[p.id] ? state.bestCp[p.id] : 0;
+    const cpStr = bestCp > 0 ? ` ⚔️${bestCp}` : '';
+    const type = getPokeType(p.id);
     if ((state.caught[p.id] || 0) > 0) {
-      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} (x${state.caught[p.id]})</option>`);
+      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} [${type}]${cpStr} (x${state.caught[p.id]})</option>`);
     }
     if ((state.shinies[p.id] || 0) > 0) {
-      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY (x${state.shinies[p.id]})</option>`);
+      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY [${type}]${cpStr} (x${state.shinies[p.id]})</option>`);
     }
   });
   select.innerHTML = options.length ? options.join('') : '<option disabled>No matches</option>';
@@ -5452,11 +5531,12 @@ function filterWantList() {
   const options = [];
   theirPokemon.forEach(p => {
     if (search && !p.name.toLowerCase().includes(search)) return;
+    const type = getPokeType(p.id);
     if ((caught[p.id] || 0) > 0) {
-      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} (they have ${caught[p.id]})</option>`);
+      options.push(`<option value="${p.id}|normal">${escapeHtml(p.name)} [${type}] (they have ${caught[p.id]})</option>`);
     }
     if ((shinies[p.id] || 0) > 0) {
-      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY (they have ${shinies[p.id]})</option>`);
+      options.push(`<option value="${p.id}|shiny">✨ ${escapeHtml(p.name)} SHINY [${type}] (they have ${shinies[p.id]})</option>`);
     }
   });
   select.innerHTML = options.length ? options.join('') : '<option disabled>They have no Pokémon</option>';
@@ -6807,29 +6887,62 @@ function releaseIndividual(uid) {
   const idx = state.individuals.findIndex(i => i.uid === uid);
   if (idx === -1) return;
   const ind = state.individuals[idx];
-  // Slipp gir tilbake litt coins basert på CP
+  // Beskytt buddy
+  if (state.buddyUid === uid) { alert('Cannot release your active buddy! Set a different buddy first.'); return; }
+  // Slipp gir tilbake litt coins basert på CP + 1 candy 🍬
   const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
   const refund = Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
-  if (!confirm(`Slipp ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nDu får ${refund} 💰 tilbake.`)) return;
+  if (!confirm(`Sell ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nYou get: ${refund} 💰 + 1 🍬 candy`)) return;
   state.individuals.splice(idx, 1);
   state.coins += refund;
+  state.candy = (state.candy || 0) + 1;
   save(); updateUI();
   renderMyPokemons();
 }
 function releaseAllWeak() {
-  const threshold = parseInt(prompt('Slipp alle med CP under hvor mye? (f.eks. 50)', '50') || '0');
+  const threshold = parseInt(prompt('Sell all with CP under what? (e.g. 50). Skips shinies and buddy.', '50') || '0');
   if (!threshold) return;
-  const toRelease = state.individuals.filter(i => i.cp < threshold && !i.isShiny);
-  if (toRelease.length === 0) { alert('Ingen Pokémon under CP ' + threshold + '.'); return; }
-  if (!confirm(`Slipp ${toRelease.length} Pokémon (alle med CP < ${threshold}, shinies beholdes)?`)) return;
+  const toRelease = state.individuals.filter(i => i.cp < threshold && !i.isShiny && i.uid !== state.buddyUid);
+  if (toRelease.length === 0) { alert('No Pokémon under CP ' + threshold + '.'); return; }
+  if (!confirm(`Sell ${toRelease.length} Pokémon (all with CP < ${threshold})?\nYou get: coins + ${toRelease.length} 🍬 candy`)) return;
   let totalRefund = 0;
   for (const ind of toRelease) {
     const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
     totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
   }
-  state.individuals = state.individuals.filter(i => !(i.cp < threshold && !i.isShiny));
+  const releasedCount = toRelease.length;
+  state.individuals = state.individuals.filter(i => !(i.cp < threshold && !i.isShiny && i.uid !== state.buddyUid));
   state.coins += totalRefund;
-  alert(`Sluppet ${toRelease.length} Pokémon. Du fikk ${totalRefund} 💰!`);
+  state.candy = (state.candy || 0) + releasedCount;
+  alert(`Sold ${releasedCount} Pokémon. Got ${totalRefund} 💰 and ${releasedCount} 🍬 candy!`);
+  save(); updateUI();
+  renderMyPokemons();
+}
+// Upgrade en individuell Pokémon med candy
+function upgradeIndividual(uid) {
+  const ind = state.individuals.find(i => i.uid === uid);
+  if (!ind) return;
+  const range = CP_RANGES[ind.rarity] || CP_RANGES.common;
+  const maxCp = Math.round(range.max * 1.5); // Kan oppgradere opp til 50% over rarity-max
+  if (ind.cp >= maxCp) { alert(`${ind.name} is already at max CP (${maxCp})!`); return; }
+  const cost = 3; // 3 candy per upgrade
+  if ((state.candy || 0) < cost) { alert(`Need ${cost} 🍬 candy. You have ${state.candy || 0}.`); return; }
+  // +10% CP per oppgradering (minst +5)
+  const boost = Math.max(5, Math.round(ind.cp * 0.1));
+  const newCp = Math.min(maxCp, ind.cp + boost);
+  state.candy -= cost;
+  ind.cp = newCp;
+  // Oppdater bestCp hvis ny CP er bedre
+  if (!state.bestCp[ind.id] || newCp > state.bestCp[ind.id]) state.bestCp[ind.id] = newCp;
+  save(); updateUI();
+  renderMyPokemons();
+}
+// Sett en individuell Pokémon som buddy
+function setIndividualAsBuddy(uid) {
+  const ind = state.individuals.find(i => i.uid === uid);
+  if (!ind) return;
+  state.buddyUid = uid;
+  state.buddyId = ind.id; // bakoverkompat med eksisterende buddy-system
   save(); updateUI();
   renderMyPokemons();
 }
@@ -6856,9 +6969,13 @@ function renderMyPokemons() {
   content.innerHTML = `
     <div class="my-poke-header">
       <div class="my-poke-count ${countClass}">📦 ${count} / ${max}</div>
+      <div style="font-size:18px;font-weight:bold;color:#ffb3e6;text-shadow:0 0 6px #f3c;">🍬 ${state.candy || 0} candy</div>
       <div class="my-poke-storage-bar"><div class="my-poke-storage-fill ${fillClass}" style="width:${Math.min(100, pct)}%;"></div></div>
       <button class="refresh-btn" style="background:#27ae60;" onclick="buyStorage()">💰 Buy +50 slots (${cost})</button>
-      <button class="refresh-btn" style="background:#e74c3c;" onclick="releaseAllWeak()">🗑️ Release weak (by CP)</button>
+      <button class="refresh-btn" style="background:#e74c3c;" onclick="releaseAllWeak()">🗑️ Sell weak (by CP)</button>
+    </div>
+    <div style="background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12px;color:#fff;">
+      💡 <strong>Sell Pokémon</strong> for coins + 🍬 candy. <strong>Use candy</strong> to upgrade CP (3 🍬 = +10% CP). <strong>Set buddy</strong> to make a Pokémon follow you.
     </div>
     <div class="my-poke-sort">
       <button class="${myPokemonSort==='cp' ? 'active' : ''}" onclick="setMyPokeSort('cp')">⚔️ CP</button>
@@ -6870,15 +6987,21 @@ function renderMyPokemons() {
       ${sorted.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#aaa;">No Pokémon yet — throw some balls!</div>' :
         sorted.map(ind => {
           const spriteUrl = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
+          const type = ind.type || getPokeType(ind.id);
+          const isBuddy = state.buddyUid === ind.uid;
           return `
-            <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}">
+            <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}" ${isBuddy ? 'style="border-color:gold;box-shadow:0 0 15px gold;"' : ''}>
               ${ind.isShiny ? '<div class="my-poke-shiny-badge">✨</div>' : ''}
+              ${isBuddy ? '<div style="position:absolute;top:4px;left:4px;background:gold;color:#333;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;">★ BUDDY</div>' : ''}
               <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
               <div class="name">${ind.name}</div>
               <div class="cp">⚔️ CP ${ind.cp}</div>
+              <div style="margin:3px 0;">${typeBadgeHtml(type, 10)}</div>
               <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
               ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
-              <button class="release-btn" onclick="releaseIndividual('${ind.uid}')">🗑️ Release</button>
+              <button class="release-btn" style="background:#9b59b6;" onclick="upgradeIndividual('${ind.uid}')" title="Upgrade CP with 3 candy">🍬 Upgrade (3)</button>
+              <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
+              <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
             </div>
           `;
         }).join('')
@@ -7437,6 +7560,44 @@ function startRocketEncounter() {
   document.getElementById('rocketResult').className = 'rocket-result';
   document.getElementById('rocketTimerFill').style.width = '100%';
   document.getElementById('rocketTimerText').textContent = '⏱ 30 seconds';
+
+  // Velg en tilfeldig type Team Rocket målretter, og finn beste individ av den typen
+  state.rocketTargetUid = null;
+  state.rocketTargetType = null;
+  const preview = document.getElementById('rocketTargetPreview');
+  if (preview) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+  }
+  if (state.individuals && state.individuals.length > 0) {
+    // Vekt: typer du har Pokémon av (eksklusivt aktiv buddy)
+    const eligible = state.individuals.filter(i => i.uid !== state.buddyUid);
+    if (eligible.length > 0) {
+      // Velg en tilfeldig type fra de du faktisk har
+      const typeSet = [...new Set(eligible.map(i => i.type || getPokeType(i.id)))];
+      const targetType = typeSet[Math.floor(Math.random() * typeSet.length)];
+      // Finn den sterkeste av denne typen
+      const candidates = eligible.filter(i => (i.type || getPokeType(i.id)) === targetType);
+      candidates.sort((a, b) => b.cp - a.cp);
+      const target = candidates[0];
+      if (target) {
+        state.rocketTargetUid = target.uid;
+        state.rocketTargetType = targetType;
+        if (preview) {
+          const sprite = target.isShiny ? SHINY_SPRITE_URL(target.id) : SPRITE_URL(target.id);
+          preview.style.display = 'block';
+          preview.innerHTML = `
+            <div style="color:#ff5252;font-weight:bold;margin-bottom:6px;">⚠️ Team Rocket targets your ${typeBadgeHtml(targetType, 11)} Pokémon!</div>
+            <img src="${sprite}" style="width:60px;height:60px;image-rendering:pixelated;${target.isShiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
+            <div style="color:#fff;font-weight:bold;">${target.isShiny ? '✨ ' : ''}${target.name}</div>
+            <div style="color:#7df;font-size:13px;">⚔️ CP ${target.cp}</div>
+            <div style="color:#ffb;font-size:11px;margin-top:4px;">Lose this if you fail!</div>
+          `;
+        }
+      }
+    }
+  }
+
   document.getElementById('rocketModal').classList.add('active');
   setTimeout(() => document.getElementById('rocketInput').focus(), 100);
 
@@ -7482,7 +7643,15 @@ function submitRocketAnswer() {
 function handleRocketWrong(reason) {
   const lost = loseRandomPokemon();
   let msg = reason + '<br>';
-  if (lost) {
+  if (lost && lost.individual) {
+    // Ny: ett spesifikt individ stjålet
+    const sprite = lost.isShiny ? SHINY_SPRITE_URL(lost.id) : SPRITE_URL(lost.id);
+    msg += `💔 They stole your <strong>${lost.isShiny ? '✨ ' : ''}${lost.name}</strong> (CP ${lost.cp})!<br>`;
+    msg += `<div style="text-align:center;margin-top:10px;">
+      <img src="${sprite}" style="width:90px;height:90px;image-rendering:pixelated;opacity:0.5;">
+    </div>`;
+    msg += `<div style="margin-top:8px;color:#ff8a65;font-size:14px;">⏱ 12 sec locked from throwing balls</div>`;
+  } else if (lost) {
     msg += `💔 They stole ALL your <strong>${lost.name}</strong>!<br>`;
     msg += `<span style="color:#ff5252;">${lost.normalCount} normal`;
     if (lost.shinyCount > 0) msg += ` + <span style="color:gold;">${lost.shinyCount} ✨ shiny</span>`;
@@ -7507,7 +7676,38 @@ function isProtected(id) {
 }
 
 function loseRandomPokemon() {
-  // Buddy + favoritter er beskyttet
+  // Nytt system: stjel den spesifikke target-individet (best av en tilfeldig type)
+  if (state.rocketTargetUid) {
+    const idx = state.individuals.findIndex(i => i.uid === state.rocketTargetUid);
+    if (idx !== -1) {
+      const stolen = state.individuals[idx];
+      state.individuals.splice(idx, 1);
+      // Reduser caught-teller for denne arten med 1 (men ikke under 0)
+      if (state.caught[stolen.id] && state.caught[stolen.id] > 0) {
+        state.caught[stolen.id]--;
+      }
+      // Hvis det var siste shiny av denne arten i individuals, fjern shiny-tellerne òg
+      const stillShinyOfThisId = state.individuals.some(i => i.id === stolen.id && i.isShiny);
+      if (stolen.isShiny && !stillShinyOfThisId) {
+        if (state.shinies[stolen.id]) {
+          state.shinies[stolen.id] = Math.max(0, (state.shinies[stolen.id] || 1) - 1);
+          if (state.shinies[stolen.id] === 0) delete state.shinies[stolen.id];
+        }
+      }
+      state.rocketLockUntil = Date.now() + 12000;
+      state.rocketTargetUid = null;
+      return {
+        id: stolen.id,
+        name: stolen.name,
+        rarity: stolen.rarity,
+        cp: stolen.cp,
+        isShiny: stolen.isShiny,
+        type: stolen.type,
+        individual: true
+      };
+    }
+  }
+  // Fallback til gammelt system hvis ingen target (f.eks. ingen individer)
   const owned = Object.entries(state.caught).filter(([id, c]) =>
     c > 0 && !isProtected(parseInt(id))
   );
@@ -7517,8 +7717,6 @@ function loseRandomPokemon() {
   const poke = POKEMONS.find(p => p.id === id) || { id, name: '#' + id, rarity: 'common' };
   const normalCount = state.caught[id] || 0;
   const shinyCount = state.shinies[id] || 0;
-
-  // STJELER ALT - alle vanlige + alle shinies, fjernes fra Pokédex
   delete state.caught[id];
   delete state.seen[id];
   delete state.shinies[id];
@@ -7530,10 +7728,7 @@ function loseRandomPokemon() {
       delete state.eventsSeen[key];
     }
   }
-
-  // 12-sek cooldown etter tap
   state.rocketLockUntil = Date.now() + 12000;
-
   return { ...poke, normalCount, shinyCount };
 }
 
@@ -9610,6 +9805,8 @@ function submitCheat() {
       state.individuals = [];
       state.storageMax = 350;
       state.storagePurchases = 0;
+      state.candy = 0;
+      state.buddyUid = null;
       state.inventory = {};
       for (const key of Object.keys(BALLS)) {
         state.inventory[key] = key === 'free' ? 999 : 0;
