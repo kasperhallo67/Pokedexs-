@@ -1747,173 +1747,233 @@
   }
   .avatar-area:hover { transform: scale(1.08); }
   .avatar-figure {
-    width: 80px;
-    height: 150px;
+    width: 130px;
+    height: 240px;
     position: relative;
     margin: 0 auto;
+    animation: avIdle 2.2s ease-in-out infinite;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.4));
   }
-  /* Hode - stort og rundt (Pokemon-stil) */
+  @keyframes avIdle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  /* Skygge under figur */
+  .avatar-figure::after {
+    /* override below */
+  }
+  /* Hode - stort og rundt (Pokemon-stil), nå med dybde og blush */
   .avatar-head {
-    width: 42px;
-    height: 42px;
+    width: 68px;
+    height: 68px;
     border-radius: 50% 50% 48% 48%;
-    background: #fcd9b6;
+    background: radial-gradient(circle at 35% 30%, #ffe4c4 0%, #fcd9b6 50%, #d4a684 100%);
     position: absolute;
-    top: 14px;
+    top: 22px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2px solid #000;
+    border: 2.5px solid #2c1810;
     z-index: 3;
+    box-shadow: inset -4px -4px 8px rgba(150,100,60,0.3);
   }
-  /* Øyne (pseudo-elementer på hodet) */
+  /* Øyne — større og mer uttrykksfulle med highlight */
   .avatar-head::before, .avatar-head::after {
     content: '';
     position: absolute;
-    top: 18px;
-    width: 5px;
-    height: 7px;
-    background: #2c3e50;
+    top: 28px;
+    width: 9px;
+    height: 12px;
+    background: #1a1a2e;
     border-radius: 50%;
+    box-shadow: inset 1.5px -1.5px 0 1px #fff;
   }
-  .avatar-head::before { left: 9px; }
-  .avatar-head::after  { right: 9px; }
+  .avatar-head::before { left: 14px; }
+  .avatar-head::after  { right: 14px; }
+  /* Kinn-rødme */
+  .avatar-cheeks::before, .avatar-cheeks::after {
+    content: '';
+    position: absolute;
+    top: 56px;
+    width: 11px;
+    height: 7px;
+    background: radial-gradient(circle, rgba(255,120,140,0.7), transparent 70%);
+    border-radius: 50%;
+    z-index: 4;
+  }
+  .avatar-cheeks::before { left: 18%; }
+  .avatar-cheeks::after  { right: 18%; }
   /* Smil under øynene */
   .avatar-mouth {
     position: absolute;
-    top: 38px;
+    top: 62px;
     left: 50%;
     transform: translateX(-50%);
-    width: 14px;
-    height: 7px;
-    border: 2px solid #2c3e50;
+    width: 22px;
+    height: 11px;
+    border: 2.5px solid #1a1a2e;
     border-top: none;
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 22px 22px;
     z-index: 4;
   }
   /* Briller på øynene */
   .avatar-glasses {
     position: absolute;
-    top: 22px;
+    top: 36px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 18px;
+    font-size: 30px;
     line-height: 1;
     z-index: 5;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
   }
   /* Hår synlig under caps */
   .avatar-hair {
     position: absolute;
-    top: 11px;
+    top: 18px;
     left: 50%;
     transform: translateX(-50%);
-    background: #3d2914;
+    background: linear-gradient(to bottom, #2d1a08, #3d2914);
     z-index: 4;
-    border: 1.5px solid #000;
+    border: 2px solid #1a1a2e;
   }
   /* Hatt/caps */
   .avatar-hat {
     position: absolute;
-    top: 2px;
+    top: 4px;
     left: 50%;
     transform: translateX(-50%);
-    width: 48px;
-    height: 16px;
-    border-radius: 50% 50% 4px 4px;
+    width: 78px;
+    height: 26px;
+    border-radius: 50% 50% 6px 6px;
     z-index: 5;
-    border: 2px solid transparent;
+    border: 2.5px solid transparent;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25);
   }
   .avatar-hat.has-hat::after {
     /* Visir på caps */
     content: '';
     position: absolute;
-    bottom: -4px;
-    left: -4px;
-    right: -4px;
-    height: 5px;
+    bottom: -7px;
+    left: -7px;
+    right: -7px;
+    height: 8px;
     background: inherit;
-    filter: brightness(0.85);
-    border-radius: 0 0 8px 8px;
-    border: 1px solid #000;
+    filter: brightness(0.8);
+    border-radius: 0 0 12px 12px;
+    border: 1.5px solid #1a1a2e;
     border-top: none;
   }
   /* Overkropp - jakke/skjorte */
   .avatar-torso {
-    width: 46px;
-    height: 40px;
-    background: #5a4a3a;
+    width: 76px;
+    height: 66px;
+    background: linear-gradient(135deg, #6a5a4a 0%, #5a4a3a 100%);
     position: absolute;
-    top: 54px;
+    top: 88px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2px solid #000;
-    border-radius: 6px 6px 3px 3px;
+    border: 2.5px solid #1a1a2e;
+    border-radius: 12px 12px 5px 5px;
     z-index: 2;
+    box-shadow: inset -3px -3px 6px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1);
   }
-  /* Armer (synlige sider) */
+  /* Armer (synlige sider) — animert vinking */
   .avatar-figure::before, .avatar-figure::after {
     content: '';
     position: absolute;
-    top: 58px;
-    width: 8px;
-    height: 32px;
-    background: #fcd9b6;
-    border: 1.5px solid #000;
-    border-radius: 4px;
+    top: 94px;
+    width: 14px;
+    height: 52px;
+    background: linear-gradient(to right, #fcd9b6, #d4a684);
+    border: 2px solid #1a1a2e;
+    border-radius: 7px;
     z-index: 1;
+    transform-origin: top center;
   }
-  .avatar-figure::before { left: 12px; }
-  .avatar-figure::after  { right: 12px; }
+  .avatar-figure::before { left: 18px; animation: avArmL 2.2s ease-in-out infinite; }
+  .avatar-figure::after  { right: 18px; animation: avArmR 2.2s ease-in-out infinite; }
+  @keyframes avArmL {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-4deg); }
+  }
+  @keyframes avArmR {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(4deg); }
+  }
   /* Bein */
   .avatar-legs {
-    width: 38px;
-    height: 36px;
-    background: #5a4a3a;
+    width: 62px;
+    height: 60px;
+    background: linear-gradient(135deg, #6a5a4a 0%, #5a4a3a 100%);
     position: absolute;
-    top: 92px;
+    top: 150px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2px solid #000;
-    border-radius: 0 0 4px 4px;
+    border: 2.5px solid #1a1a2e;
+    border-radius: 0 0 6px 6px;
     z-index: 2;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3);
   }
   /* Bare-bein indikator (skinnfarge når ingen bukser) */
-  .avatar-legs.bare { background: #fcd9b6; }
+  .avatar-legs.bare { background: linear-gradient(135deg, #ffe4c4, #d4a684); }
   /* Sko/føtter */
   .avatar-feet {
-    width: 46px;
-    height: 12px;
-    background: #fcd9b6;
+    width: 78px;
+    height: 20px;
+    background: linear-gradient(180deg, #fcd9b6, #b8845c);
     position: absolute;
-    top: 126px;
+    top: 208px;
     left: 50%;
     transform: translateX(-50%);
-    border-radius: 4px;
-    border: 2px solid #000;
+    border-radius: 8px;
+    border: 2.5px solid #1a1a2e;
     z-index: 2;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
   }
-  /* Liten pokeball-skygge ved siden av trainer */
+  /* Bakke-skygge under figur */
+  .avatar-figure > .avatar-ground {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 14px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, transparent 70%);
+    z-index: 0;
+    animation: avShadow 2.2s ease-in-out infinite;
+  }
+  @keyframes avShadow {
+    0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.6; }
+    50% { transform: translateX(-50%) scaleX(0.92); opacity: 0.5; }
+  }
+  /* Pokeball ved siden av trainer (større, animert) */
   .avatar-pokeball {
     position: absolute;
     bottom: 28px;
-    right: -20px;
-    width: 16px;
-    height: 16px;
+    right: -32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: linear-gradient(180deg, #ff5252 50%, #fff 50%);
-    border: 1.5px solid #000;
+    border: 2.5px solid #1a1a2e;
     z-index: 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4), inset -3px -3px 5px rgba(0,0,0,0.25);
+    animation: avBallSpin 4s linear infinite;
+  }
+  @keyframes avBallSpin {
+    0%, 90%, 100% { transform: rotate(0deg); }
+    95% { transform: rotate(15deg); }
   }
   .avatar-pokeball::after {
     content: '';
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%,-50%);
-    width: 4px; height: 4px;
+    width: 7px; height: 7px;
     background: #fff;
     border-radius: 50%;
-    border: 1px solid #000;
+    border: 1.5px solid #1a1a2e;
+    box-shadow: inset -1px -1px 1px rgba(0,0,0,0.3);
   }
   .avatar-label {
     background: rgba(0,0,0,0.6);
@@ -3164,9 +3224,11 @@
 <!-- Avatar (character) -->
 <div class="avatar-area" id="avatarArea" onclick="openWardrobe()" title="Click to change clothes">
   <div class="avatar-figure">
+    <div class="avatar-ground"></div>
     <div class="avatar-hat" id="avHat"></div>
     <div class="avatar-hair" id="avHair"></div>
     <div class="avatar-head"></div>
+    <div class="avatar-cheeks"></div>
     <div class="avatar-glasses" id="avGlasses"></div>
     <div class="avatar-mouth"></div>
     <div class="avatar-torso" id="avTorso"></div>
@@ -6687,13 +6749,19 @@ function toggleGender() {
 }
 
 function characterFigureHtml(idSuffix) {
+  const s = idSuffix === 'preview' ? '_p' : '';
   return `<div class="avatar-figure" style="margin:0 auto;">
-    <div class="avatar-hat" id="avHat${idSuffix === 'preview' ? '_p' : ''}"></div>
-    <div class="avatar-hair" id="avHair${idSuffix === 'preview' ? '_p' : ''}"></div>
+    <div class="avatar-ground"></div>
+    <div class="avatar-hat" id="avHat${s}"></div>
+    <div class="avatar-hair" id="avHair${s}"></div>
     <div class="avatar-head"></div>
-    <div class="avatar-torso" id="avTorso${idSuffix === 'preview' ? '_p' : ''}"></div>
-    <div class="avatar-legs" id="avLegs${idSuffix === 'preview' ? '_p' : ''}"></div>
-    <div class="avatar-feet" id="avFeet${idSuffix === 'preview' ? '_p' : ''}"></div>
+    <div class="avatar-cheeks"></div>
+    <div class="avatar-glasses" id="avGlasses${s}"></div>
+    <div class="avatar-mouth"></div>
+    <div class="avatar-torso" id="avTorso${s}"></div>
+    <div class="avatar-legs" id="avLegs${s}"></div>
+    <div class="avatar-feet" id="avFeet${s}"></div>
+    <div class="avatar-pokeball"></div>
   </div>`;
 }
 
@@ -6712,12 +6780,13 @@ function getEffectiveness(attackerType, defenderType) {
 }
 
 const pokeTypeCache = {};
-async function getPokeType(id) {
+async function getPokeTypeApi(id) {
+  // Hent type fra PokeAPI (brukt kun for type-effectiveness i battles)
   if (pokeTypeCache[id]) return pokeTypeCache[id];
   try {
     const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
     const data = await res.json();
-    const type = data.types[0].type.name; // primær-type
+    const type = data.types[0].type.name;
     pokeTypeCache[id] = type;
     return type;
   } catch (e) {
@@ -8291,9 +8360,9 @@ async function startBattle() {
     over: false
   };
   renderBattle();
-  // Hent typer
+  // Hent typer (via PokeAPI for battle type-effectiveness)
   const [myType, enemyType] = await Promise.all([
-    getPokeType(myId), getPokeType(enemyPoke.id)
+    getPokeTypeApi(myId), getPokeTypeApi(enemyPoke.id)
   ]);
   if (!battle) return;
   battle.myType = myType;
