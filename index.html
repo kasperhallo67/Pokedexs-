@@ -406,6 +406,105 @@
     box-shadow: 0 0 25px gold;
   }
 
+  /* MY POKÉMON */
+  .my-poke-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.4);
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .my-poke-count {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+  }
+  .my-poke-count.warn { color: #f39c12; }
+  .my-poke-count.full { color: #e74c3c; }
+  .my-poke-storage-bar {
+    flex: 1;
+    height: 14px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 7px;
+    overflow: hidden;
+    min-width: 150px;
+  }
+  .my-poke-storage-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+    transition: width 0.3s;
+  }
+  .my-poke-storage-fill.warn { background: linear-gradient(90deg, #f39c12, #d68910); }
+  .my-poke-storage-fill.full { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+  .my-poke-sort {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .my-poke-sort button {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .my-poke-sort button.active {
+    background: #3498db;
+    border-color: #2980b9;
+  }
+  .my-poke-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 5px;
+  }
+  .my-poke-card {
+    background: rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    position: relative;
+    transition: transform 0.15s;
+  }
+  .my-poke-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.4); }
+  .my-poke-card.shiny { border-color: gold; box-shadow: 0 0 12px rgba(255,215,0,0.5); }
+  .my-poke-card img { width: 80px; height: 80px; image-rendering: pixelated; }
+  .my-poke-card .name { font-size: 13px; font-weight: bold; color: #fff; margin-top: 4px; }
+  .my-poke-card .cp { font-size: 16px; color: #7df; font-weight: bold; text-shadow: 0 0 4px #2af; margin: 2px 0; }
+  .my-poke-card .release-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 4px;
+    width: 100%;
+  }
+  .my-poke-card .release-btn:hover { background: #c0392b; }
+  .my-poke-shiny-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: gold;
+    color: #333;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: bold;
+  }
+
   /* MINES */
   .mines-container {
     display: flex;
@@ -2872,6 +2971,7 @@
   <div class="menu-btns">
     <button class="menu-btn" onclick="openModal('shop')">🛒 Shop</button>
     <button class="menu-btn" onclick="openModal('pokedex')">📖 Pokédex</button>
+    <button class="menu-btn" onclick="openMyPokemons()" style="background:#9b59b6;">🎒 My Pokémon</button>
     <button class="menu-btn" onclick="openLeaderboard()" style="background:#f39c12;">🏆 Leaderboard</button>
     <button class="menu-btn" onclick="openTrade()" style="background:#2ecc71;position:relative;">🔄 Trade<span id="tradeBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:red;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;text-align:center;">0</span></button>
     <button class="menu-btn" onclick="openCasino()" style="background:#e91e63;">🎰 Casino</button>
@@ -3020,6 +3120,14 @@
     <button class="close-btn" onclick="closeModal('achievements')">×</button>
     <h2 class="modal-title">🏆 Achievements</h2>
     <div id="achievementsContent"></div>
+  </div>
+</div>
+
+<div class="modal" id="myPokemonsModal">
+  <div class="modal-content">
+    <button class="close-btn" onclick="closeMyPokemons()">×</button>
+    <h2 class="modal-title">🎒 My Pokémon</h2>
+    <div id="myPokemonsContent"></div>
   </div>
 </div>
 
@@ -4023,6 +4131,42 @@ if (state.shinyProgress === undefined) state.shinyProgress = state.totalCatches;
 // CP per Pokémon — vi lagrer beste CP per art
 if (!state.bestCp) state.bestCp = {};
 if (state.lastCp === undefined) state.lastCp = 0;
+// Individuelle Pokémon med egne CP-verdier (Pokémon GO-stil storage)
+if (!state.individuals) state.individuals = [];
+if (state.storageMax === undefined) state.storageMax = 350;
+if (state.storagePurchases === undefined) state.storagePurchases = 0;
+let __individualUidCounter = state.individuals.length > 0
+  ? Math.max(...state.individuals.map(i => parseInt(i.uid?.split('_')[1] || 0) || 0)) + 1
+  : 1;
+function newIndividualUid() { return 'i_' + (__individualUidCounter++) + '_' + Date.now().toString(36); }
+
+// One-time migrasjon: gamle saves har bare 'caught' (count). Generer individer fra det.
+if (!state.individualsMigrated && state.individuals.length === 0 && state.caught && Object.keys(state.caught).length > 0) {
+  state.individualsMigrated = true;
+  const entries = [];
+  for (const [pokeIdStr, count] of Object.entries(state.caught)) {
+    const pokeId = parseInt(pokeIdStr);
+    const poke = POKEMONS && POKEMONS.find && POKEMONS.find(p => p.id === pokeId);
+    if (!poke) continue;
+    const shinyCount = state.shinies ? (state.shinies[pokeId] || 0) : 0;
+    for (let i = 0; i < count; i++) {
+      const isShinyOne = i < shinyCount;
+      entries.push({
+        uid: newIndividualUid(),
+        id: pokeId,
+        rarity: poke.rarity,
+        name: poke.name,
+        cp: rollCp(poke.rarity, isShinyOne),
+        isShiny: isShinyOne,
+        eventType: null,
+        caughtAt: Date.now() - (count - i) * 60000
+      });
+    }
+  }
+  // Sorter etter CP desc og ta de beste opp til storageMax
+  entries.sort((a, b) => b.cp - a.cp);
+  state.individuals = entries.slice(0, state.storageMax);
+}
 // Sørg for at alle baller finnes i inventory (for gamle saves)
 for (const key of Object.keys(BALLS)) {
   if (state.inventory[key] === undefined) state.inventory[key] = key === 'free' ? 999 : 0;
@@ -4087,6 +4231,13 @@ function throwBall() {
       alert("You have no " + ball.name + ' left! Buy in the shop.');
       return;
     }
+  }
+  // Storage-sjekk: trenger plass til minst 1 Pokémon
+  if (state.individuals.length >= state.storageMax) {
+    alert(`📦 Storage full! ${state.individuals.length}/${state.storageMax}\n\nGo to "🎒 My Pokémon" to release some, or buy more storage slots.`);
+    return;
+  }
+  if (state.selectedBall !== 'free') {
     state.inventory[state.selectedBall]--;
   }
   state.lastBallUse = now;
@@ -4102,7 +4253,14 @@ function throwBall() {
   }, animDuration);
 
   setTimeout(() => {
-    const numCatches = ball.multiCatch || 1;
+    // Antall fangster — begrenset av tilgjengelig storage
+    const desiredCatches = ball.multiCatch || 1;
+    const slotsLeft = state.storageMax - state.individuals.length;
+    const numCatches = Math.max(0, Math.min(desiredCatches, slotsLeft));
+    if (numCatches === 0) {
+      alert('📦 Storage full!');
+      return;
+    }
     // Shiny milepæl-progress: +1 per ball-kast (ikke per Pokémon)
     state.shinyProgress = (state.shinyProgress || 0) + 1;
     const milestoneThisThrow = state.shinyProgress % SHINY_INTERVAL === 0;
@@ -4181,6 +4339,19 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
   if (!state.bestCp[pokemon.id] || cp > state.bestCp[pokemon.id]) {
     state.bestCp[pokemon.id] = cp;
   }
+  // Legg til som individuell Pokémon i storage (hvis plass)
+  if (state.individuals.length < state.storageMax) {
+    state.individuals.push({
+      uid: newIndividualUid(),
+      id: pokemon.id,
+      rarity: rarity,
+      name: pokemon.name,
+      cp: cp,
+      isShiny: isShiny,
+      eventType: null, // settes etter at eventType er beregnet
+      caughtAt: Date.now()
+    });
+  }
   // Pris skalerer med CP rundt midten av området
   const cpMult = cpPriceMultiplier(cp, rarity);
   const baseReward = SELL_PRICES[rarity];
@@ -4205,6 +4376,10 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     state.events[eventKey] = (state.events[eventKey] || 0) + 1;
     state.eventsSeen[eventKey] = true;
     reward = Math.round(reward * 2);
+  }
+  // Oppdater eventType på den siste individuelle Pokémon (hvis ble lagt til)
+  if (state.individuals.length > 0 && state.individuals[state.individuals.length - 1].uid && state.individuals[state.individuals.length - 1].id === pokemon.id) {
+    state.individuals[state.individuals.length - 1].eventType = eventType || null;
   }
   state.coins += reward;
   return { pokemon, isNew, reward, isShiny, eventType, cp };
@@ -6599,6 +6774,117 @@ function showAchievementPopup(ach) {
 function openAchievements() {
   document.getElementById('achievementsModal').classList.add('active');
   renderAchievements();
+}
+
+// ========== MY POKÉMON (individuelle) ==========
+let myPokemonSort = 'cp'; // 'cp', 'rarity', 'date', 'name'
+function openMyPokemons() {
+  document.getElementById('myPokemonsModal').classList.add('active');
+  renderMyPokemons();
+}
+function closeMyPokemons() {
+  document.getElementById('myPokemonsModal').classList.remove('active');
+}
+function setMyPokeSort(sort) {
+  myPokemonSort = sort;
+  renderMyPokemons();
+}
+function storageUpgradeCost() {
+  // Hver oppgradering dobler: 5000, 10000, 20000, 40000, ...
+  return 5000 * Math.pow(2, state.storagePurchases || 0);
+}
+function buyStorage() {
+  const cost = storageUpgradeCost();
+  if (state.coins < cost) { alert(`Trenger ${cost} 💰, du har ${state.coins}.`); return; }
+  if (!confirm(`Kjøp +50 storage-slots for ${cost} 💰?\nDette tar deg fra ${state.storageMax} til ${state.storageMax + 50}.`)) return;
+  state.coins -= cost;
+  state.storageMax += 50;
+  state.storagePurchases = (state.storagePurchases || 0) + 1;
+  save(); updateUI();
+  renderMyPokemons();
+}
+function releaseIndividual(uid) {
+  const idx = state.individuals.findIndex(i => i.uid === uid);
+  if (idx === -1) return;
+  const ind = state.individuals[idx];
+  // Slipp gir tilbake litt coins basert på CP
+  const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
+  const refund = Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+  if (!confirm(`Slipp ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nDu får ${refund} 💰 tilbake.`)) return;
+  state.individuals.splice(idx, 1);
+  state.coins += refund;
+  save(); updateUI();
+  renderMyPokemons();
+}
+function releaseAllWeak() {
+  const threshold = parseInt(prompt('Slipp alle med CP under hvor mye? (f.eks. 50)', '50') || '0');
+  if (!threshold) return;
+  const toRelease = state.individuals.filter(i => i.cp < threshold && !i.isShiny);
+  if (toRelease.length === 0) { alert('Ingen Pokémon under CP ' + threshold + '.'); return; }
+  if (!confirm(`Slipp ${toRelease.length} Pokémon (alle med CP < ${threshold}, shinies beholdes)?`)) return;
+  let totalRefund = 0;
+  for (const ind of toRelease) {
+    const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
+    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+  }
+  state.individuals = state.individuals.filter(i => !(i.cp < threshold && !i.isShiny));
+  state.coins += totalRefund;
+  alert(`Sluppet ${toRelease.length} Pokémon. Du fikk ${totalRefund} 💰!`);
+  save(); updateUI();
+  renderMyPokemons();
+}
+function renderMyPokemons() {
+  const content = document.getElementById('myPokemonsContent');
+  if (!content) return;
+  const count = state.individuals.length;
+  const max = state.storageMax;
+  const pct = (count / max) * 100;
+  const fillClass = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : '';
+  const countClass = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : '';
+  const cost = storageUpgradeCost();
+
+  // Sortering
+  const sorted = [...state.individuals];
+  if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
+  else if (myPokemonSort === 'rarity') {
+    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
+  }
+  else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
+  else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  content.innerHTML = `
+    <div class="my-poke-header">
+      <div class="my-poke-count ${countClass}">📦 ${count} / ${max}</div>
+      <div class="my-poke-storage-bar"><div class="my-poke-storage-fill ${fillClass}" style="width:${Math.min(100, pct)}%;"></div></div>
+      <button class="refresh-btn" style="background:#27ae60;" onclick="buyStorage()">💰 Buy +50 slots (${cost})</button>
+      <button class="refresh-btn" style="background:#e74c3c;" onclick="releaseAllWeak()">🗑️ Release weak (by CP)</button>
+    </div>
+    <div class="my-poke-sort">
+      <button class="${myPokemonSort==='cp' ? 'active' : ''}" onclick="setMyPokeSort('cp')">⚔️ CP</button>
+      <button class="${myPokemonSort==='rarity' ? 'active' : ''}" onclick="setMyPokeSort('rarity')">⭐ Rarity</button>
+      <button class="${myPokemonSort==='date' ? 'active' : ''}" onclick="setMyPokeSort('date')">📅 Newest</button>
+      <button class="${myPokemonSort==='name' ? 'active' : ''}" onclick="setMyPokeSort('name')">🔤 Name</button>
+    </div>
+    <div class="my-poke-grid">
+      ${sorted.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#aaa;">No Pokémon yet — throw some balls!</div>' :
+        sorted.map(ind => {
+          const spriteUrl = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
+          return `
+            <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}">
+              ${ind.isShiny ? '<div class="my-poke-shiny-badge">✨</div>' : ''}
+              <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
+              <div class="name">${ind.name}</div>
+              <div class="cp">⚔️ CP ${ind.cp}</div>
+              <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
+              ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
+              <button class="release-btn" onclick="releaseIndividual('${ind.uid}')">🗑️ Release</button>
+            </div>
+          `;
+        }).join('')
+      }
+    </div>
+  `;
 }
 
 function renderAchievements() {
@@ -9321,6 +9607,9 @@ function submitCheat() {
       state.shinyProgress = 0;
       state.bestCp = {};
       state.lastCp = 0;
+      state.individuals = [];
+      state.storageMax = 350;
+      state.storagePurchases = 0;
       state.inventory = {};
       for (const key of Object.keys(BALLS)) {
         state.inventory[key] = key === 'free' ? 999 : 0;
