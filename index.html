@@ -4324,38 +4324,98 @@ const Music = (() => {
 
   // Frekvenser for noter (A4 = 440Hz, 12 toner per oktav)
   function freq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
-  // MIDI nummer for noter: C4=60, D4=62, E4=64, F4=65, G4=67, A4=69, B4=71, C5=72
-  // Original melodi i C-dur — enkle åttendelsnoter, glad/adventure-feel (komponert fra bunn)
+  // Original intens chiptune i A-moll — raske sekstendelsnoter, drama-feel (komponert fra bunn)
   // Format: midi-nummer eller 0 for stillhet
+  // A-moll skala: A=69, B=71, C=72, D=74, E=76, F=77, G=79
   const LEAD = [
-    72,74,76,77,  76,74,72,74,   // takt 1
-    76,77,79,77,  76,74,72,67,   // takt 2
-    74,76,77,79,  77,76,74,72,   // takt 3
-    79,77,76,74,  72,74,76,79,   // takt 4
-    81,79,77,76,  77,79,81,83,   // takt 5
-    84,83,81,79,  77,76,74,72,   // takt 6
-    67,69,72,74,  76,77,79,76,   // takt 7
-    74,72,71,72,  74,72,67,0     // takt 8
+    // takt 1 — opp-skalaer + sprang
+    76,77,79,81,  83,81,79,77,  76,74,72,71,  69,71,72,74,
+    // takt 2 — gjenta med tvist
+    76,77,79,81,  83,84,86,84,  83,81,79,77,  76,74,73,74,
+    // takt 3 — rask kromatisk run + dramatisk sprang
+    81,83,84,86,  88,86,84,83,  81,79,77,76,  74,76,77,79,
+    // takt 4 — climax på topp + fall ned
+    88,86,84,86,  88,89,91,89,  88,86,84,83,  81,79,77,76,
+    // takt 5 — variasjon ned + reverb-ekko
+    72,74,76,77,  79,81,83,84,  83,81,79,77,  76,74,72,71,
+    // takt 6 — gjentakelse av motiv
+    69,72,76,72,  69,72,76,72,  71,74,77,74,  71,74,77,74,
+    // takt 7 — bygg opp mot finale
+    72,76,79,84,  83,81,79,77,  76,79,83,88,  86,84,83,81,
+    // takt 8 — finale + reset
+    79,77,76,74,  72,71,69,71,  72,74,76,77,  79,77,76,0
   ];
-  // Bass — enkle treklang-røtter (C - G - F - C - F - G - C - G7)
+  // Bass — pumpende kvarter på A og E (Am - F - C - G mønster)
   const BASS = [
-    48,48,52,48,  43,43,47,43,
-    48,48,52,48,  43,43,47,43,
-    53,53,57,53,  43,43,47,43,
-    48,48,52,48,  43,43,47,43
+    45,45,45,45,  45,45,45,45,  45,45,45,45,  45,45,45,45,  // A
+    41,41,41,41,  41,41,41,41,  41,41,41,41,  41,41,41,41,  // F
+    36,36,36,36,  36,36,36,36,  36,36,36,36,  36,36,36,36,  // C
+    43,43,43,43,  43,43,43,43,  43,43,43,43,  43,43,43,43,  // G
+    45,45,45,45,  45,45,45,45,  45,45,45,45,  45,45,45,45,
+    41,41,41,41,  41,41,41,41,  41,41,41,41,  41,41,41,41,
+    36,36,36,36,  36,36,36,36,  36,36,36,36,  36,36,36,36,
+    43,43,43,43,  43,43,43,43,  43,43,43,43,  43,43,43,43
   ];
-  const STEP_DUR = 0.18; // sek per åttendel
+  // Arpeggio — raske brutte akkorder over melodien for ekstra intensitet
+  const ARP = [
+    // Am arp: A C E A
+    69,72,76,69,  72,76,69,72,  76,69,72,76,  69,72,76,69,
+    // F arp: F A C F
+    65,69,72,65,  69,72,65,69,  72,65,69,72,  65,69,72,65,
+    // C arp: C E G C
+    60,64,67,60,  64,67,60,64,  67,60,64,67,  60,64,67,60,
+    // G arp: G B D G
+    67,71,74,67,  71,74,67,71,  74,67,71,74,  67,71,74,67,
+    // Repeat
+    69,72,76,69,  72,76,69,72,  76,69,72,76,  69,72,76,69,
+    65,69,72,65,  69,72,65,69,  72,65,69,72,  65,69,72,65,
+    60,64,67,60,  64,67,60,64,  67,60,64,67,  60,64,67,60,
+    67,71,74,67,  71,74,67,71,  74,67,71,74,  67,71,74,67
+  ];
+  const STEP_DUR = 0.10; // raskere tempo — sekstendelsnoter
 
   function ensureCtx() {
     if (!ctx) {
       try {
         ctx = new (window.AudioContext || window.webkitAudioContext)();
         masterGain = ctx.createGain();
-        masterGain.gain.value = 0.08; // lav volum
+        masterGain.gain.value = 0.10; // litt høyere volum for intensitet
         masterGain.connect(ctx.destination);
       } catch (e) { console.warn('audio unavailable', e); }
     }
     return ctx;
+  }
+
+  // Kick-drum-aktig perkusjon — kort støy-burst med lav frekvens
+  function playKick(when) {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, when);
+    osc.frequency.exponentialRampToValueAtTime(40, when + 0.1);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.6, when);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.15);
+    osc.connect(g).connect(masterGain);
+    osc.start(when);
+    osc.stop(when + 0.2);
+  }
+  // Hi-hat-aktig perkusjon — kort hvit støy
+  function playHat(when) {
+    const bufferSize = ctx.sampleRate * 0.04;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 6000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.15, when);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+    noise.connect(filter).connect(g).connect(masterGain);
+    noise.start(when);
+    noise.stop(when + 0.06);
   }
 
   function playNote(midi, when, dur, type, gainVal) {
@@ -4377,9 +4437,16 @@ const Music = (() => {
     while (nextNoteTime < ctx.currentTime + 0.25) {
       const leadNote = LEAD[currentStep % LEAD.length];
       const bassNote = BASS[currentStep % BASS.length];
-      playNote(leadNote, nextNoteTime, STEP_DUR * 0.9, 'square', 0.4);
-      // bass spilles bare hver andre step for tydeligere puls
-      if (currentStep % 2 === 0) playNote(bassNote, nextNoteTime, STEP_DUR * 1.8, 'triangle', 0.5);
+      const arpNote  = ARP[currentStep % ARP.length];
+      // Lead-melodi (square wave, høyere volum for intensitet)
+      playNote(leadNote, nextNoteTime, STEP_DUR * 0.85, 'square', 0.45);
+      // Bass — pumpende kvarter (hver 4. step)
+      if (currentStep % 4 === 0) playNote(bassNote, nextNoteTime, STEP_DUR * 3.5, 'sawtooth', 0.5);
+      // Arpeggio — raske sekstendelsnoter under melodien
+      playNote(arpNote, nextNoteTime, STEP_DUR * 0.5, 'triangle', 0.22);
+      // Perkusjon: kick på 1 og 3, hat på hver step for energi
+      if (currentStep % 8 === 0 || currentStep % 8 === 4) playKick(nextNoteTime);
+      if (currentStep % 2 === 0) playHat(nextNoteTime);
       nextNoteTime += STEP_DUR;
       currentStep++;
     }
