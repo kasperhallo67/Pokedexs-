@@ -7082,9 +7082,6 @@ function renderMyPokemons() {
     ? Object.values(state.candy).reduce((s, n) => s + n, 0) : 0;
   const candySpecies = state.candy && typeof state.candy === 'object'
     ? Object.keys(state.candy).filter(k => state.candy[k] > 0).length : 0;
-  // Hvilke typer brukeren faktisk har (for type-filter-knapper)
-  const userTypes = [...new Set(state.individuals.map(i => i.type || getPokeType(i.id)))].sort();
-
   content.innerHTML = `
     <div class="my-poke-header">
       <div class="my-poke-count ${countClass}">📦 ${count} / ${max}</div>
@@ -7100,13 +7097,6 @@ function renderMyPokemons() {
       <input type="text" id="myPokeSearchInput" placeholder="🔍 Search by name..." value="${myPokemonSearch}" oninput="setMyPokeSearch(this.value)" style="flex:1;padding:8px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;font-size:14px;">
       ${myPokemonSearch ? `<button onclick="clearMyPokeSearch()" style="background:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">×</button>` : ''}
     </div>
-    ${userTypes.length > 0 ? `
-    <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:11px;color:#aaa;margin-right:4px;">Filter:</span>
-      ${userTypes.map(t => `<button onclick="setMyPokeTypeFilter('${t}')" style="background:${myPokemonTypeFilter === t ? TYPE_COLORS[t] : 'rgba(255,255,255,0.1)'};color:${myPokemonTypeFilter === t ? 'white' : '#fff'};border:1px solid ${myPokemonTypeFilter === t ? TYPE_COLORS[t] : 'rgba(255,255,255,0.2)'};padding:4px 8px;border-radius:12px;cursor:pointer;font-size:11px;font-weight:bold;">${TYPE_EMOJI[t]} ${t}</button>`).join('')}
-      ${myPokemonTypeFilter ? `<button onclick="setMyPokeTypeFilter('')" style="background:#555;color:white;border:none;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:11px;">× clear</button>` : ''}
-    </div>
-    ` : ''}
     <div class="my-poke-sort">
       <button class="${myPokemonSort==='cp' ? 'active' : ''}" onclick="setMyPokeSort('cp')">⚔️ CP</button>
       <button class="${myPokemonSort==='rarity' ? 'active' : ''}" onclick="setMyPokeSort('rarity')">⭐ Rarity</button>
@@ -7131,15 +7121,14 @@ function renderMyPokemonsGrid() {
   }
   else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
   else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  // Filtrer
+  // Filtrer kun på søk (type-filter fjernet)
   const filtered = sorted.filter(ind => {
     if (myPokemonSearch && !ind.name.toLowerCase().includes(myPokemonSearch)) return false;
-    if (myPokemonTypeFilter && (ind.type || getPokeType(ind.id)) !== myPokemonTypeFilter) return false;
     return true;
   });
   if (filtered.length === 0) {
-    const hint = (myPokemonSearch || myPokemonTypeFilter)
-      ? `No Pokémon match the filter. <button onclick="clearMyPokeSearch();setMyPokeTypeFilter('');" style="background:#3498db;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;margin-top:8px;">Clear filters</button>`
+    const hint = myPokemonSearch
+      ? `No Pokémon match "${myPokemonSearch}". <button onclick="clearMyPokeSearch();" style="background:#3498db;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;margin-top:8px;">Clear search</button>`
       : 'No Pokémon yet — throw some balls!';
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:#aaa;">${hint}</div>`;
     return;
