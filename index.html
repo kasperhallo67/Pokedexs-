@@ -3583,6 +3583,14 @@ const BALLS = {
     shinyChance: 0.001,
     desc: 'Free every 8 seconds'
   },
+  triple: {
+    name: 'Triple Ball',
+    price: 60,
+    odds: { common: 80, uncommon: 19, rare: 1, epic: 0, legendary: 0 },
+    shinyChance: 0.005,
+    multiCatch: 3,
+    desc: '3 Pokémon per ball, but mostly Common'
+  },
   poke: {
     name: 'Poké Ball',
     price: 20,
@@ -3792,104 +3800,31 @@ function throwBall() {
   }, animDuration);
 
   setTimeout(() => {
-    let pokemon;
-    // 0. Cheat-override: forrige pick_pokemon-cheat satte en spesifikk Pokémon for neste ball
-    if (state.nextPokemonOverride) {
-      pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
-      state.nextPokemonOverride = null;
+    const numCatches = ball.multiCatch || 1;
+    const catches = [];
+    for (let catchIdx = 0; catchIdx < numCatches; catchIdx++) {
+      catches.push(processSingleCatch(ball));
     }
-    if (!pokemon) {
-      // Bruk buddy-boost på odds (best friend = bedre Pokémon)
-      const boostedOdds = applyBuddyBoost(ball.odds);
-      const buddyCatchChance = getBuddyCatchChance();
-      // 1. Buddy-sjanse først
-      if (buddyCatchChance > 0 && Math.random() * 100 < buddyCatchChance) {
-        pokemon = POKEMONS.find(p => p.id === state.buddyId) || pickPokemon(rollRarity(boostedOdds));
-      }
-      // 2. Event Ball: pikachuChance sjanse for Pikachu
-      else if (ball.pikachuChance && Math.random() * 100 < ball.pikachuChance) {
-        pokemon = POKEMONS.find(p => p.id === PIKACHU_ID) || pickPokemon(rollRarity(boostedOdds));
-      } else {
-        const rarity = rollRarity(boostedOdds);
-        pokemon = pickPokemon(rarity);
-      }
-    }
-    const rarity = pokemon.rarity;
-    state.totalCatches++;
-
-    // Øk buddy-fangster
-    if (state.buddyId) {
-      state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
-    }
-    const milestoneShiny = state.totalCatches % SHINY_INTERVAL === 0;
-    const luckyShiny = Math.random() * 100 < (ball.shinyChance || 0);
-    const isShiny = milestoneShiny || luckyShiny;
-
-    let isNew;
-    if (isShiny) {
-      isNew = !state.shinySeen[pokemon.id];
-      state.shinies[pokemon.id] = (state.shinies[pokemon.id] || 0) + 1;
-      state.shinySeen[pokemon.id] = true;
-      // Shiny teller også som normal
-      state.caught[pokemon.id] = (state.caught[pokemon.id] || 0) + 1;
-      state.seen[pokemon.id] = true;
+    // Bruk siste catch som "main" for popup (eller multi-popup hvis multiCatch)
+    const mainCatch = catches[catches.length - 1];
+    if (numCatches > 1) {
+      // Vis combined popup for multi-catch
+      showMultiCatchPopup(catches);
     } else {
-      isNew = !state.seen[pokemon.id];
-      state.caught[pokemon.id] = (state.caught[pokemon.id] || 0) + 1;
-      state.seen[pokemon.id] = true;
+      showCatchPopup(mainCatch.pokemon, mainCatch.isNew, mainCatch.reward, mainCatch.isShiny, mainCatch.eventType);
+      if (mainCatch.isShiny) spawnShinyDancer(mainCatch.pokemon, mainCatch.eventType);
     }
 
-    const baseReward = SELL_PRICES[rarity];
-    const mult = ball.moneyMult || 1;
-    let reward = Math.round((isShiny ? baseReward * 10 : baseReward) * mult);
+    // Sist fanget = sist fra batch
+    state.lastCaughtId = mainCatch.pokemon.id;
+    state.lastCaughtName = mainCatch.pokemon.name;
+    state.lastCaughtShiny = mainCatch.isShiny;
 
-    // Buddy cap: maks 300 coins når du fanger buddy
-    if (pokemon.id === state.buddyId) {
-      reward = Math.min(reward, 300);
-    }
-
-    // Coin-bonus fra oppgraderte Pokémon
-    reward = Math.round(reward * getCoinBonusMult());
-
-    // 15% reduksjon hvis du har 10k+ coins
-    if (state.coins >= 10000) {
-      reward = Math.round(reward * 0.85);
-    }
-
-    // Rull for event (Event Ball garanterer event)
-    let eventType;
-    if (ball.guaranteedEvent) {
-      // Tving event - bruk samme pool som rollEvent ville brukt
-      const options = Object.keys(EVENT_TYPES);
-      if (pokemon.id === PIKACHU_ID) {
-        for (const ev of Object.keys(EEVEELUTIONS)) options.push('eevee-' + ev);
-      }
-      eventType = options[Math.floor(Math.random() * options.length)];
-    } else {
-      eventType = rollEvent(pokemon.id, isShiny);
-    }
-    if (eventType) {
-      const eventKey = pokemon.id + '-' + eventType;
-      state.events[eventKey] = (state.events[eventKey] || 0) + 1;
-      state.eventsSeen[eventKey] = true;
-      reward = Math.round(reward * 2); // event gir dobbel belønning
-    }
-
-    state.coins += reward;
-    showCatchPopup(pokemon, isNew, reward, isShiny, eventType);
-    if (isShiny) spawnShinyDancer(pokemon, eventType);
-
-    // Lagre sist fanget for online-visning
-    state.lastCaughtId = pokemon.id;
-    state.lastCaughtName = pokemon.name;
-    state.lastCaughtShiny = isShiny;
-
-    // Team Rocket-trigger: hver 10. ball
+    // Team Rocket-trigger: hver 10. ball (basert på samlet totalCatches)
     state.ballsSinceRocket = (state.ballsSinceRocket || 0) + 1;
     if (state.ballsSinceRocket >= 10) {
       state.ballsSinceRocket = 0;
-      // Vent litt så catch-popup vises først
-      setTimeout(startRocketEncounter, isShiny ? 4500 : 2500);
+      setTimeout(startRocketEncounter, mainCatch.isShiny ? 4500 : 2500);
     }
 
     save();
@@ -3897,6 +3832,95 @@ function throwBall() {
     submitScore();
     checkAchievements();
   }, animDuration);
+}
+
+function processSingleCatch(ball) {
+  let pokemon;
+  if (state.nextPokemonOverride) {
+    pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
+    state.nextPokemonOverride = null;
+  }
+  if (!pokemon) {
+    const boostedOdds = applyBuddyBoost(ball.odds);
+    const buddyCatchChance = getBuddyCatchChance();
+    if (buddyCatchChance > 0 && Math.random() * 100 < buddyCatchChance) {
+      pokemon = POKEMONS.find(p => p.id === state.buddyId) || pickPokemon(rollRarity(boostedOdds));
+    } else if (ball.pikachuChance && Math.random() * 100 < ball.pikachuChance) {
+      pokemon = POKEMONS.find(p => p.id === PIKACHU_ID) || pickPokemon(rollRarity(boostedOdds));
+    } else {
+      pokemon = pickPokemon(rollRarity(boostedOdds));
+    }
+  }
+  const rarity = pokemon.rarity;
+  state.totalCatches++;
+  if (state.buddyId) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
+  const milestoneShiny = state.totalCatches % SHINY_INTERVAL === 0;
+  const luckyShiny = Math.random() * 100 < (ball.shinyChance || 0);
+  const isShiny = milestoneShiny || luckyShiny;
+  let isNew;
+  if (isShiny) {
+    isNew = !state.shinySeen[pokemon.id];
+    state.shinies[pokemon.id] = (state.shinies[pokemon.id] || 0) + 1;
+    state.shinySeen[pokemon.id] = true;
+    state.caught[pokemon.id] = (state.caught[pokemon.id] || 0) + 1;
+    state.seen[pokemon.id] = true;
+  } else {
+    isNew = !state.seen[pokemon.id];
+    state.caught[pokemon.id] = (state.caught[pokemon.id] || 0) + 1;
+    state.seen[pokemon.id] = true;
+  }
+  const baseReward = SELL_PRICES[rarity];
+  const mult = ball.moneyMult || 1;
+  let reward = Math.round((isShiny ? baseReward * 10 : baseReward) * mult);
+  if (pokemon.id === state.buddyId) reward = Math.min(reward, 300);
+  reward = Math.round(reward * getCoinBonusMult());
+  if (state.coins >= 10000) reward = Math.round(reward * 0.85);
+  let eventType;
+  if (ball.guaranteedEvent) {
+    const options = Object.keys(EVENT_TYPES);
+    if (pokemon.id === PIKACHU_ID) {
+      for (const ev of Object.keys(EEVEELUTIONS)) options.push('eevee-' + ev);
+      options.push('detective');
+    }
+    eventType = options[Math.floor(Math.random() * options.length)];
+  } else {
+    eventType = rollEvent(pokemon.id, isShiny);
+  }
+  if (eventType) {
+    const eventKey = pokemon.id + '-' + eventType;
+    state.events[eventKey] = (state.events[eventKey] || 0) + 1;
+    state.eventsSeen[eventKey] = true;
+    reward = Math.round(reward * 2);
+  }
+  state.coins += reward;
+  return { pokemon, isNew, reward, isShiny, eventType };
+}
+
+function showMultiCatchPopup(catches) {
+  const popup = document.getElementById('catchPopup');
+  const totalReward = catches.reduce((s, c) => s + c.reward, 0);
+  const newCount = catches.filter(c => c.isNew).length;
+  const shinyCount = catches.filter(c => c.isShiny).length;
+  const imgWrapper = document.getElementById('catchImg');
+  imgWrapper.outerHTML = `<div id="catchImg" style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">${
+    catches.map(c => `<img src="${c.isShiny ? SHINY_SPRITE_URL(c.pokemon.id) : SPRITE_URL(c.pokemon.id)}" style="width:80px;height:80px;image-rendering:pixelated;${c.isShiny ? 'filter:drop-shadow(0 0 8px gold);' : ''}">`).join('')
+  }</div>`;
+  document.getElementById('catchName').textContent = `Caught ${catches.length} Pokémon!`;
+  const rarityTag = document.getElementById('catchRarity');
+  rarityTag.textContent = catches.map(c => c.pokemon.name).join(' • ');
+  rarityTag.className = 'rarity-tag';
+  rarityTag.style.background = 'rgba(0,0,0,0.5)';
+  let info = '';
+  if (shinyCount > 0) info += `<div style="color:gold;font-weight:bold;">⭐ ${shinyCount} SHINY!</div>`;
+  if (newCount > 0) info += `<div>🆕 ${newCount} new in Pokédex!</div>`;
+  info += `<div style="color:gold;font-size:22px;margin-top:5px;">+${totalReward} 💰</div>`;
+  document.getElementById('catchNew').innerHTML = info;
+  popup.className = 'catch-popup show' + (shinyCount > 0 ? ' shiny' : '');
+  setTimeout(() => popup.classList.remove('show'), 3000);
+  // Spawn shiny dancer for hver shiny
+  catches.forEach(c => {
+    if (c.isShiny) spawnShinyDancer(c.pokemon, c.eventType);
+  });
 }
 
 function spawnShinyDancer(pokemon, eventType) {
