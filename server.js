@@ -63,7 +63,8 @@ const BAD_WORDS = [
   // Norwegian
   'faen','fitte','kuk','jævla','jævel','jevla','jevel','dritt','drittsekk',
   'fitta','fittetryne','homo','homse','hore','kjerring','tispe','niggern','negerjente',
-  'merrr','negar','rævhol','rævhull','rævhøl','pikk','pikkhode','idiot','idiotisk'
+  'merrr','negar','rævhol','rævhull','rævhøl','pikk','pikkhode','idiot','idiotisk',
+  'neger','satan','helvete'
 ];
 function censorText(text) {
   if (!text || typeof text !== 'string') return text;
