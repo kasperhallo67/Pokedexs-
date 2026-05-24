@@ -8553,7 +8553,7 @@ const BOT_DIFFICULTIES = [
 function playerAttackDmg(cp) { return Math.max(10, Math.round(cp / 10)); }
 const BOT_ATTACK_DMG = 1;     // bot gjør 1 skade per auto-attack
 // Bots er ekstra tøffe — mye mer HP enn spillerens Pokémon
-function botHp(cp) { return Math.max(20, Math.round(cp * 4)); }
+function botHp(cp) { return Math.max(50, Math.round(cp * 10)); }
 
 function getMyBattlePokemon() {
   // Returner alle Pokémon spilleren har fanget, sortert etter beste CP
@@ -8582,8 +8582,8 @@ function renderBattle() {
 
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:10px;">
-      <strong>⚔️ Spam SPACE (or tap the button) to attack the bot!</strong>
-      <div style="font-size:12px;opacity:0.7;">Each hit deals damage. First to 0 HP loses. Higher CP = more HP.</div>
+      <strong>⚔️ Press SPACE (or tap the button) to attack!</strong>
+      <div style="font-size:12px;opacity:0.7;">⚠️ You can't hold the key — each tap = one hit. Bots have <strong>10× HP</strong> so they tank a lot of damage!</div>
     </div>
     <div style="text-align:center;color:#fff;">
       <label style="font-size:14px;">Choose bot opponent: </label>
@@ -8591,7 +8591,7 @@ function renderBattle() {
         ${BOT_DIFFICULTIES.map((b, i) => {
           const label = b.custom
             ? `${b.name} — choose CP yourself`
-            : `${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}, HP ×4)`;
+            : `${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}, HP ×10 — tough!)`;
           return `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${label}</option>`;
         }).join('')}
       </select>
@@ -8732,14 +8732,23 @@ function startBattle() {
   const intervalMs = 1000 / battleGame.bot.mashRate;
   battleGame.botInterval = setInterval(botAttack, intervalMs);
 
-  // Tastatur-lytter for SPACE
-  battleGame.keyHandler = (e) => {
-    if (e.code === 'Space' || e.key === ' ') {
+  // Tastatur-lytter for SPACE — ignorerer auto-repeat når du holder tasten
+  // Du må slippe og trykke på nytt for hver attack
+  battleGame.spaceDown = false;
+  battleGame.keyDownHandler = (e) => {
+    if ((e.code === 'Space' || e.key === ' ') && !e.repeat && !battleGame.spaceDown) {
       e.preventDefault();
+      battleGame.spaceDown = true;
       battleAttack();
     }
   };
-  window.addEventListener('keydown', battleGame.keyHandler);
+  battleGame.keyUpHandler = (e) => {
+    if (e.code === 'Space' || e.key === ' ') {
+      battleGame.spaceDown = false;
+    }
+  };
+  window.addEventListener('keydown', battleGame.keyDownHandler);
+  window.addEventListener('keyup', battleGame.keyUpHandler);
   updateBattleArena();
 }
 
@@ -8793,7 +8802,8 @@ function endBattle(playerWon) {
   if (!battleGame) return;
   battleGame.active = false;
   if (battleGame.botInterval) clearInterval(battleGame.botInterval);
-  if (battleGame.keyHandler) window.removeEventListener('keydown', battleGame.keyHandler);
+  if (battleGame.keyDownHandler) window.removeEventListener('keydown', battleGame.keyDownHandler);
+  if (battleGame.keyUpHandler) window.removeEventListener('keyup', battleGame.keyUpHandler);
 
   const mashBtn = document.getElementById('battleMashBtn');
   if (mashBtn) { mashBtn.disabled = true; mashBtn.style.display = 'none'; }
