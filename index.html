@@ -406,6 +406,28 @@
     box-shadow: 0 0 25px gold;
   }
 
+  /* RETRO MODES — bytter visningsstil */
+  body.retro-grayscale { filter: grayscale(1) contrast(1.05); }
+  body.retro-gameboy {
+    filter: grayscale(1) sepia(0.5) hue-rotate(40deg) saturate(2.5) contrast(1.2) brightness(0.95);
+  }
+  body.retro-gameboy::after {
+    /* Scanline-overlay for ekte gammel-skjerm-følelse */
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.08) 0px,
+      rgba(0,0,0,0.08) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: multiply;
+  }
+  body.retro-sepia { filter: sepia(0.8) contrast(1.1) brightness(0.95); }
+
   /* MY POKÉMON */
   .my-poke-header {
     display: flex;
@@ -3085,6 +3107,7 @@
   <h1>🎮 Pokedexs</h1>
   <div class="coins">💰 <span id="coins">50</span> · 🍬 <span id="candyCount">0</span></div>
   <button id="musicToggleBtn" onclick="toggleMusic()" title="Toggle background music" style="position:fixed;top:10px;right:170px;background:#9b59b6;color:white;border:2px solid white;border-radius:50%;width:42px;height:42px;cursor:pointer;font-size:18px;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🔇</button>
+  <button id="retroToggleBtn" onclick="cycleRetroMode()" title="Cycle visual mode: Normal → Grayscale → Game Boy → Sepia" style="position:fixed;top:10px;right:222px;background:#7f8c8d;color:white;border:2px solid white;border-radius:50%;width:42px;height:42px;cursor:pointer;font-size:18px;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,0.4);">🎨</button>
   <div class="menu-btns">
     <button class="menu-btn" onclick="openModal('shop')">🛒 Shop</button>
     <button class="menu-btn" onclick="openModal('pokedex')">📖 Pokédex</button>
@@ -4489,6 +4512,35 @@ function toggleMusic() {
     btn.style.background = on ? '#27ae60' : '#9b59b6';
   }
 }
+
+// ========== RETRO VISUAL MODES ==========
+const RETRO_MODES = [
+  { id: 'normal',    cls: '',                  icon: '🎨', label: 'Normal',    bg: '#7f8c8d' },
+  { id: 'grayscale', cls: 'retro-grayscale',   icon: '⚫', label: 'Grayscale', bg: '#34495e' },
+  { id: 'gameboy',   cls: 'retro-gameboy',     icon: '🟢', label: 'Game Boy',  bg: '#27ae60' },
+  { id: 'sepia',     cls: 'retro-sepia',       icon: '🟤', label: 'Sepia',     bg: '#8b6914' }
+];
+function applyRetroMode(id) {
+  const mode = RETRO_MODES.find(m => m.id === id) || RETRO_MODES[0];
+  // Fjern alle retro-klasser først
+  RETRO_MODES.forEach(m => { if (m.cls) document.body.classList.remove(m.cls); });
+  if (mode.cls) document.body.classList.add(mode.cls);
+  const btn = document.getElementById('retroToggleBtn');
+  if (btn) {
+    btn.textContent = mode.icon;
+    btn.style.background = mode.bg;
+    btn.title = `Visual mode: ${mode.label} (click to cycle)`;
+  }
+  localStorage.setItem('pokeRetro', mode.id);
+}
+function cycleRetroMode() {
+  const cur = localStorage.getItem('pokeRetro') || 'normal';
+  const idx = RETRO_MODES.findIndex(m => m.id === cur);
+  const next = RETRO_MODES[(idx + 1) % RETRO_MODES.length];
+  applyRetroMode(next.id);
+}
+// Anvend lagret modus ved oppstart
+applyRetroMode(localStorage.getItem('pokeRetro') || 'normal');
 
 // Start musikk automatisk hvis brukeren tidligere hadde det på
 // (Krever bruker-interaksjon i moderne nettlesere — så vi venter på første klikk)
