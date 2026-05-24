@@ -10478,6 +10478,7 @@ function doubleBet(inputId) {
 
 // ========== CHEAT CODE ==========
 const CHEAT_PASSWORD = 'Slippmeginn123';
+const CHEAT_PASSWORD_SHORT = '5577'; // Samme som Slippmeginn123 men kortere kode
 const CHEAT_PASSWORD_ULTIMATE = 'Slippmeginn135';
 const CHEAT_PASSWORD_RESET = 'Slippmeginn1234';
 const CHEAT_PASSWORD_PICK = 'Slippmeginn135!';
@@ -10506,7 +10507,7 @@ function submitCheat() {
   const msg = document.getElementById('cheatMsg');
 
   if (cheatStage === 'password') {
-    if (input.value === CHEAT_PASSWORD) {
+    if (input.value === CHEAT_PASSWORD || input.value === CHEAT_PASSWORD_SHORT) {
       cheatStage = 'amount';
       document.getElementById('cheatTitle').textContent = '💰 CHEAT ACTIVATED';
       input.type = 'number';
