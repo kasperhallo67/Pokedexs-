@@ -7635,7 +7635,9 @@ function clientCensor(text) {
   if (!text) return text;
   let r = text;
   for (const w of CLIENT_BAD_WORDS) {
-    const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    // Tillat mellomrom og bypass-tegn mellom bokstavene
+    const pattern = w.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s.\\-_*\\/]*');
+    const re = new RegExp(pattern, 'gi');
     r = r.replace(re, m => '*'.repeat(m.length));
   }
   return r;

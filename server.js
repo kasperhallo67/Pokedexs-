@@ -70,11 +70,12 @@ function censorText(text) {
   if (!text || typeof text !== 'string') return text;
   let result = text;
   for (const word of BAD_WORDS) {
-    // Erstatter ord overalt, case-insensitive, til stjerner
-    const re = new RegExp(word.split('').map(c => {
-      // Escape regex-spesialtegn
+    // Tillat mellomrom og vanlige bypass-tegn (. - _ * /) mellom hver bokstav
+    // Eks: "f a e n", "f.a.e.n", "f-a-e-n" blir også sensurert
+    const pattern = word.split('').map(c => {
       return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }).join(''), 'gi');
+    }).join('[\\s.\\-_*\\/]*');
+    const re = new RegExp(pattern, 'gi');
     result = result.replace(re, (match) => '*'.repeat(match.length));
   }
   return result;
