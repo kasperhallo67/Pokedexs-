@@ -6926,6 +6926,8 @@ function openAchievements() {
 
 // ========== MY POKÉMON (individuelle) ==========
 let myPokemonSort = 'cp'; // 'cp', 'rarity', 'date', 'name'
+let myPokemonSearch = ''; // søketekst
+let myPokemonTypeFilter = ''; // filter etter type
 function openMyPokemons() {
   document.getElementById('myPokemonsModal').classList.add('active');
   renderMyPokemons();
@@ -6936,6 +6938,21 @@ function closeMyPokemons() {
 function setMyPokeSort(sort) {
   myPokemonSort = sort;
   renderMyPokemons();
+}
+function setMyPokeSearch(val) {
+  myPokemonSearch = (val || '').toLowerCase().trim();
+  // Bare oppdater grid, ikke hele input (slik at fokus beholdes)
+  renderMyPokemonsGrid();
+}
+function setMyPokeTypeFilter(type) {
+  myPokemonTypeFilter = myPokemonTypeFilter === type ? '' : type;
+  renderMyPokemons();
+}
+function clearMyPokeSearch() {
+  myPokemonSearch = '';
+  const input = document.getElementById('myPokeSearchInput');
+  if (input) input.value = '';
+  renderMyPokemonsGrid();
 }
 function storageUpgradeCost() {
   // Hver oppgradering dobler: 5000, 10000, 20000, 40000, ...
@@ -7060,21 +7077,14 @@ function renderMyPokemons() {
   const countClass = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : '';
   const cost = storageUpgradeCost();
 
-  // Sortering
-  const sorted = [...state.individuals];
-  if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
-  else if (myPokemonSort === 'rarity') {
-    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
-    sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
-  }
-  else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
-  else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
   // Total candy = sum av alle art-spesifikke candy
   const totalCandy = state.candy && typeof state.candy === 'object'
     ? Object.values(state.candy).reduce((s, n) => s + n, 0) : 0;
   const candySpecies = state.candy && typeof state.candy === 'object'
     ? Object.keys(state.candy).filter(k => state.candy[k] > 0).length : 0;
+  // Hvilke typer brukeren faktisk har (for type-filter-knapper)
+  const userTypes = [...new Set(state.individuals.map(i => i.type || getPokeType(i.id)))].sort();
+
   content.innerHTML = `
     <div class="my-poke-header">
       <div class="my-poke-count ${countClass}">📦 ${count} / ${max}</div>
@@ -7086,44 +7096,81 @@ function renderMyPokemons() {
     <div style="background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12px;color:#fff;">
       💡 <strong>Sell a Bulbasaur</strong> → get <strong>1 Bulbasaur Candy 🍬</strong>. Each species has its own candy. <strong>3 candy = +10% CP</strong> upgrade for that specific Pokémon.
     </div>
+    <div style="display:flex;gap:5px;margin-bottom:8px;align-items:center;">
+      <input type="text" id="myPokeSearchInput" placeholder="🔍 Search by name..." value="${myPokemonSearch}" oninput="setMyPokeSearch(this.value)" style="flex:1;padding:8px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;font-size:14px;">
+      ${myPokemonSearch ? `<button onclick="clearMyPokeSearch()" style="background:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">×</button>` : ''}
+    </div>
+    ${userTypes.length > 0 ? `
+    <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;color:#aaa;margin-right:4px;">Filter:</span>
+      ${userTypes.map(t => `<button onclick="setMyPokeTypeFilter('${t}')" style="background:${myPokemonTypeFilter === t ? TYPE_COLORS[t] : 'rgba(255,255,255,0.1)'};color:${myPokemonTypeFilter === t ? 'white' : '#fff'};border:1px solid ${myPokemonTypeFilter === t ? TYPE_COLORS[t] : 'rgba(255,255,255,0.2)'};padding:4px 8px;border-radius:12px;cursor:pointer;font-size:11px;font-weight:bold;">${TYPE_EMOJI[t]} ${t}</button>`).join('')}
+      ${myPokemonTypeFilter ? `<button onclick="setMyPokeTypeFilter('')" style="background:#555;color:white;border:none;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:11px;">× clear</button>` : ''}
+    </div>
+    ` : ''}
     <div class="my-poke-sort">
       <button class="${myPokemonSort==='cp' ? 'active' : ''}" onclick="setMyPokeSort('cp')">⚔️ CP</button>
       <button class="${myPokemonSort==='rarity' ? 'active' : ''}" onclick="setMyPokeSort('rarity')">⭐ Rarity</button>
       <button class="${myPokemonSort==='date' ? 'active' : ''}" onclick="setMyPokeSort('date')">📅 Newest</button>
       <button class="${myPokemonSort==='name' ? 'active' : ''}" onclick="setMyPokeSort('name')">🔤 Name</button>
     </div>
-    <div class="my-poke-grid">
-      ${sorted.length === 0 ? '<div style="grid-column:1/-1;text-align:center;padding:30px;color:#aaa;">No Pokémon yet — throw some balls!</div>' :
-        sorted.map(ind => {
-          const spriteUrl = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
-          const type = ind.type || getPokeType(ind.id);
-          const isBuddy = state.buddyUid === ind.uid;
-          return `
-            <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}" ${isBuddy ? 'style="border-color:gold;box-shadow:0 0 15px gold;"' : ''}>
-              ${ind.isShiny ? '<div class="my-poke-shiny-badge">✨</div>' : ''}
-              ${isBuddy ? '<div style="position:absolute;top:4px;left:4px;background:gold;color:#333;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;">★ BUDDY</div>' : ''}
-              <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
-              <div class="name">${ind.name}</div>
-              <div class="cp">⚔️ CP ${ind.cp}</div>
-              <div style="font-size:13px;color:#ff7676;font-weight:bold;">❤️ HP ${pokeHp(ind.cp)}</div>
-              <div style="margin:3px 0;">${typeBadgeHtml(type, 10)}</div>
-              <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
-              ${(ind.upgrades || 0) > 0 ? `<div style="font-size:10px;color:#9b59b6;font-weight:bold;">⬆️ Lvl ${ind.upgrades}</div>` : ''}
-              ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
-              ${(() => {
-                const { candy: cc, coins: cn } = upgradeCost(ind.upgrades || 0);
-                const have = (state.candy && state.candy[ind.id]) || 0;
-                const canUp = have >= cc && state.coins >= cn;
-                return `<button class="release-btn" style="background:${canUp ? '#9b59b6' : '#555'};" onclick="upgradeIndividual('${ind.uid}')" title="Cost: ${cc} ${ind.name} Candy + ${cn} coins">🍬${have}/${cc} 💰${cn}</button>`;
-              })()}
-              <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
-              <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
-            </div>
-          `;
-        }).join('')
-      }
-    </div>
+    <div class="my-poke-grid" id="myPokeGrid"></div>
   `;
+  renderMyPokemonsGrid();
+}
+
+// Bare re-render selve grid (slik at søke-input beholder fokus)
+function renderMyPokemonsGrid() {
+  const grid = document.getElementById('myPokeGrid');
+  if (!grid) return;
+  // Sortering
+  const sorted = [...state.individuals];
+  if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
+  else if (myPokemonSort === 'rarity') {
+    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
+  }
+  else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
+  else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // Filtrer
+  const filtered = sorted.filter(ind => {
+    if (myPokemonSearch && !ind.name.toLowerCase().includes(myPokemonSearch)) return false;
+    if (myPokemonTypeFilter && (ind.type || getPokeType(ind.id)) !== myPokemonTypeFilter) return false;
+    return true;
+  });
+  if (filtered.length === 0) {
+    const hint = (myPokemonSearch || myPokemonTypeFilter)
+      ? `No Pokémon match the filter. <button onclick="clearMyPokeSearch();setMyPokeTypeFilter('');" style="background:#3498db;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;margin-top:8px;">Clear filters</button>`
+      : 'No Pokémon yet — throw some balls!';
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:#aaa;">${hint}</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(ind => {
+    const spriteUrl = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
+    const type = ind.type || getPokeType(ind.id);
+    const isBuddy = state.buddyUid === ind.uid;
+    return `
+      <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}" ${isBuddy ? 'style="border-color:gold;box-shadow:0 0 15px gold;"' : ''}>
+        ${ind.isShiny ? '<div class="my-poke-shiny-badge">✨</div>' : ''}
+        ${isBuddy ? '<div style="position:absolute;top:4px;left:4px;background:gold;color:#333;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;">★ BUDDY</div>' : ''}
+        <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
+        <div class="name">${ind.name}</div>
+        <div class="cp">⚔️ CP ${ind.cp}</div>
+        <div style="font-size:13px;color:#ff7676;font-weight:bold;">❤️ HP ${pokeHp(ind.cp)}</div>
+        <div style="margin:3px 0;">${typeBadgeHtml(type, 10)}</div>
+        <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
+        ${(ind.upgrades || 0) > 0 ? `<div style="font-size:10px;color:#9b59b6;font-weight:bold;">⬆️ Lvl ${ind.upgrades}</div>` : ''}
+        ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
+        ${(() => {
+          const { candy: cc, coins: cn } = upgradeCost(ind.upgrades || 0);
+          const have = (state.candy && state.candy[ind.id]) || 0;
+          const canUp = have >= cc && state.coins >= cn;
+          return `<button class="release-btn" style="background:${canUp ? '#9b59b6' : '#555'};" onclick="upgradeIndividual('${ind.uid}')" title="Cost: ${cc} ${ind.name} Candy + ${cn} coins">🍬${have}/${cc} 💰${cn}</button>`;
+        })()}
+        <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
+        <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderAchievements() {
@@ -8389,7 +8436,8 @@ const BOT_DIFFICULTIES = [
   { name: '👹 Legend Bot',  rarity: 'legendary', mashRate: 9.0, candyReward: 10 }
 ];
 // Spilleren angriper hardere enn boten i AI-battles
-const PLAYER_ATTACK_DMG = 10; // spiller gjør 10 skade per klikk
+// Skade skalerer med CP: jo bedre Pokémon, jo mer damage per klikk
+function playerAttackDmg(cp) { return Math.max(10, Math.round(cp / 10)); }
 const BOT_ATTACK_DMG = 1;     // bot gjør 1 skade per auto-attack
 
 function getMyBattlePokemon() {
@@ -8436,6 +8484,7 @@ function renderBattle() {
           <div class="name">${poke.name}</div>
           <div class="cp">⚔️ ${cp}</div>
           <div style="font-size:11px;color:#ff7676;font-weight:bold;">❤️ ${pokeHp(cp)}</div>
+          <div style="font-size:10px;color:#ffeb3b;font-weight:bold;" title="Damage per attack">💥 ${playerAttackDmg(cp)}/hit</div>
         </div>
       `).join('')}
     </div>
@@ -8557,8 +8606,10 @@ function startBattle() {
 
 function battleAttack() {
   if (!battleGame || !battleGame.active) return;
-  // Spilleren gjør mer skade (PLAYER_ATTACK_DMG per klikk)
-  const dmg = PLAYER_ATTACK_DMG;
+  // Skade skalerer med valgt Pokémons CP — sterkere Pokémon = mer damage
+  const myPoke = POKEMONS.find(p => p.id === battleGame.selectedPokeId);
+  const myCp = myPoke ? (state.bestCp[myPoke.id] || 1) : 1;
+  const dmg = playerAttackDmg(myCp);
   battleGame.bot.hp -= dmg;
   showBattleDmg('battleBot', dmg);
   const botImg = document.getElementById('battleBotImg');
