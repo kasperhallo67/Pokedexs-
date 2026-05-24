@@ -622,6 +622,126 @@
     margin: 5px 0;
   }
 
+  /* BATTLE */
+  .battle-arena {
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, #87ceeb 0%, #4a8c2f 60%, #2d5a1a 100%);
+    border-radius: 14px;
+    padding: 30px 20px;
+    min-height: 320px;
+    position: relative;
+    overflow: hidden;
+  }
+  .battle-side {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .battle-side img { width: 130px; height: 130px; image-rendering: pixelated; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+  .battle-name { font-size: 18px; font-weight: bold; color: white; text-shadow: 0 2px 4px #000; margin-bottom: 4px; }
+  .battle-cp { font-size: 14px; color: #7df; font-weight: bold; text-shadow: 0 1px 3px #000; }
+  .battle-hp-bar {
+    width: 100%;
+    max-width: 200px;
+    height: 22px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 11px;
+    margin: 8px auto;
+    overflow: hidden;
+    border: 2px solid #333;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .battle-hp-fill {
+    height: 100%;
+    background: linear-gradient(180deg, #2ecc71, #27ae60);
+    width: 100%;
+    transition: width 0.15s ease-out;
+    position: relative;
+  }
+  .battle-hp-fill.low { background: linear-gradient(180deg, #f39c12, #d68910); }
+  .battle-hp-fill.crit { background: linear-gradient(180deg, #e74c3c, #c0392b); }
+  .battle-vs {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ffeb3b;
+    text-shadow: 0 0 10px #ff5722, 0 2px 4px #000;
+  }
+  .battle-attack-anim {
+    animation: battleHit 0.2s ease-out;
+  }
+  @keyframes battleHit {
+    0%   { transform: translateX(0); filter: brightness(1); }
+    50%  { transform: translateX(-15px); filter: brightness(2); }
+    100% { transform: translateX(0); filter: brightness(1); }
+  }
+  .battle-controls { text-align: center; margin-top: 16px; }
+  .battle-mash-btn {
+    width: 100%;
+    padding: 28px;
+    font-size: 28px;
+    font-weight: bold;
+    background: linear-gradient(180deg, #e74c3c, #c0392b);
+    color: white;
+    border: 4px solid #fff;
+    border-radius: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.05s, box-shadow 0.05s;
+    box-shadow: 0 6px 0 #922b1c, 0 8px 20px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    letter-spacing: 2px;
+  }
+  .battle-mash-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #922b1c, 0 4px 10px rgba(0,0,0,0.5);
+  }
+  .battle-mash-btn:disabled {
+    background: linear-gradient(180deg, #7f8c8d, #555);
+    cursor: not-allowed;
+    box-shadow: 0 3px 0 #333;
+  }
+  .battle-pokemon-select {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 15px 0;
+  }
+  .battle-pokemon-card {
+    background: rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    min-width: 90px;
+  }
+  .battle-pokemon-card:hover { border-color: #7df; transform: translateY(-3px); }
+  .battle-pokemon-card.selected { border-color: gold; background: rgba(255,215,0,0.2); box-shadow: 0 0 15px gold; }
+  .battle-pokemon-card img { width: 60px; height: 60px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .battle-pokemon-card .cp { color: #7df; font-weight: bold; font-size: 13px; }
+  .battle-pokemon-card .name { font-size: 11px; color: #fff; }
+  .battle-damage-popup {
+    position: absolute;
+    color: #ffeb3b;
+    font-size: 26px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px #000, 0 0 10px #ff5722;
+    pointer-events: none;
+    animation: dmgFloat 0.8s ease-out forwards;
+    z-index: 10;
+  }
+  @keyframes dmgFloat {
+    0%   { opacity: 1; transform: translate(-50%, 0) scale(0.5); }
+    50%  { opacity: 1; transform: translate(-50%, -30px) scale(1.3); }
+    100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+  }
+
   /* POKER */
   .poker-table {
     background: linear-gradient(135deg, #0d5d2a, #145d2c);
@@ -2925,6 +3045,7 @@
       <button class="trade-tab" data-game="poker" onclick="switchCasino('poker')">🃏 Poker</button>
       <button class="trade-tab" data-game="blackjack" onclick="switchCasino('blackjack')">🂡 Blackjack</button>
       <button class="trade-tab" data-game="texas" onclick="switchCasino('texas')">♠️ Hold'em</button>
+      <button class="trade-tab" data-game="battle" onclick="switchCasino('battle')">⚔️ Bot Battle</button>
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
@@ -3718,6 +3839,34 @@ const SELL_PRICES = {
   ultimate: 10000
 };
 
+// CP-områder per rarity (Pokémon GO-stil — hver fangst får tilfeldig CP i området)
+const CP_RANGES = {
+  common:    { min: 1,    max: 168  },
+  uncommon:  { min: 1,    max: 127  },
+  rare:      { min: 50,   max: 350  },
+  epic:      { min: 150,  max: 1500 },
+  legendary: { min: 500,  max: 5000 },
+  ultimate:  { min: 2000, max: 10000 }
+};
+
+function rollCp(rarity, isShiny) {
+  const range = CP_RANGES[rarity] || CP_RANGES.common;
+  // Skewed lower for realism (kvadratisk = sjeldnere å få høy CP)
+  const roll = Math.random() * Math.random();
+  let cp = Math.round(range.min + roll * (range.max - range.min));
+  if (isShiny) cp = Math.min(range.max, Math.round(cp * 1.25)); // Shiny gir +25% CP
+  return Math.max(1, cp);
+}
+
+function cpPriceMultiplier(cp, rarity) {
+  // Pris skalerer lineært med CP rundt midten av området.
+  // CP under midten -> mindre enn base, over midten -> mer enn base.
+  const range = CP_RANGES[rarity] || CP_RANGES.common;
+  const mid = (range.min + range.max) / 2;
+  const mult = cp / mid;
+  return Math.max(0.1, Math.min(3, mult)); // klipp 10% - 300% av base
+}
+
 // ========== BALLS ==========
 // shinyChance = sannsynlighet i prosent for at fangsten blir shiny (i tillegg til milepælen pr 100.)
 // moneyMult = ekstra penge-multiplier paa fangst
@@ -3871,6 +4020,9 @@ if (state.totalCatches === undefined) {
 // shinyProgress: separat teller for milepæl-shiny — øker bare 1 per ball-kast
 // (slik at Triple Ball ikke gir 3x progress mot neste milepæl)
 if (state.shinyProgress === undefined) state.shinyProgress = state.totalCatches;
+// CP per Pokémon — vi lagrer beste CP per art
+if (!state.bestCp) state.bestCp = {};
+if (state.lastCp === undefined) state.lastCp = 0;
 // Sørg for at alle baller finnes i inventory (for gamle saves)
 for (const key of Object.keys(BALLS)) {
   if (state.inventory[key] === undefined) state.inventory[key] = key === 'free' ? 999 : 0;
@@ -3965,7 +4117,7 @@ function throwBall() {
       // Vis combined popup for multi-catch
       showMultiCatchPopup(catches);
     } else {
-      showCatchPopup(mainCatch.pokemon, mainCatch.isNew, mainCatch.reward, mainCatch.isShiny, mainCatch.eventType);
+      showCatchPopup(mainCatch.pokemon, mainCatch.isNew, mainCatch.reward, mainCatch.isShiny, mainCatch.eventType, mainCatch.cp);
       if (mainCatch.isShiny) spawnShinyDancer(mainCatch.pokemon, mainCatch.eventType);
     }
 
@@ -4023,9 +4175,17 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     state.caught[pokemon.id] = (state.caught[pokemon.id] || 0) + 1;
     state.seen[pokemon.id] = true;
   }
+  // Generer CP for denne fangsten + oppdater beste CP
+  const cp = rollCp(rarity, isShiny);
+  state.lastCp = cp;
+  if (!state.bestCp[pokemon.id] || cp > state.bestCp[pokemon.id]) {
+    state.bestCp[pokemon.id] = cp;
+  }
+  // Pris skalerer med CP rundt midten av området
+  const cpMult = cpPriceMultiplier(cp, rarity);
   const baseReward = SELL_PRICES[rarity];
   const mult = ball.moneyMult || 1;
-  let reward = Math.round((isShiny ? baseReward * 10 : baseReward) * mult);
+  let reward = Math.round((isShiny ? baseReward * 10 : baseReward) * mult * cpMult);
   if (pokemon.id === state.buddyId) reward = Math.min(reward, 300);
   reward = Math.round(reward * getCoinBonusMult());
   if (state.coins >= 10000) reward = Math.round(reward * 0.85);
@@ -4047,7 +4207,7 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     reward = Math.round(reward * 2);
   }
   state.coins += reward;
-  return { pokemon, isNew, reward, isShiny, eventType };
+  return { pokemon, isNew, reward, isShiny, eventType, cp };
 }
 
 function showMultiCatchPopup(catches) {
@@ -4061,7 +4221,7 @@ function showMultiCatchPopup(catches) {
   }</div>`;
   document.getElementById('catchName').textContent = `Caught ${catches.length} Pokémon!`;
   const rarityTag = document.getElementById('catchRarity');
-  rarityTag.textContent = catches.map(c => c.pokemon.name).join(' • ');
+  rarityTag.textContent = catches.map(c => `${c.pokemon.name} (CP ${c.cp})`).join(' • ');
   rarityTag.className = 'rarity-tag';
   rarityTag.style.background = 'rgba(0,0,0,0.5)';
   let info = '';
@@ -4119,7 +4279,7 @@ function spawnShinyDancer(pokemon, eventType) {
   }, 16000);
 }
 
-function showCatchPopup(pokemon, isNew, reward, isShiny, eventType) {
+function showCatchPopup(pokemon, isNew, reward, isShiny, eventType, cpArg) {
   const popup = document.getElementById('catchPopup');
   const imgWrapper = document.getElementById('catchImg');
   // Erstatt img-element med en wrapper hvis vi har event
@@ -4132,6 +4292,9 @@ function showCatchPopup(pokemon, isNew, reward, isShiny, eventType) {
   if (isShiny) info += '<div style="color:gold;font-size:24px;font-weight:bold;text-shadow:0 0 10px gold;">⭐ SHINY! ⭐</div>';
   if (eventType) info += `<div style="color:#ff6ec4;font-size:20px;font-weight:bold;text-shadow:0 0 8px #ff6ec4;">🎉 EVENT: ${eventName(eventType)}! 🎉</div>`;
   if (isNew) info += '<div style="color:#fff;">NEW POKÉMON!</div>';
+  const cp = cpArg ?? state.lastCp ?? 0;
+  const isBest = state.bestCp[pokemon.id] === cp && cp > 0;
+  info += `<div style="color:#7df;font-size:18px;font-weight:bold;text-shadow:0 0 6px #2af;">⚔️ CP ${cp}${isBest ? ' 🏆 NEW BEST!' : ''}</div>`;
   info += `<div style="color:gold;font-size:22px;margin-top:5px;">+${reward} 💰</div>`;
   document.getElementById('catchNew').innerHTML = info;
   let cls = 'catch-popup show';
@@ -4546,7 +4709,7 @@ function renderPokedex() {
       ${spriteHtml}
       <div class="name">${seen ? p.name : '???'}</div>
       <span class="rarity-tag rarity-${p.rarity}">${RARITY_NAMES[p.rarity]}</span>
-      ${seen ? `<div style="font-size:11px;color:#ffd700;margin-top:5px;">Gives ${SELL_PRICES[p.rarity]} 💰${hasShiny ? `<br><span style="color:gold;">Shiny: ${SELL_PRICES[p.rarity]*10} 💰</span>` : ''}</div>` : ''}
+      ${seen ? `<div style="font-size:11px;color:#ffd700;margin-top:5px;">Gives ~${SELL_PRICES[p.rarity]} 💰 (CP-based)${hasShiny ? `<br><span style="color:gold;">Shiny: ~${SELL_PRICES[p.rarity]*10} 💰</span>` : ''}${state.bestCp && state.bestCp[p.id] ? `<br><span style="color:#7df;font-weight:bold;">⚔️ Best CP: ${state.bestCp[p.id]}</span>` : ''}</div>` : ''}
       ${eventCollection}
       ${seen ? `<button class="set-buddy-btn ${state.buddyId === p.id ? 'active' : ''}" onclick="setBuddy(${p.id})">${state.buddyId === p.id ? '★ Buddy' : 'Set as buddy'}</button>` : ''}
       ${seen ? `<button class="set-buddy-btn ${state.favorites.includes(p.id) ? 'active' : ''}" style="background:${state.favorites.includes(p.id) ? '#f39c12' : '#777'};margin-top:2px;" onclick="toggleFavorite(${p.id})">${state.favorites.includes(p.id) ? '⭐ Favorite' : '☆ Favorite'}</button>` : ''}
@@ -7209,6 +7372,7 @@ function switchCasino(game) {
   else if (game === 'poker') renderPoker();
   else if (game === 'blackjack') renderBlackjack();
   else if (game === 'texas') renderTexas();
+  else if (game === 'battle') renderBattle();
 }
 
 // ----- PLINKO -----
@@ -7616,6 +7780,241 @@ function cashOutMines() {
   resultEl.className = 'casino-result win';
   resultEl.innerHTML = `💰 Cash out: <strong>${winnings}💰</strong> (${profit >= 0 ? '+' : ''}${profit})`;
   document.getElementById('cashoutBtn').disabled = true;
+}
+
+// ----- BOT BATTLE -----
+let battleGame = null;
+const BOT_DIFFICULTIES = [
+  { name: '😊 Easy Bot',    rarity: 'common',    mashRate: 2.5, reward: 50 },
+  { name: '🙂 Medium Bot',  rarity: 'uncommon',  mashRate: 4.0, reward: 250 },
+  { name: '😎 Hard Bot',    rarity: 'rare',      mashRate: 5.5, reward: 1000 },
+  { name: '😈 Elite Bot',   rarity: 'epic',      mashRate: 7.0, reward: 5000 },
+  { name: '👹 Legend Bot',  rarity: 'legendary', mashRate: 9.0, reward: 25000 }
+];
+
+function getMyBattlePokemon() {
+  // Returner alle Pokémon spilleren har fanget, sortert etter beste CP
+  const owned = [];
+  for (const poke of POKEMONS) {
+    if (state.bestCp && state.bestCp[poke.id]) {
+      owned.push({ poke, cp: state.bestCp[poke.id] });
+    }
+  }
+  owned.sort((a, b) => b.cp - a.cp);
+  return owned;
+}
+
+function renderBattle() {
+  const c = document.getElementById('casinoContent');
+  const myPokemons = getMyBattlePokemon();
+  if (myPokemons.length === 0) {
+    c.innerHTML = '<div style="text-align:center;padding:40px;color:#fff;">You need to catch some Pokémon first! ⚾</div>';
+    return;
+  }
+  // Default-valgt: din buddy hvis du har en, ellers din sterkeste
+  if (!battleGame || !battleGame.selectedPokeId) {
+    const defaultId = (state.buddyId && state.bestCp[state.buddyId]) ? state.buddyId : myPokemons[0].poke.id;
+    battleGame = { selectedPokeId: defaultId, selectedBotIdx: 0, active: false };
+  }
+
+  c.innerHTML = `
+    <div style="text-align:center;color:#fff;margin-bottom:10px;">
+      <strong>⚔️ Spam SPACE (or tap the button) to attack the bot!</strong>
+      <div style="font-size:12px;opacity:0.7;">Each hit deals damage. First to 0 HP loses. Higher CP = more HP.</div>
+    </div>
+    <div style="text-align:center;color:#fff;">
+      <label style="font-size:14px;">Choose bot opponent: </label>
+      <select id="battleBotSelect" style="padding:6px;border-radius:6px;font-size:14px;">
+        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — Reward: ${b.reward}💰</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-top:10px;text-align:center;color:#fff;">Your Pokémon (sorted by CP — pick one):</div>
+    <div class="battle-pokemon-select" id="battlePokemonSelect">
+      ${myPokemons.slice(0, 30).map(({ poke, cp }) => `
+        <div class="battle-pokemon-card ${battleGame.selectedPokeId === poke.id ? 'selected' : ''}" onclick="selectBattlePokemon(${poke.id})">
+          <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
+          <div class="name">${poke.name}</div>
+          <div class="cp">⚔️ ${cp}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="battle-arena" id="battleArena">
+      <div class="battle-side" id="battlePlayer">
+        <div class="battle-name">—</div>
+        <img src="" id="battlePlayerImg" style="display:none;">
+        <div class="battle-hp-bar"><div class="battle-hp-fill" id="battlePlayerHp"></div></div>
+        <div class="battle-cp" id="battlePlayerCp"></div>
+      </div>
+      <div class="battle-vs">VS</div>
+      <div class="battle-side" id="battleBot">
+        <div class="battle-name">—</div>
+        <img src="" id="battleBotImg" style="display:none;">
+        <div class="battle-hp-bar"><div class="battle-hp-fill" id="battleBotHp"></div></div>
+        <div class="battle-cp" id="battleBotCp"></div>
+      </div>
+    </div>
+    <div class="battle-controls">
+      <button class="casino-btn" id="battleStartBtn" onclick="startBattle()">▶️ Start Battle</button>
+      <button class="battle-mash-btn" id="battleMashBtn" disabled style="margin-top:10px;display:none;">⚔️ ATTACK (SPACE)</button>
+    </div>
+    <div class="casino-result" id="battleResult"></div>
+  `;
+  // Lytt på dropdown
+  document.getElementById('battleBotSelect').onchange = (e) => {
+    battleGame.selectedBotIdx = parseInt(e.target.value);
+  };
+  // Tegn arena med valgte Pokémon
+  updateBattleArena();
+}
+
+function selectBattlePokemon(id) {
+  if (battleGame && battleGame.active) return; // Ikke bytt mens battle pågår
+  battleGame.selectedPokeId = id;
+  renderBattle();
+}
+
+function updateBattleArena() {
+  if (!battleGame) return;
+  const myPoke = POKEMONS.find(p => p.id === battleGame.selectedPokeId);
+  if (!myPoke) return;
+  const myCp = state.bestCp[myPoke.id] || 1;
+  const myImg = state.shinies[myPoke.id] ? SHINY_SPRITE_URL(myPoke.id) : SPRITE_URL(myPoke.id);
+  const pSide = document.getElementById('battlePlayer');
+  pSide.querySelector('.battle-name').textContent = myPoke.name;
+  const pImg = document.getElementById('battlePlayerImg');
+  pImg.src = myImg;
+  pImg.style.display = 'inline-block';
+  document.getElementById('battlePlayerCp').textContent = '⚔️ CP ' + (battleGame.active ? Math.max(0, battleGame.myHp) : myCp);
+  setHpBar('battlePlayerHp', battleGame.active ? battleGame.myHp : myCp, battleGame.myMaxHp || myCp);
+
+  if (battleGame.bot) {
+    const bot = battleGame.bot;
+    const bSide = document.getElementById('battleBot');
+    bSide.querySelector('.battle-name').textContent = bot.poke.name;
+    const bImg = document.getElementById('battleBotImg');
+    bImg.src = SPRITE_URL(bot.poke.id);
+    bImg.style.display = 'inline-block';
+    document.getElementById('battleBotCp').textContent = '⚔️ CP ' + Math.max(0, bot.hp);
+    setHpBar('battleBotHp', bot.hp, bot.maxHp);
+  }
+}
+
+function setHpBar(id, hp, max) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const pct = Math.max(0, (hp / max) * 100);
+  el.style.width = pct + '%';
+  el.classList.toggle('crit', pct < 25);
+  el.classList.toggle('low', pct >= 25 && pct < 50);
+}
+
+function startBattle() {
+  if (!battleGame) return;
+  const myPoke = POKEMONS.find(p => p.id === battleGame.selectedPokeId);
+  if (!myPoke) return;
+  const myCp = state.bestCp[myPoke.id] || 1;
+  const botDef = BOT_DIFFICULTIES[battleGame.selectedBotIdx];
+  // Bot får en tilfeldig Pokémon i sin rarity
+  const botPool = POKEMONS.filter(p => p.rarity === botDef.rarity);
+  const botPoke = botPool[Math.floor(Math.random() * botPool.length)] || POKEMONS[0];
+  const botCp = rollCp(botDef.rarity, false);
+
+  battleGame.active = true;
+  battleGame.myHp = myCp;
+  battleGame.myMaxHp = myCp;
+  battleGame.bot = { poke: botPoke, hp: botCp, maxHp: botCp, mashRate: botDef.mashRate, reward: botDef.reward };
+  battleGame.startTime = Date.now();
+
+  document.getElementById('battleStartBtn').style.display = 'none';
+  const mashBtn = document.getElementById('battleMashBtn');
+  mashBtn.style.display = 'inline-block';
+  mashBtn.disabled = false;
+  mashBtn.onclick = battleAttack;
+  document.getElementById('battleResult').textContent = '';
+
+  // Bot auto-attack interval
+  const intervalMs = 1000 / battleGame.bot.mashRate;
+  battleGame.botInterval = setInterval(botAttack, intervalMs);
+
+  // Tastatur-lytter for SPACE
+  battleGame.keyHandler = (e) => {
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      battleAttack();
+    }
+  };
+  window.addEventListener('keydown', battleGame.keyHandler);
+  updateBattleArena();
+}
+
+function battleAttack() {
+  if (!battleGame || !battleGame.active) return;
+  // Hver attack gjør 1 skade
+  battleGame.bot.hp -= 1;
+  showBattleDmg('battleBot', 1);
+  const botImg = document.getElementById('battleBotImg');
+  if (botImg) {
+    botImg.classList.remove('battle-attack-anim');
+    void botImg.offsetWidth;
+    botImg.classList.add('battle-attack-anim');
+  }
+  if (battleGame.bot.hp <= 0) endBattle(true);
+  else updateBattleArena();
+}
+
+function botAttack() {
+  if (!battleGame || !battleGame.active) return;
+  battleGame.myHp -= 1;
+  showBattleDmg('battlePlayer', 1);
+  const pImg = document.getElementById('battlePlayerImg');
+  if (pImg) {
+    pImg.classList.remove('battle-attack-anim');
+    void pImg.offsetWidth;
+    pImg.classList.add('battle-attack-anim');
+  }
+  if (battleGame.myHp <= 0) endBattle(false);
+  else updateBattleArena();
+}
+
+function showBattleDmg(sideId, dmg) {
+  const side = document.getElementById(sideId);
+  if (!side) return;
+  const pop = document.createElement('div');
+  pop.className = 'battle-damage-popup';
+  pop.textContent = '-' + dmg;
+  pop.style.left = '50%';
+  pop.style.top = '40%';
+  side.appendChild(pop);
+  setTimeout(() => pop.remove(), 850);
+}
+
+function endBattle(playerWon) {
+  if (!battleGame) return;
+  battleGame.active = false;
+  if (battleGame.botInterval) clearInterval(battleGame.botInterval);
+  if (battleGame.keyHandler) window.removeEventListener('keydown', battleGame.keyHandler);
+
+  const mashBtn = document.getElementById('battleMashBtn');
+  if (mashBtn) { mashBtn.disabled = true; mashBtn.style.display = 'none'; }
+  const startBtn = document.getElementById('battleStartBtn');
+  if (startBtn) startBtn.style.display = 'inline-block';
+
+  const resultEl = document.getElementById('battleResult');
+  if (playerWon) {
+    let reward = battleGame.bot.reward;
+    // Bonus hvis du vant med høyere CP-bot enn din egen
+    if (battleGame.bot.maxHp > battleGame.myMaxHp) {
+      reward = Math.round(reward * 1.5);
+    }
+    state.coins += reward;
+    save(); updateUI(); submitScore(); checkAchievements();
+    resultEl.className = 'casino-result win';
+    resultEl.innerHTML = `🏆 You won! <strong>+${reward}💰</strong>`;
+  } else {
+    resultEl.className = 'casino-result lose';
+    resultEl.innerHTML = `💀 Defeated! Try again or pick a stronger Pokémon.`;
+  }
+  updateBattleArena();
 }
 
 // ----- POKER -----
@@ -8919,6 +9318,9 @@ function submitCheat() {
       state.shinies = {};
       state.shinySeen = {};
       state.totalCatches = 0;
+      state.shinyProgress = 0;
+      state.bestCp = {};
+      state.lastCp = 0;
       state.inventory = {};
       for (const key of Object.keys(BALLS)) {
         state.inventory[key] = key === 'free' ? 999 : 0;
