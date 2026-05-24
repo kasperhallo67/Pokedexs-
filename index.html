@@ -3956,8 +3956,8 @@ function throwBall() {
     const milestoneThisThrow = state.shinyProgress % SHINY_INTERVAL === 0;
     const catches = [];
     for (let catchIdx = 0; catchIdx < numCatches; catchIdx++) {
-      // Bare første Pokémon i Triple Ball kan utløse milepæl-shiny
-      catches.push(processSingleCatch(ball, catchIdx === 0 && milestoneThisThrow));
+      // Bare første Pokémon i Triple Ball: kan utløse milepæl-shiny + teller for buddy-level
+      catches.push(processSingleCatch(ball, catchIdx === 0 && milestoneThisThrow, catchIdx === 0));
     }
     // Bruk siste catch som "main" for popup (eller multi-popup hvis multiCatch)
     const mainCatch = catches[catches.length - 1];
@@ -3988,7 +3988,7 @@ function throwBall() {
   }, animDuration);
 }
 
-function processSingleCatch(ball, forceMilestoneShiny = false) {
+function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = true) {
   let pokemon;
   if (state.nextPokemonOverride) {
     pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
@@ -4007,7 +4007,8 @@ function processSingleCatch(ball, forceMilestoneShiny = false) {
   }
   const rarity = pokemon.rarity;
   state.totalCatches++;
-  if (state.buddyId) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
+  // Buddy-progresjon: bare +1 per ball-kast (ikke per Pokémon for Triple Ball)
+  if (state.buddyId && countForBuddy) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
   const luckyShiny = Math.random() * 100 < (ball.shinyChance || 0);
   const isShiny = forceMilestoneShiny || luckyShiny;
   let isNew;
