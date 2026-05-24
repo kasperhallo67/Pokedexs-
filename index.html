@@ -4517,13 +4517,26 @@ function renderPokedex() {
     const spriteHtml = isCustomDuo(p.id)
       ? duoImgHtml(p.id, { shiny: hasShiny, size: 100 })
       : `<img src="${hasShiny ? SHINY_SPRITE_URL(p.id) : SPRITE_URL(p.id)}" alt="${p.name}" loading="lazy">`;
-    // Buddy stars-badge hvis dette er buddy-en din
+    // Buddy stars-badge: vises for nåværende buddy ELLER for Pokémon du har vært buddy med før
     let buddyStarsHtml = '';
-    if (state.buddyId === p.id) {
-      const bcatches = state.buddyCatches[p.id] || 0;
+    const bcatches = state.buddyCatches[p.id] || 0;
+    if (bcatches > 0) {
       const binfo = getBuddyStarInfo(bcatches);
-      const starText = binfo.rainbow ? '🌈★' : ('★'.repeat(binfo.stars) || '☆');
-      buddyStarsHtml = `<div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,0.7);color:gold;padding:2px 6px;border-radius:8px;font-size:12px;font-weight:bold;text-shadow:0 0 4px gold;letter-spacing:1px;">${starText}</div>`;
+      const isActiveBuddy = state.buddyId === p.id;
+      let starText;
+      if (binfo.rainbow) {
+        starText = '🌈★';
+      } else if (binfo.stars > 0) {
+        starText = '★'.repeat(binfo.stars);
+      } else {
+        // Har catches men ingen full stjerne enda - vis fremgang
+        starText = `${bcatches}/100`;
+      }
+      // Aktiv buddy = gull og glow, tidligere buddy = sølv og dimmer
+      const bgStyle = isActiveBuddy
+        ? 'background:rgba(0,0,0,0.75);color:gold;text-shadow:0 0 4px gold;'
+        : 'background:rgba(0,0,0,0.55);color:#c0c0c0;text-shadow:0 0 3px rgba(192,192,192,0.6);';
+      buddyStarsHtml = `<div title="${binfo.rainbow ? 'Best Friend (1000+ catches)' : binfo.stars > 0 ? `${binfo.stars}★ · ${bcatches} catches with this buddy` : `${bcatches} catches with this buddy`}" style="position:absolute;top:5px;left:5px;${bgStyle}padding:2px 6px;border-radius:8px;font-size:12px;font-weight:bold;letter-spacing:1px;">${starText}</div>`;
     }
     div.innerHTML = `
       ${hasShiny ? `<div class="shiny-badge">✨ x${shinyCt}</div>` : ''}
