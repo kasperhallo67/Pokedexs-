@@ -5227,7 +5227,9 @@ function showLogin() {
       <div class="login-error" id="loginError"></div>
       <button onclick="tryLogin()">🔓 Log in</button>
       <button class="secondary" onclick="showLoginToOther()">🔑 Log in to another account</button>
-      <button class="secondary" onclick="forgetUserConfirm()">↺ Forget account / switch user</button>
+      <button class="secondary" onclick="openAccountSwitcherFromLogin()" style="background:#9b59b6;">👥 Switch saved account</button>
+      <button class="secondary" onclick="forgetUserConfirm()" style="background:#444;">↺ Forget THIS account on device</button>
+      <div style="font-size:11px;color:#aaa;margin-top:8px;text-align:center;">Switching keeps all accounts saved — nothing is lost.</div>
     `;
     setTimeout(() => {
       const inp = document.getElementById('loginPassInput');
@@ -5486,9 +5488,42 @@ function syncToServer() {
 }
 
 function forgetUserConfirm() {
-  if (!confirm('Forget this account on this device? Your game will be deleted, and you must start over. (Your score is still on the leaderboard.)')) return;
+  if (!confirm(`Forget '${state.username || 'this account'}' on THIS device?\n\n✓ The account stays on the server — you can log back in anytime with your password.\n✓ Other accounts on this device are NOT affected.\n✓ This only removes the local copy on this device.`)) return;
+  // Fjern fra pokeAccounts også
+  if (state.username) {
+    try {
+      const accounts = JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+      delete accounts[state.username];
+      localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+    } catch {}
+  }
   localStorage.removeItem('pokeGame');
   location.reload();
+}
+
+// Åpne account switcher fra login-skjermen (siden modaler ikke er aktive)
+function openAccountSwitcherFromLogin() {
+  const accounts = (() => {
+    try { return JSON.parse(localStorage.getItem('pokeAccounts') || '{}'); }
+    catch { return {}; }
+  })();
+  const names = Object.keys(accounts).filter(n => n !== state.username);
+  if (names.length === 0) {
+    alert('No other saved accounts on this device.\nUse "Log in to another account" to add one.');
+    return;
+  }
+  const choice = prompt(
+    'Saved accounts on this device:\n\n' +
+    names.map((n, i) => `${i + 1}. ${n}`).join('\n') +
+    '\n\nType the number of the account to switch to:'
+  );
+  if (!choice) return;
+  const idx = parseInt(choice) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= names.length) {
+    alert('Invalid choice.');
+    return;
+  }
+  switchToLocalAccount(names[idx]);
 }
 
 function logout() {
@@ -5496,7 +5531,9 @@ function logout() {
     alert('You have not set a password yet.');
     return;
   }
-  if (!confirm('Log out? You must enter the password to play again.')) return;
+  if (!confirm('Log out?\n\nYour progress is saved — nothing is lost.\nYou can switch accounts or log back in.')) return;
+  // Sørg for at gjeldende konto er lagret i pokeAccounts før logout
+  save();
   showLogin();
 }
 
