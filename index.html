@@ -9323,11 +9323,19 @@ function renderPvp() {
     c.innerHTML = '<div style="text-align:center;padding:30px;color:#fff;">Catch some Pokémon first before you can battle!</div>';
     return;
   }
-  // Initial state: lobby (pick Pokémon + create/join)
+  // Initial state: lobby (pick opp til 3 Pokémon + create/join)
   if (!pvpGame || pvpGame.screen === 'lobby') {
     pvpGame = pvpGame || {};
     pvpGame.screen = 'lobby';
-    pvpGame.mySelectedId = pvpGame.mySelectedId || (state.buddyId && state.bestCp[state.buddyId] ? state.buddyId : myPokemons[0].poke.id);
+    if (!Array.isArray(pvpGame.team)) {
+      // Default: buddy + 2 sterkeste
+      const top = myPokemons.slice(0, 3).map(({ poke }) => poke.id);
+      if (state.buddyId && state.bestCp[state.buddyId] && !top.includes(state.buddyId)) {
+        top.unshift(state.buddyId);
+        top.length = Math.min(3, top.length);
+      }
+      pvpGame.team = top;
+    }
     renderPvpLobby();
     return;
   }
@@ -9338,22 +9346,39 @@ function renderPvp() {
 function renderPvpLobby() {
   const c = document.getElementById('casinoContent');
   const myPokemons = getMyBattlePokemon();
-  const sel = myPokemons.find(({ poke }) => poke.id === pvpGame.mySelectedId);
-  const selCp = sel ? sel.cp : 0;
+  // Pokémon i ditt valgte lag
+  const teamPokes = (pvpGame.team || []).map(id => myPokemons.find(({ poke }) => poke.id === id)).filter(Boolean);
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:10px;">
-      <strong>🆚 Battle real players online!</strong>
-      <div style="font-size:12px;opacity:0.7;">Create a room and share the code, or join someone else's.</div>
+      <strong>🆚 Battle real players — Team of 3 Pokémon!</strong>
+      <div style="font-size:12px;opacity:0.7;">Pick up to 3 Pokémon. When one faints, the next one comes out automatically.</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.4);padding:10px;border-radius:8px;margin-bottom:10px;text-align:center;">
+      <div style="font-weight:bold;color:#fff;margin-bottom:8px;">🎒 Your team (${(pvpGame.team || []).length}/3):</div>
+      <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;min-height:90px;">
+        ${[0,1,2].map(slot => {
+          const t = teamPokes[slot];
+          if (!t) return `<div style="width:90px;height:90px;border:2px dashed #555;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#777;font-size:24px;">?</div>`;
+          return `
+            <div style="position:relative;background:rgba(46,204,113,0.2);border:2px solid #2ecc71;border-radius:10px;padding:6px;text-align:center;min-width:90px;cursor:pointer;" onclick="pvpRemoveFromTeam(${t.poke.id})" title="Click to remove">
+              <div style="position:absolute;top:-8px;left:-8px;background:gold;color:#333;font-size:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;">${slot + 1}</div>
+              <img src="${state.shinies[t.poke.id] ? SHINY_SPRITE_URL(t.poke.id) : SPRITE_URL(t.poke.id)}" style="width:60px;height:60px;image-rendering:pixelated;">
+              <div style="font-size:11px;color:#fff;font-weight:bold;">${t.poke.name}</div>
+              <div style="font-size:11px;color:#7df;">⚔️ ${t.cp}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px;">Click a slot to remove · Click below to add</div>
     </div>
     <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;">
-      <div style="font-weight:bold;color:#fff;margin-bottom:8px;">⚔️ Your Pokémon for battle (pick one):</div>
+      <div style="font-weight:bold;color:#fff;margin-bottom:8px;">⚔️ Click to add to team:</div>
       <div style="display:flex;gap:5px;margin-bottom:8px;">
         <input type="text" id="pvpPokeSearchInput" placeholder="🔍 Search your Pokémon..." value="${pvpGame.pokeSearch || ''}" oninput="pvpSetPokeSearch(this.value)" style="flex:1;padding:8px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;font-size:14px;">
         ${pvpGame.pokeSearch ? `<button onclick="pvpClearPokeSearch()" style="background:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">×</button>` : ''}
       </div>
       <div class="battle-pokemon-select" id="pvpPokeSelect"></div>
     </div>
-    ${sel ? `<div style="text-align:center;color:#7df;font-weight:bold;margin:6px 0;">Selected: ${sel.poke.name} ⚔️ CP ${selCp} · ❤️ HP ${pokeHp(selCp)}</div>` : ''}
     <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;text-align:center;">
       <label style="color:#fff;font-weight:bold;">💰 Bet (coins, 0 = no bet):
         <input id="pvpBetInput" type="number" min="0" value="${pvpGame.bet || 0}" style="width:120px;padding:6px;margin-left:8px;border-radius:6px;font-size:14px;">
@@ -9371,19 +9396,28 @@ function renderPvpLobby() {
   pvpRenderPokeSelect();
 }
 
+function pvpAddToTeam(id) {
+  if (!pvpGame.team) pvpGame.team = [];
+  if (pvpGame.team.includes(id)) return; // allerede med
+  if (pvpGame.team.length >= 3) { alert('Team is full (3/3). Remove one first.'); return; }
+  pvpGame.team.push(id);
+  renderPvpLobby();
+  const inp = document.getElementById('pvpPokeSearchInput');
+  if (inp && pvpGame.pokeSearch) inp.focus();
+}
+function pvpRemoveFromTeam(id) {
+  if (!pvpGame.team) return;
+  pvpGame.team = pvpGame.team.filter(x => x !== id);
+  renderPvpLobby();
+}
+
 function pvpSelectPokemon(id) {
-  pvpGame.mySelectedId = id;
-  // Bare re-render lista og det selected-display nederst i lobby (ikke hele lobby — for å beholde fokus i søk)
-  pvpRenderPokeSelect();
-  const sel = getMyBattlePokemon().find(({ poke }) => poke.id === id);
-  if (sel) {
-    // Oppdater "Selected: ..." linjen
-    const c = document.getElementById('casinoContent');
-    // Enkel re-render hele lobby
-    renderPvpLobby();
-    // Behold fokus i søkefelt om mulig
-    const inp = document.getElementById('pvpPokeSearchInput');
-    if (inp && pvpGame.pokeSearch) inp.focus();
+  // Toggles add/remove fra team
+  if (!pvpGame.team) pvpGame.team = [];
+  if (pvpGame.team.includes(id)) {
+    pvpRemoveFromTeam(id);
+  } else {
+    pvpAddToTeam(id);
   }
 }
 function pvpSetPokeSearch(val) {
@@ -9404,23 +9438,41 @@ function pvpRenderPokeSelect() {
     wrap.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:15px;">No Pokémon match "${search}"</div>`;
     return;
   }
-  wrap.innerHTML = list.slice(0, 30).map(({ poke, cp }) => `
-    <div class="battle-pokemon-card ${pvpGame.mySelectedId === poke.id ? 'selected' : ''}" onclick="pvpSelectPokemon(${poke.id})">
-      <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
-      <div class="name">${poke.name}</div>
-      <div class="cp">⚔️ ${cp}</div>
-      <div style="font-size:11px;color:#ff7676;">❤️ ${pokeHp(cp)}</div>
-    </div>
-  `).join('');
+  const team = pvpGame.team || [];
+  wrap.innerHTML = list.slice(0, 30).map(({ poke, cp }) => {
+    const inTeam = team.includes(poke.id);
+    const teamIdx = team.indexOf(poke.id);
+    return `
+      <div class="battle-pokemon-card ${inTeam ? 'selected' : ''}" onclick="pvpSelectPokemon(${poke.id})" style="position:relative;">
+        ${inTeam ? `<div style="position:absolute;top:2px;right:2px;background:gold;color:#333;font-size:10px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;">${teamIdx + 1}</div>` : ''}
+        <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
+        <div class="name">${poke.name}</div>
+        <div class="cp">⚔️ ${cp}</div>
+        <div style="font-size:11px;color:#ff7676;">❤️ ${pokeHp(cp)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function pvpBuildTeamPayload() {
+  if (!pvpGame.team || pvpGame.team.length === 0) return null;
+  return pvpGame.team.map(id => {
+    const poke = POKEMONS.find(p => p.id === id);
+    if (!poke) return null;
+    return {
+      id: poke.id,
+      name: poke.name,
+      cp: state.bestCp[poke.id] || 100,
+      isShiny: !!state.shinies[poke.id]
+    };
+  }).filter(Boolean);
 }
 
 async function pvpCreateRoom() {
-  const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
-  if (!myPoke) return;
-  const cp = state.bestCp[myPoke.id] || 100;
+  const team = pvpBuildTeamPayload();
+  if (!team || team.length === 0) { alert('Pick at least 1 Pokémon for your team!'); return; }
   const bet = Math.max(0, parseInt(document.getElementById('pvpBetInput')?.value) || 0);
   if (bet > state.coins) { alert(`Not enough coins for bet (need ${bet}, have ${state.coins})`); return; }
-  // Forsikre at konto er synket først så server har ferskeste coin-tall
   if (bet > 0) {
     try {
       await fetch('/api/account/sync', {
@@ -9432,7 +9484,7 @@ async function pvpCreateRoom() {
   try {
     const res = await fetch('/api/pvp/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: state.username, pokeId: myPoke.id, pokeName: myPoke.name, cp, isShiny: !!state.shinies[myPoke.id], bet })
+      body: JSON.stringify({ username: state.username, team, bet })
     });
     const data = await res.json();
     if (!data.ok) { alert('Failed: ' + (data.error || 'unknown')); return; }
@@ -9440,7 +9492,6 @@ async function pvpCreateRoom() {
     pvpGame.role = 'host';
     pvpGame.screen = 'waiting';
     pvpGame.bet = bet;
-    // Trekk fra lokalt også
     if (bet > 0) { state.coins -= bet; save(); updateUI(); }
     renderPvpWaiting();
     pvpStartPolling();
@@ -9454,10 +9505,8 @@ function pvpShowJoinPrompt() {
 }
 
 async function pvpJoinRoom(code) {
-  const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
-  if (!myPoke) return;
-  const cp = state.bestCp[myPoke.id] || 100;
-  // Synk konto først så server har ferskeste coin-tall
+  const team = pvpBuildTeamPayload();
+  if (!team || team.length === 0) { alert('Pick at least 1 Pokémon for your team!'); return; }
   try {
     await fetch('/api/account/sync', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -9467,7 +9516,7 @@ async function pvpJoinRoom(code) {
   try {
     const res = await fetch('/api/pvp/join', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, username: state.username, pokeId: myPoke.id, pokeName: myPoke.name, cp, isShiny: !!state.shinies[myPoke.id] })
+      body: JSON.stringify({ code, username: state.username, team })
     });
     const data = await res.json();
     if (!data.ok) { alert('Failed: ' + (data.error || 'unknown')); return; }
@@ -9476,7 +9525,6 @@ async function pvpJoinRoom(code) {
     pvpGame.screen = 'battle';
     pvpGame.lastBattle = data.battle;
     pvpGame.bet = data.battle.bet || 0;
-    // Trekk fra lokalt også
     if (pvpGame.bet > 0) { state.coins -= pvpGame.bet; save(); updateUI(); }
     renderPvpBattle();
     pvpStartPolling();
@@ -9499,16 +9547,21 @@ async function pvpListRooms() {
     listEl.innerHTML = `
       <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;">
         <div style="font-weight:bold;color:#fff;margin-bottom:6px;">Open rooms:</div>
-        ${rooms.map(r => `
+        ${rooms.map(r => {
+          const team = r.hostTeam || [];
+          return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;margin-bottom:5px;">
-            <img src="${r.hostShiny ? SHINY_SPRITE_URL(r.hostPokeId) : SPRITE_URL(r.hostPokeId)}" style="width:40px;height:40px;image-rendering:pixelated;">
+            <div style="display:flex;gap:2px;">
+              ${team.map(p => `<img src="${p.isShiny ? SHINY_SPRITE_URL(p.id) : SPRITE_URL(p.id)}" title="${escapeHtml(p.name)} CP ${p.cp}" style="width:36px;height:36px;image-rendering:pixelated;${p.isShiny ? 'filter:drop-shadow(0 0 3px gold);' : ''}">`).join('')}
+            </div>
             <div style="flex:1;color:#fff;">
-              <strong>${escapeHtml(r.host)}</strong> · ${r.hostShiny ? '✨ ' : ''}${escapeHtml(r.hostPokeName)} <span style="color:#7df;">⚔️ ${r.hostCp}</span>
-              <div style="font-size:11px;color:#aaa;">Code: ${r.code}${r.bet > 0 ? ` · 💰 <strong style="color:#ffeb3b;">${r.bet.toLocaleString()}</strong> bet` : ''}</div>
+              <strong>${escapeHtml(r.host)}</strong> · team of ${team.length}
+              <div style="font-size:11px;color:#aaa;">Total CP: ${team.reduce((s, p) => s + (p.cp || 0), 0)} · Code: ${r.code}${r.bet > 0 ? ` · 💰 <strong style="color:#ffeb3b;">${r.bet.toLocaleString()}</strong> bet` : ''}</div>
             </div>
             <button class="casino-btn" style="padding:6px 12px;" onclick="pvpJoinRoom('${r.code}')">⚔️ Battle</button>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     `;
   } catch (e) {
@@ -9535,13 +9588,14 @@ function renderPvpBattle() {
   const b = pvpGame.lastBattle;
   if (!b) return;
   const isHost = pvpGame.role === 'host';
-  const me = isHost
-    ? { name: b.hostPokeName, id: b.hostPokeId, cp: b.hostCp, hp: b.hostHp, maxHp: b.hostMaxHp, shiny: b.hostShiny, username: b.host }
-    : { name: b.guestPokeName, id: b.guestPokeId, cp: b.guestCp, hp: b.guestHp, maxHp: b.guestMaxHp, shiny: b.guestShiny, username: b.guest };
-  const opp = isHost
-    ? { name: b.guestPokeName, id: b.guestPokeId, cp: b.guestCp, hp: b.guestHp, maxHp: b.guestMaxHp, shiny: b.guestShiny, username: b.guest }
-    : { name: b.hostPokeName, id: b.hostPokeId, cp: b.hostCp, hp: b.hostHp, maxHp: b.hostMaxHp, shiny: b.hostShiny, username: b.host };
-  const myDmg = playerAttackDmg(me.cp);
+  const myTeam = isHost ? (b.hostTeam || []) : (b.guestTeam || []);
+  const oppTeam = isHost ? (b.guestTeam || []) : (b.hostTeam || []);
+  const myActive = isHost ? (b.hostActive || 0) : (b.guestActive || 0);
+  const oppActive = isHost ? (b.guestActive || 0) : (b.hostActive || 0);
+  const me = myTeam[myActive];
+  const opp = oppTeam[oppActive];
+  const myUsername = isHost ? b.host : b.guest;
+  const oppUsername = isHost ? b.guest : b.host;
   const isDone = b.status === 'done';
   const iWon = isDone && b.winner === state.username;
   const betText = (b.bet || 0) > 0 ? ` · 💰 ${b.bet.toLocaleString()} bet (winner gets ${(b.bet*2).toLocaleString()})` : '';
@@ -9549,25 +9603,50 @@ function renderPvpBattle() {
   const msLeft = Math.max(0, readyAt - Date.now());
   const inCountdown = !isDone && msLeft > 0;
   const countSec = Math.ceil(msLeft / 1000);
+  const myDmg = me ? playerAttackDmg(me.cp) : 0;
+
+  // Render team-strip: vis alle 3 Pokémon med aktiv markert + fainted gråmarkert
+  function teamStrip(team, active, side) {
+    return `<div style="display:flex;gap:4px;justify-content:center;margin-top:6px;">${team.map((p, i) => {
+      const fainted = p.hp <= 0;
+      const isActive = i === active && !fainted;
+      const opacity = fainted ? 0.3 : (isActive ? 1 : 0.7);
+      const border = isActive ? '#ffeb3b' : 'rgba(255,255,255,0.2)';
+      return `
+        <div style="position:relative;background:rgba(0,0,0,0.4);border:2px solid ${border};border-radius:8px;padding:3px;opacity:${opacity};min-width:50px;text-align:center;${isActive ? 'box-shadow:0 0 10px #ffeb3b;' : ''}" title="${p.name} CP ${p.cp} · HP ${p.hp}/${p.maxHp}">
+          ${fainted ? '<div style="position:absolute;top:-6px;right:-6px;background:#e74c3c;color:white;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;font-weight:bold;">×</div>' : ''}
+          <img src="${p.isShiny ? SHINY_SPRITE_URL(p.id) : SPRITE_URL(p.id)}" style="width:34px;height:34px;image-rendering:pixelated;${fainted ? 'filter:grayscale(1);' : ''}">
+          <div style="font-size:9px;color:${fainted ? '#e74c3c' : '#fff'};">${p.hp}/${p.maxHp}</div>
+        </div>
+      `;
+    }).join('')}</div>`;
+  }
+
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:8px;">
       <strong>⚔️ ${escapeHtml(b.host)} vs ${escapeHtml(b.guest)}</strong>
-      <div style="font-size:12px;opacity:0.7;">Code: ${pvpGame.code}${betText}${isDone ? '' : ' · Tap SPACE — first to 0 HP loses!'}</div>
+      <div style="font-size:12px;opacity:0.7;">Code: ${pvpGame.code}${betText}${isDone ? '' : ' · Tap SPACE — knock out all 3 to win!'}</div>
     </div>
-    ${inCountdown ? `<div id="pvpCountdown" style="text-align:center;font-size:48px;font-weight:bold;color:#ffeb3b;text-shadow:0 0 20px #ff6b1a;padding:14px;background:rgba(255,69,0,0.15);border:3px dashed #ffeb3b;border-radius:14px;margin:10px 0;animation:pulse 0.5s infinite alternate;">⏱ ${countSec}</div>` : ''}
+    ${inCountdown ? `<div id="pvpCountdown" style="text-align:center;font-size:48px;font-weight:bold;color:#ffeb3b;text-shadow:0 0 20px #ff6b1a;padding:14px;background:rgba(255,69,0,0.15);border:3px dashed #ffeb3b;border-radius:14px;margin:10px 0;">⏱ ${countSec}</div>` : ''}
     <div class="battle-arena">
       <div class="battle-side">
-        <div class="battle-name">${escapeHtml(me.username)} (You)</div>
-        <img src="${me.shiny ? SHINY_SPRITE_URL(me.id) : SPRITE_URL(me.id)}" id="pvpMeImg" style="width:130px;height:130px;image-rendering:pixelated;${me.shiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
-        <div class="battle-hp-bar"><div class="battle-hp-fill ${me.hp / me.maxHp < 0.25 ? 'crit' : me.hp / me.maxHp < 0.5 ? 'low' : ''}" style="width:${Math.max(0, (me.hp / me.maxHp) * 100)}%;"></div></div>
-        <div class="battle-cp">${escapeHtml(me.name)} ⚔️${me.cp} · ❤️ <strong>${me.hp}/${me.maxHp}</strong></div>
+        <div class="battle-name">${escapeHtml(myUsername)} (You)</div>
+        ${me ? `
+          <img src="${me.isShiny ? SHINY_SPRITE_URL(me.id) : SPRITE_URL(me.id)}" style="width:130px;height:130px;image-rendering:pixelated;${me.isShiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
+          <div class="battle-hp-bar"><div class="battle-hp-fill ${me.hp / me.maxHp < 0.25 ? 'crit' : me.hp / me.maxHp < 0.5 ? 'low' : ''}" style="width:${Math.max(0, (me.hp / me.maxHp) * 100)}%;"></div></div>
+          <div class="battle-cp">${escapeHtml(me.name)} ⚔️${me.cp} · ❤️ <strong>${me.hp}/${me.maxHp}</strong></div>
+        ` : ''}
+        ${teamStrip(myTeam, myActive, 'me')}
       </div>
       <div class="battle-vs">VS</div>
       <div class="battle-side">
-        <div class="battle-name">${escapeHtml(opp.username || '?')}</div>
-        <img src="${opp.shiny ? SHINY_SPRITE_URL(opp.id) : SPRITE_URL(opp.id)}" id="pvpOppImg" style="width:130px;height:130px;image-rendering:pixelated;${opp.shiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
-        <div class="battle-hp-bar"><div class="battle-hp-fill ${opp.hp / opp.maxHp < 0.25 ? 'crit' : opp.hp / opp.maxHp < 0.5 ? 'low' : ''}" style="width:${Math.max(0, (opp.hp / opp.maxHp) * 100)}%;"></div></div>
-        <div class="battle-cp">${escapeHtml(opp.name)} ⚔️${opp.cp} · ❤️ <strong>${opp.hp}/${opp.maxHp}</strong></div>
+        <div class="battle-name">${escapeHtml(oppUsername || '?')}</div>
+        ${opp ? `
+          <img src="${opp.isShiny ? SHINY_SPRITE_URL(opp.id) : SPRITE_URL(opp.id)}" style="width:130px;height:130px;image-rendering:pixelated;${opp.isShiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
+          <div class="battle-hp-bar"><div class="battle-hp-fill ${opp.hp / opp.maxHp < 0.25 ? 'crit' : opp.hp / opp.maxHp < 0.5 ? 'low' : ''}" style="width:${Math.max(0, (opp.hp / opp.maxHp) * 100)}%;"></div></div>
+          <div class="battle-cp">${escapeHtml(opp.name)} ⚔️${opp.cp} · ❤️ <strong>${opp.hp}/${opp.maxHp}</strong></div>
+        ` : ''}
+        ${teamStrip(oppTeam, oppActive, 'opp')}
       </div>
     </div>
     <div class="battle-controls">
@@ -9578,7 +9657,7 @@ function renderPvpBattle() {
         </div>
         <button class="casino-btn" onclick="pvpExit()">⬅️ Back to lobby</button>
       ` : `
-        <button class="battle-mash-btn" onclick="pvpAttack()" ${inCountdown ? 'disabled' : ''} style="margin-top:10px;${inCountdown ? 'opacity:0.4;cursor:not-allowed;' : ''}">${inCountdown ? `⏳ STARTING IN ${countSec}...` : `⚔️ ATTACK (SPACE) — ${myDmg} dmg/hit`}</button>
+        <button class="battle-mash-btn" onclick="pvpAttack()" ${inCountdown || !me ? 'disabled' : ''} style="margin-top:10px;${inCountdown ? 'opacity:0.4;cursor:not-allowed;' : ''}">${inCountdown ? `⏳ STARTING IN ${countSec}...` : `⚔️ ATTACK (SPACE) — ${myDmg} dmg/hit`}</button>
         <button class="casino-btn" style="background:#e74c3c;margin-top:6px;" onclick="pvpCancel()">🏳️ Forfeit</button>
       `}
     </div>
@@ -9590,13 +9669,16 @@ let pvpAttackPending = false;
 async function pvpAttack() {
   if (!pvpGame || !pvpGame.code || pvpAttackPending) return;
   if (!pvpGame.lastBattle || pvpGame.lastBattle.status !== 'active') return;
-  // Blokker attacks under 3-sek countdown
   const b = pvpGame.lastBattle;
   const readyAt = (b.startedAt || Date.now()) + 3000;
   if (Date.now() < readyAt) return;
   pvpAttackPending = true;
-  const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
-  const dmg = playerAttackDmg(state.bestCp[myPoke?.id] || 100);
+  // Bruk din aktive Pokémons CP for damage
+  const isHost = pvpGame.role === 'host';
+  const myTeam = isHost ? (b.hostTeam || []) : (b.guestTeam || []);
+  const myActive = isHost ? (b.hostActive || 0) : (b.guestActive || 0);
+  const activePoke = myTeam[myActive];
+  const dmg = activePoke ? playerAttackDmg(activePoke.cp) : 10;
   try {
     const res = await fetch('/api/pvp/attack', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -9707,8 +9789,8 @@ function pvpExit() {
   if (pvpGame && pvpGame.pollTimer) clearInterval(pvpGame.pollTimer);
   if (pvpGame && pvpGame.countdownTimer) clearInterval(pvpGame.countdownTimer);
   pvpDetachKeyboard();
-  const sel = pvpGame ? pvpGame.mySelectedId : null;
-  pvpGame = { screen: 'lobby', mySelectedId: sel };
+  const team = pvpGame && pvpGame.team ? pvpGame.team : null;
+  pvpGame = { screen: 'lobby', team };
   renderPvpLobby();
 }
 

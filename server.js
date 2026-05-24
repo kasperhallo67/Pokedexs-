@@ -553,16 +553,27 @@ function readBattles() {
   return (b && typeof b === 'object' && !Array.isArray(b)) ? b : {};
 }
 
+// Bygg team-array fra request, validér 1-3 Pokémon
+function buildTeam(arr) {
+  if (!Array.isArray(arr)) return null;
+  const team = arr.slice(0, 3).map(p => {
+    const id = parseInt(p.id) || 0;
+    const name = (p.name || '').toString().slice(0, 40) || 'Pokémon';
+    const cp = parseInt(p.cp) || 100;
+    const isShiny = !!p.isShiny;
+    if (!id) return null;
+    const maxHp = Math.max(20, cp * 2);
+    return { id, name, cp, hp: maxHp, maxHp, isShiny };
+  }).filter(Boolean);
+  return team.length > 0 ? team : null;
+}
+
 app.post('/api/pvp/create', (req, res) => {
   const d = req.body || {};
   const username = (d.username || '').trim();
-  const pokeId = parseInt(d.pokeId) || 0;
-  const pokeName = (d.pokeName || '').trim() || 'Pokémon';
-  const cp = parseInt(d.cp) || 100;
-  const isShiny = !!d.isShiny;
+  const team = buildTeam(d.team);
   const bet = Math.max(0, parseInt(d.bet) || 0);
-  if (!username || !pokeId) return res.status(400).json({ ok: false, error: 'Missing fields' });
-  // Hvis innsats er satt, trekk fra hostens konto
+  if (!username || !team) return res.status(400).json({ ok: false, error: 'Missing fields or team' });
   if (bet > 0) {
     const users = readJson(USERS_FILE, {});
     if (!users[username]) return res.status(404).json({ ok: false, error: 'Your account is not on server (sync first)' });
@@ -578,22 +589,18 @@ app.post('/api/pvp/create', (req, res) => {
   }
   const battles = readBattles();
   cleanupPvpRooms(battles);
-  // Fjern eksisterende rom fra denne brukeren (max ett aktivt rom per spiller)
   for (const [code, b] of Object.entries(battles)) {
     if (b.host === username && b.status !== 'active') delete battles[code];
   }
   let code;
   do { code = Math.floor(1000 + Math.random() * 9000).toString(); } while (battles[code]);
-  const hp = Math.max(20, cp * 2);
   battles[code] = {
     host: username,
-    hostPokeId: pokeId,
-    hostPokeName: pokeName,
-    hostCp: cp,
-    hostHp: hp,
-    hostMaxHp: hp,
-    hostShiny: isShiny,
+    hostTeam: team,
+    hostActive: 0,
     guest: null,
+    guestTeam: null,
+    guestActive: 0,
     status: 'waiting',
     bet,
     createdAt: Date.now(),
@@ -607,10 +614,7 @@ app.post('/api/pvp/join', (req, res) => {
   const d = req.body || {};
   const code = (d.code || '').trim();
   const username = (d.username || '').trim();
-  const pokeId = parseInt(d.pokeId) || 0;
-  const pokeName = (d.pokeName || '').trim() || 'Pokémon';
-  const cp = parseInt(d.cp) || 100;
-  const isShiny = !!d.isShiny;
+  const team = buildTeam(d.team);
   const battles = readBattles();
   cleanupPvpRooms(battles);
   if (!battles[code]) return res.status(404).json({ ok: false, error: 'Room not found or expired' });
@@ -618,8 +622,8 @@ app.post('/api/pvp/join', (req, res) => {
   if (b.guest) return res.status(409).json({ ok: false, error: 'Room is full' });
   if (b.host === username) return res.status(409).json({ ok: false, error: 'Cannot join your own room' });
   if (b.status !== 'waiting') return res.status(409).json({ ok: false, error: 'Room is not open' });
+  if (!team) return res.status(400).json({ ok: false, error: 'Missing team' });
   const bet = b.bet || 0;
-  // Trekk innsats fra guest hvis det er veddemål
   if (bet > 0) {
     const users = readJson(USERS_FILE, {});
     if (!users[username]) return res.status(404).json({ ok: false, error: 'Your account is not on server (sync first)' });
@@ -633,14 +637,9 @@ app.post('/api/pvp/join', (req, res) => {
       return res.status(500).json({ ok: false, error: 'Could not deduct bet' });
     }
   }
-  const hp = Math.max(20, cp * 2);
   b.guest = username;
-  b.guestPokeId = pokeId;
-  b.guestPokeName = pokeName;
-  b.guestCp = cp;
-  b.guestHp = hp;
-  b.guestMaxHp = hp;
-  b.guestShiny = isShiny;
+  b.guestTeam = team;
+  b.guestActive = 0;
   b.status = 'active';
   b.startedAt = Date.now();
   b.lastUpdate = Date.now();
@@ -664,19 +663,47 @@ app.post('/api/pvp/attack', (req, res) => {
   if (!battles[code]) return res.status(404).json({ ok: false });
   const b = battles[code];
   if (b.status !== 'active') return res.status(400).json({ ok: false, error: 'not_active' });
-  // 3-sek countdown ved battle-start — angrep blokkeres
   const now = Date.now();
   const readyAt = (b.startedAt || now) + 3000;
   if (now < readyAt) return res.status(400).json({ ok: false, error: 'wait_countdown', readyAt });
+
+  // Hvem angriper, og hvem blir truffet?
+  let targetTeam, targetActiveKey, ownerOfTarget;
   if (b.host === username) {
-    b.guestHp = Math.max(0, b.guestHp - dmg);
-    if (b.guestHp <= 0) { b.status = 'done'; b.winner = b.host; pvpAwardWinner(b); }
+    targetTeam = b.guestTeam;
+    targetActiveKey = 'guestActive';
+    ownerOfTarget = 'guest';
   } else if (b.guest === username) {
-    b.hostHp = Math.max(0, b.hostHp - dmg);
-    if (b.hostHp <= 0) { b.status = 'done'; b.winner = b.guest; pvpAwardWinner(b); }
+    targetTeam = b.hostTeam;
+    targetActiveKey = 'hostActive';
+    ownerOfTarget = 'host';
   } else {
     return res.status(403).json({ ok: false });
   }
+  if (!targetTeam) return res.status(400).json({ ok: false, error: 'no_team' });
+
+  const idx = b[targetActiveKey] || 0;
+  const target = targetTeam[idx];
+  if (!target || target.hp <= 0) return res.status(400).json({ ok: false, error: 'already_fainted' });
+  target.hp = Math.max(0, target.hp - dmg);
+
+  // Hvis denne fainted: avanser til neste Pokémon i laget
+  if (target.hp <= 0) {
+    // Finn neste ikke-fainted index
+    let nextIdx = -1;
+    for (let i = idx + 1; i < targetTeam.length; i++) {
+      if (targetTeam[i].hp > 0) { nextIdx = i; break; }
+    }
+    if (nextIdx === -1) {
+      // Alle 3 har fainted — kamp slutt
+      b.status = 'done';
+      b.winner = username;
+      pvpAwardWinner(b);
+    } else {
+      b[targetActiveKey] = nextIdx;
+    }
+  }
+
   b.lastUpdate = Date.now();
   writeJson(BATTLES_FILE, battles);
   res.json({ ok: true, battle: b });
@@ -721,7 +748,12 @@ app.get('/api/pvp/list', (req, res) => {
   writeJson(BATTLES_FILE, battles);
   const rooms = Object.entries(battles)
     .filter(([_, b]) => b.status === 'waiting')
-    .map(([code, b]) => ({ code, host: b.host, hostPokeName: b.hostPokeName, hostCp: b.hostCp, hostPokeId: b.hostPokeId, hostShiny: b.hostShiny, bet: b.bet || 0 }));
+    .map(([code, b]) => ({
+      code,
+      host: b.host,
+      hostTeam: (b.hostTeam || []).map(p => ({ id: p.id, name: p.name, cp: p.cp, isShiny: p.isShiny })),
+      bet: b.bet || 0
+    }));
   res.json({ rooms });
 });
 
