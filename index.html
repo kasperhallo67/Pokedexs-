@@ -4002,22 +4002,66 @@ const POKE_TYPE_MAP = {
   130:'Water',131:'Water',132:'Normal',133:'Normal',134:'Water',135:'Electric',136:'Fire',
   137:'Normal',138:'Rock',139:'Rock',140:'Rock',141:'Rock',142:'Rock',143:'Normal',
   144:'Ice',145:'Electric',146:'Fire',147:'Dragon',148:'Dragon',149:'Dragon',150:'Psychic',151:'Psychic',
-  // Noen populære fra senere gens
-  152:'Grass',155:'Fire',158:'Water',172:'Electric',173:'Fairy',175:'Fairy',196:'Psychic',197:'Dark',
-  249:'Psychic',250:'Fire',252:'Grass',255:'Fire',258:'Water',280:'Psychic',282:'Psychic',
-  302:'Dark',359:'Dark',380:'Dragon',381:'Dragon',384:'Dragon',385:'Steel',
-  387:'Grass',390:'Fire',393:'Water',445:'Ground',448:'Fighting',
-  483:'Steel',484:'Water',487:'Ghost',491:'Dark',493:'Normal',494:'Psychic',
-  495:'Grass',498:'Fire',501:'Water',570:'Dark',
-  642:'Electric',643:'Fire',644:'Dark',
-  649:'Bug',650:'Grass',653:'Fire',656:'Water',658:'Water',
-  // Custom
-  10001:'Electric',10002:'Fighting'  // duo + ultimate
+  // Gen 2 (152-251)
+  152:'Grass',153:'Grass',154:'Grass',155:'Fire',156:'Fire',157:'Fire',158:'Water',159:'Water',160:'Water',
+  161:'Normal',162:'Normal',163:'Flying',164:'Flying',165:'Bug',166:'Bug',167:'Bug',168:'Bug',169:'Poison',
+  170:'Water',171:'Water',172:'Electric',173:'Fairy',174:'Fairy',175:'Fairy',176:'Fairy',177:'Psychic',178:'Psychic',
+  179:'Electric',180:'Electric',181:'Electric',182:'Grass',183:'Fairy',184:'Fairy',185:'Rock',186:'Water',
+  187:'Grass',188:'Grass',189:'Grass',190:'Normal',191:'Grass',192:'Grass',193:'Bug',194:'Water',195:'Water',
+  196:'Psychic',197:'Dark',198:'Dark',199:'Water',200:'Ghost',201:'Psychic',202:'Psychic',203:'Normal',
+  204:'Bug',205:'Bug',206:'Normal',207:'Ground',208:'Steel',209:'Fairy',210:'Fairy',211:'Water',212:'Bug',
+  213:'Bug',214:'Bug',215:'Dark',216:'Normal',217:'Normal',218:'Fire',219:'Fire',220:'Ice',221:'Ice',
+  222:'Water',223:'Water',224:'Water',225:'Ice',226:'Water',227:'Steel',228:'Dark',229:'Dark',230:'Water',
+  231:'Ground',232:'Ground',233:'Normal',234:'Normal',235:'Normal',236:'Fighting',237:'Fighting',238:'Ice',
+  239:'Electric',240:'Fire',241:'Normal',242:'Normal',243:'Electric',244:'Fire',245:'Water',246:'Rock',
+  247:'Rock',248:'Rock',249:'Psychic',250:'Fire',251:'Grass',
+  // Gen 3 (252-386)
+  252:'Grass',253:'Grass',254:'Grass',255:'Fire',256:'Fire',257:'Fire',258:'Water',259:'Water',260:'Water',
+  261:'Dark',262:'Dark',263:'Normal',264:'Normal',265:'Bug',266:'Bug',267:'Bug',268:'Bug',269:'Bug',
+  270:'Water',271:'Water',272:'Water',273:'Grass',274:'Grass',275:'Grass',276:'Normal',277:'Normal',
+  278:'Water',279:'Water',280:'Psychic',281:'Psychic',282:'Psychic',283:'Bug',284:'Bug',285:'Grass',
+  286:'Grass',287:'Normal',288:'Normal',289:'Normal',290:'Bug',291:'Bug',292:'Bug',293:'Normal',
+  294:'Normal',295:'Normal',296:'Fighting',297:'Fighting',298:'Fairy',299:'Rock',300:'Normal',301:'Normal',
+  302:'Dark',303:'Steel',304:'Steel',305:'Steel',306:'Steel',307:'Fighting',308:'Fighting',309:'Electric',
+  310:'Electric',311:'Electric',312:'Electric',313:'Bug',314:'Bug',315:'Grass',316:'Poison',317:'Poison',
+  318:'Dark',319:'Dark',320:'Water',321:'Water',322:'Fire',323:'Fire',324:'Fire',325:'Psychic',326:'Psychic',
+  327:'Normal',328:'Ground',329:'Ground',330:'Dragon',331:'Grass',332:'Grass',333:'Flying',334:'Dragon',
+  335:'Normal',336:'Poison',337:'Rock',338:'Rock',339:'Water',340:'Water',341:'Water',342:'Water',
+  343:'Ground',344:'Ground',345:'Rock',346:'Rock',347:'Rock',348:'Rock',349:'Water',350:'Water',351:'Normal',
+  352:'Normal',353:'Ghost',354:'Ghost',355:'Ghost',356:'Ghost',357:'Grass',358:'Psychic',359:'Dark',
+  360:'Psychic',361:'Ice',362:'Ice',363:'Ice',364:'Ice',365:'Ice',366:'Water',367:'Water',368:'Water',
+  369:'Water',370:'Water',371:'Dragon',372:'Dragon',373:'Dragon',374:'Steel',375:'Steel',376:'Steel',
+  377:'Rock',378:'Ice',379:'Steel',380:'Dragon',381:'Dragon',382:'Water',383:'Ground',384:'Dragon',
+  385:'Steel',386:'Psychic',
+  // Gen 4 starters/legendaries
+  387:'Grass',388:'Grass',389:'Grass',390:'Fire',391:'Fire',392:'Fire',393:'Water',394:'Water',395:'Water',
+  448:'Fighting',445:'Ground',448:'Fighting',
+  483:'Steel',484:'Water',485:'Fire',486:'Normal',487:'Ghost',488:'Psychic',489:'Water',490:'Water',
+  491:'Dark',492:'Grass',493:'Normal',
+  // Gen 5 starters/legendaries
+  494:'Psychic',495:'Grass',496:'Grass',497:'Grass',498:'Fire',499:'Fire',500:'Fire',501:'Water',502:'Water',503:'Water',
+  570:'Dark',571:'Dark',
+  642:'Electric',643:'Fire',644:'Dark',645:'Ground',646:'Dragon',647:'Water',648:'Normal',649:'Bug',
+  // Gen 6 starters/legendaries
+  650:'Grass',651:'Grass',652:'Grass',653:'Fire',654:'Fire',655:'Fire',656:'Water',657:'Water',658:'Water',
+  716:'Fairy',717:'Dark',718:'Dragon',
+  // Gen 7 starters/legendaries
+  722:'Grass',723:'Grass',724:'Grass',725:'Fire',726:'Fire',727:'Fire',728:'Water',729:'Water',730:'Water',
+  785:'Electric',786:'Electric',787:'Grass',788:'Water',789:'Psychic',790:'Psychic',791:'Psychic',
+  // Gen 8 starters/legendaries
+  810:'Grass',811:'Grass',812:'Grass',813:'Fire',814:'Fire',815:'Fire',816:'Water',817:'Water',818:'Water',
+  888:'Fairy',889:'Fighting',890:'Poison',
+  // Gen 9 starters/legendaries
+  906:'Grass',907:'Grass',908:'Grass',909:'Fire',910:'Fire',911:'Fire',912:'Water',913:'Water',914:'Water',
+  1007:'Fighting',1008:'Electric',1009:'Fire',1010:'Rock',
+  // Custom Pokémon
+  10001:'Electric',10002:'Fighting'
 };
 function getPokeType(id) {
   if (POKE_TYPE_MAP[id]) return POKE_TYPE_MAP[id];
-  // Deterministisk fallback: hash ID til en av 18 typer
-  return POKE_TYPES[id % POKE_TYPES.length];
+  // Bedre fordeling: bruk multiplikativ hash (Knuth) for jevn spredning på 18 typer
+  const h = Math.abs(((id * 2654435761) | 0) % POKE_TYPES.length);
+  return POKE_TYPES[h];
 }
 function typeBadgeHtml(type, size = 11) {
   const color = TYPE_COLORS[type] || '#888';
@@ -4197,9 +4241,9 @@ if (state.storagePurchases === undefined) state.storagePurchases = 0;
 if (state.candy === undefined) state.candy = 0;
 // buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
 if (state.buddyUid === undefined) state.buddyUid = null;
-// Backfill type for individer som ble lagret før types ble lagt til
+// Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
 for (const ind of state.individuals) {
-  if (!ind.type) ind.type = (typeof getPokeType === 'function') ? getPokeType(ind.id) : 'Normal';
+  ind.type = (typeof getPokeType === 'function') ? getPokeType(ind.id) : (ind.type || 'Normal');
 }
 let __individualUidCounter = state.individuals.length > 0
   ? Math.max(...state.individuals.map(i => parseInt(i.uid?.split('_')[1] || 0) || 0)) + 1
