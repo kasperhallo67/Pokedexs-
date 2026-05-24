@@ -8536,16 +8536,24 @@ function cashOutMines() {
 // ----- BOT BATTLE -----
 let battleGame = null;
 const BOT_DIFFICULTIES = [
-  { name: '😊 Easy Bot',    rarity: 'common',    mashRate: 2.5, candyReward: 1 },
-  { name: '🙂 Medium Bot',  rarity: 'uncommon',  mashRate: 4.0, candyReward: 2 },
-  { name: '😎 Hard Bot',    rarity: 'rare',      mashRate: 5.5, candyReward: 3 },
-  { name: '😈 Elite Bot',   rarity: 'epic',      mashRate: 7.0, candyReward: 5 },
-  { name: '👹 Legend Bot',  rarity: 'legendary', mashRate: 9.0, candyReward: 10 }
+  { name: '😊 Easy Bot',       rarity: 'common',    mashRate: 2.5 },
+  { name: '🙂 Medium Bot',     rarity: 'uncommon',  mashRate: 4.0 },
+  { name: '😎 Hard Bot',       rarity: 'rare',      mashRate: 5.5 },
+  { name: '🎓 Trainer',        rarity: 'rare',      mashRate: 6.5 },
+  { name: '🏟️ Gym Leader',     rarity: 'epic',      mashRate: 7.5 },
+  { name: '😈 Elite Four',     rarity: 'epic',      mashRate: 8.5 },
+  { name: '👑 Champion',       rarity: 'legendary', mashRate: 9.5 },
+  { name: '🌟 Mythical',       rarity: 'legendary', mashRate: 11.0 },
+  { name: '👹 Legend Bot',     rarity: 'legendary', mashRate: 12.5 },
+  { name: '💀 Hyper Boss',     rarity: 'ultimate',  mashRate: 14.0 },
+  { name: '🎯 Custom CP',      custom: true,        mashRate: 8.0 }
 ];
 // Spilleren angriper hardere enn boten i AI-battles
 // Skade skalerer med CP: jo bedre Pokémon, jo mer damage per klikk
 function playerAttackDmg(cp) { return Math.max(10, Math.round(cp / 10)); }
 const BOT_ATTACK_DMG = 1;     // bot gjør 1 skade per auto-attack
+// Bots er ekstra tøffe — mye mer HP enn spillerens Pokémon
+function botHp(cp) { return Math.max(20, Math.round(cp * 4)); }
 
 function getMyBattlePokemon() {
   // Returner alle Pokémon spilleren har fanget, sortert etter beste CP
@@ -8580,7 +8588,12 @@ function renderBattle() {
     <div style="text-align:center;color:#fff;">
       <label style="font-size:14px;">Choose bot opponent: </label>
       <select id="battleBotSelect" style="padding:6px;border-radius:6px;font-size:14px;">
-        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — practice only</option>`).join('')}
+        ${BOT_DIFFICULTIES.map((b, i) => {
+          const label = b.custom
+            ? `${b.name} — choose CP yourself`
+            : `${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}, HP ×4)`;
+          return `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${label}</option>`;
+        }).join('')}
       </select>
     </div>
     <div style="margin-top:10px;text-align:center;color:#fff;">Your Pokémon (sorted by CP — pick one):</div>
@@ -8677,16 +8690,35 @@ function startBattle() {
   const myCp = state.bestCp[myPoke.id] || 1;
   const myHp = pokeHp(myCp);
   const botDef = BOT_DIFFICULTIES[battleGame.selectedBotIdx];
-  // Bot får en tilfeldig Pokémon i sin rarity
-  const botPool = POKEMONS.filter(p => p.rarity === botDef.rarity);
-  const botPoke = botPool[Math.floor(Math.random() * botPool.length)] || POKEMONS[0];
-  const botCp = rollCp(botDef.rarity, false);
-  const botHp = pokeHp(botCp);
+  let botCp;
+  let botPoke;
+
+  if (botDef.custom) {
+    // Be brukeren spesifisere CP
+    const input = prompt('Enter the bot\'s CP (1 - 50000):', '1000');
+    if (!input) return;
+    botCp = Math.max(1, Math.min(50000, parseInt(input) || 1000));
+    // Velg en passende rarity basert på CP
+    let chosenRarity = 'common';
+    if (botCp >= 5000) chosenRarity = 'ultimate';
+    else if (botCp >= 2000) chosenRarity = 'legendary';
+    else if (botCp >= 500) chosenRarity = 'epic';
+    else if (botCp >= 200) chosenRarity = 'rare';
+    else if (botCp >= 100) chosenRarity = 'uncommon';
+    const botPool = POKEMONS.filter(p => p.rarity === chosenRarity);
+    botPoke = botPool[Math.floor(Math.random() * botPool.length)] || POKEMONS[0];
+  } else {
+    const botPool = POKEMONS.filter(p => p.rarity === botDef.rarity);
+    botPoke = botPool[Math.floor(Math.random() * botPool.length)] || POKEMONS[0];
+    botCp = rollCp(botDef.rarity, false);
+  }
+
+  const botHpVal = botHp(botCp);
 
   battleGame.active = true;
   battleGame.myHp = myHp;
   battleGame.myMaxHp = myHp;
-  battleGame.bot = { poke: botPoke, hp: botHp, maxHp: botHp, cp: botCp, mashRate: botDef.mashRate, candyReward: botDef.candyReward };
+  battleGame.bot = { poke: botPoke, hp: botHpVal, maxHp: botHpVal, cp: botCp, mashRate: botDef.mashRate };
   battleGame.startTime = Date.now();
 
   document.getElementById('battleStartBtn').style.display = 'none';
