@@ -4256,6 +4256,14 @@ const BALLS = {
     multiCatch: 3,
     desc: '3 Pokémon per ball, but mostly Common'
   },
+  veteran: {
+    name: 'Veteran Ball',
+    price: 5000,
+    odds: { common: 0, uncommon: 5, rare: 25, epic: 40, legendary: 29, ultimate: 1 },
+    shinyChance: 0.5,
+    unlockPlaytimeMs: 3600000, // 1 time spilltid
+    desc: '⏰ Unlocked after 1h playtime · 1% ULTIMATE chance!'
+  },
   poke: {
     name: 'Poké Ball',
     price: 20,
@@ -4618,6 +4626,20 @@ if (state.storagePurchases === undefined) state.storagePurchases = 0;
 // Candy er nå per Pokémon-art: { pokeId: antall }
 // (selger du en Bulbasaur får du Bulbasaur-candy, ikke generisk)
 if (state.candy === undefined || typeof state.candy === 'number') state.candy = {};
+// Playtime-tracking — øker mens spillet er åpent (brukes til å låse opp Veteran Ball)
+if (state.playtimeMs === undefined) state.playtimeMs = 0;
+let __playtimeLastTick = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  // Bare tell tid hvis ikke mer enn 30s siden siste tick (unngår å telle tid mens fanen er bakgrunns/sovende)
+  const diff = now - __playtimeLastTick;
+  if (diff > 0 && diff < 30000) {
+    state.playtimeMs += diff;
+    // Lagre stille hvert 30. sek
+    if (state.playtimeMs % 30000 < 10000) save();
+  }
+  __playtimeLastTick = now;
+}, 10000);
 // buddyUid lar deg sette én spesifikk individ (med egen CP) som buddy
 if (state.buddyUid === undefined) state.buddyUid = null;
 // Ved første gangs lasting: sørg for at nåværende konto er i pokeAccounts
@@ -5266,15 +5288,32 @@ function renderShop() {
     const extras = bonusText.length
       ? `<div style="color:#7fffd4;font-size:12px;margin-top:4px;">${bonusText.join(' • ')}</div>`
       : '';
+    // Sjekk playtime-lås (Veteran Ball låst til 1 time)
+    const playtimeLocked = ball.unlockPlaytimeMs && (state.playtimeMs || 0) < ball.unlockPlaytimeMs;
     let buyBtn = '';
-    if (key === 'free') {
+    if (playtimeLocked) {
+      const remainingMs = ball.unlockPlaytimeMs - (state.playtimeMs || 0);
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      const pct = Math.min(100, ((state.playtimeMs || 0) / ball.unlockPlaytimeMs) * 100);
+      buyBtn = `
+        <div style="background:rgba(0,0,0,0.5);padding:10px;border-radius:8px;margin-top:8px;text-align:center;border:2px dashed #f39c12;">
+          <div style="color:#f39c12;font-weight:bold;margin-bottom:5px;">🔒 Locked</div>
+          <div style="font-size:12px;color:#fff;margin-bottom:6px;">Play ${remainingMin} more minute${remainingMin === 1 ? '' : 's'} to unlock!</div>
+          <div style="background:#222;border-radius:5px;height:10px;overflow:hidden;">
+            <div style="background:linear-gradient(90deg,#f39c12,#e67e22);height:100%;width:${pct.toFixed(1)}%;transition:width 0.5s;"></div>
+          </div>
+          <div style="font-size:10px;color:#aaa;margin-top:3px;">${pct.toFixed(1)}% played</div>
+        </div>`;
+    } else if (key === 'free') {
       buyBtn = '<div style="color:#2ecc71;font-weight:bold;margin-top:10px;">Free every 8 seconds</div>';
     } else {
       buyBtn = `<div class="ball-count">You have: ${state.inventory[key]}</div>
         <button class="buy-btn" onclick="buyBall('${key}', 1)" ${state.coins < ball.price ? 'disabled' : ''}>Buy 1 (${ball.price}💰)</button>
         <button class="buy-btn" onclick="buyBall('${key}', 10)" ${state.coins < ball.price*10 ? 'disabled' : ''}>Buy 10 (${ball.price*10}💰)</button>`;
     }
-    const selBtn = `<button class="select-btn ${state.selectedBall===key?'active':''}" onclick="selectBall('${key}')">${state.selectedBall===key?'✓ Selected':'Select'}</button>`;
+    const selBtn = playtimeLocked
+      ? ''
+      : `<button class="select-btn ${state.selectedBall===key?'active':''}" onclick="selectBall('${key}')">${state.selectedBall===key?'✓ Selected':'Select'}</button>`;
     div.innerHTML = `
       <div class="mini-ball ${key}">
         <div class="mini-top"></div>
@@ -5294,7 +5333,15 @@ function renderShop() {
 }
 
 function buyBall(key, qty) {
-  const cost = BALLS[key].price * qty;
+  const ball = BALLS[key];
+  if (!ball) return;
+  // Sjekk playtime-lås
+  if (ball.unlockPlaytimeMs && (state.playtimeMs || 0) < ball.unlockPlaytimeMs) {
+    const remaining = Math.ceil((ball.unlockPlaytimeMs - (state.playtimeMs || 0)) / 60000);
+    alert(`🔒 Locked! Play ${remaining} more minutes to unlock ${ball.name}.`);
+    return;
+  }
+  const cost = ball.price * qty;
   if (state.coins < cost) return;
   state.coins -= cost;
   state.inventory[key] += qty;
