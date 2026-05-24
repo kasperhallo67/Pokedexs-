@@ -9168,6 +9168,12 @@ function renderPvpLobby() {
       </div>
     </div>
     ${sel ? `<div style="text-align:center;color:#7df;font-weight:bold;margin:6px 0;">Selected: ${sel.poke.name} ⚔️ CP ${selCp} · ❤️ HP ${pokeHp(selCp)}</div>` : ''}
+    <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;text-align:center;">
+      <label style="color:#fff;font-weight:bold;">💰 Bet (coins, 0 = no bet):
+        <input id="pvpBetInput" type="number" min="0" value="${pvpGame.bet || 0}" style="width:120px;padding:6px;margin-left:8px;border-radius:6px;font-size:14px;">
+      </label>
+      <div style="font-size:11px;color:#ffeb3b;margin-top:4px;">Winner takes both bets! You have ${state.coins.toLocaleString()} 💰</div>
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:12px 0;">
       <button class="casino-btn" style="background:#27ae60;" onclick="pvpCreateRoom()">➕ Create room</button>
       <button class="casino-btn" style="background:#3498db;" onclick="pvpShowJoinPrompt()">🔢 Join by code</button>
@@ -9187,16 +9193,30 @@ async function pvpCreateRoom() {
   const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
   if (!myPoke) return;
   const cp = state.bestCp[myPoke.id] || 100;
+  const bet = Math.max(0, parseInt(document.getElementById('pvpBetInput')?.value) || 0);
+  if (bet > state.coins) { alert(`Not enough coins for bet (need ${bet}, have ${state.coins})`); return; }
+  // Forsikre at konto er synket først så server har ferskeste coin-tall
+  if (bet > 0) {
+    try {
+      await fetch('/api/account/sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: state.username, password: state.password, state: JSON.stringify(state) })
+      });
+    } catch {}
+  }
   try {
     const res = await fetch('/api/pvp/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: state.username, pokeId: myPoke.id, pokeName: myPoke.name, cp, isShiny: !!state.shinies[myPoke.id] })
+      body: JSON.stringify({ username: state.username, pokeId: myPoke.id, pokeName: myPoke.name, cp, isShiny: !!state.shinies[myPoke.id], bet })
     });
     const data = await res.json();
     if (!data.ok) { alert('Failed: ' + (data.error || 'unknown')); return; }
     pvpGame.code = data.code;
     pvpGame.role = 'host';
     pvpGame.screen = 'waiting';
+    pvpGame.bet = bet;
+    // Trekk fra lokalt også
+    if (bet > 0) { state.coins -= bet; save(); updateUI(); }
     renderPvpWaiting();
     pvpStartPolling();
   } catch (e) { alert('Server error: ' + e.message); }
@@ -9212,6 +9232,13 @@ async function pvpJoinRoom(code) {
   const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
   if (!myPoke) return;
   const cp = state.bestCp[myPoke.id] || 100;
+  // Synk konto først så server har ferskeste coin-tall
+  try {
+    await fetch('/api/account/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.username, password: state.password, state: JSON.stringify(state) })
+    });
+  } catch {}
   try {
     const res = await fetch('/api/pvp/join', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -9223,6 +9250,9 @@ async function pvpJoinRoom(code) {
     pvpGame.role = 'guest';
     pvpGame.screen = 'battle';
     pvpGame.lastBattle = data.battle;
+    pvpGame.bet = data.battle.bet || 0;
+    // Trekk fra lokalt også
+    if (pvpGame.bet > 0) { state.coins -= pvpGame.bet; save(); updateUI(); }
     renderPvpBattle();
     pvpStartPolling();
     pvpAttachKeyboard();
@@ -9249,7 +9279,7 @@ async function pvpListRooms() {
             <img src="${r.hostShiny ? SHINY_SPRITE_URL(r.hostPokeId) : SPRITE_URL(r.hostPokeId)}" style="width:40px;height:40px;image-rendering:pixelated;">
             <div style="flex:1;color:#fff;">
               <strong>${escapeHtml(r.host)}</strong> · ${r.hostShiny ? '✨ ' : ''}${escapeHtml(r.hostPokeName)} <span style="color:#7df;">⚔️ ${r.hostCp}</span>
-              <div style="font-size:11px;color:#aaa;">Code: ${r.code}</div>
+              <div style="font-size:11px;color:#aaa;">Code: ${r.code}${r.bet > 0 ? ` · 💰 <strong style="color:#ffeb3b;">${r.bet.toLocaleString()}</strong> bet` : ''}</div>
             </div>
             <button class="casino-btn" style="padding:6px 12px;" onclick="pvpJoinRoom('${r.code}')">⚔️ Battle</button>
           </div>
@@ -9263,12 +9293,14 @@ async function pvpListRooms() {
 
 function renderPvpWaiting() {
   const c = document.getElementById('casinoContent');
+  const bet = pvpGame.bet || 0;
   c.innerHTML = `
     <div style="text-align:center;padding:30px;color:#fff;">
       <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">⏳ Waiting for opponent...</div>
       <div style="font-size:32px;font-weight:bold;color:gold;background:rgba(0,0,0,0.5);padding:14px 30px;border-radius:14px;display:inline-block;letter-spacing:6px;margin:14px 0;">${pvpGame.code}</div>
+      ${bet > 0 ? `<div style="font-size:16px;color:#ffeb3b;margin:8px 0;">💰 Bet: <strong>${bet.toLocaleString()}</strong> · Winner takes <strong>${(bet*2).toLocaleString()}</strong>!</div>` : ''}
       <div style="font-size:13px;color:#ccc;margin-bottom:14px;">Share this code with a friend, or have them browse open rooms.</div>
-      <button class="casino-btn" style="background:#e74c3c;" onclick="pvpCancel()">❌ Cancel</button>
+      <button class="casino-btn" style="background:#e74c3c;" onclick="pvpCancel()">❌ Cancel (refund)</button>
     </div>
   `;
 }
@@ -9287,10 +9319,11 @@ function renderPvpBattle() {
   const myDmg = playerAttackDmg(me.cp);
   const isDone = b.status === 'done';
   const iWon = isDone && b.winner === state.username;
+  const betText = (b.bet || 0) > 0 ? ` · 💰 ${b.bet.toLocaleString()} bet (winner gets ${(b.bet*2).toLocaleString()})` : '';
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:8px;">
       <strong>⚔️ ${escapeHtml(b.host)} vs ${escapeHtml(b.guest)}</strong>
-      <div style="font-size:12px;opacity:0.7;">Code: ${pvpGame.code}${isDone ? '' : ' · Tap SPACE / ATTACK button — first to 0 HP loses!'}</div>
+      <div style="font-size:12px;opacity:0.7;">Code: ${pvpGame.code}${betText}${isDone ? '' : ' · Tap SPACE — first to 0 HP loses!'}</div>
     </div>
     <div class="battle-arena">
       <div class="battle-side">
@@ -9311,6 +9344,7 @@ function renderPvpBattle() {
       ${isDone ? `
         <div style="text-align:center;padding:20px;font-size:24px;font-weight:bold;color:${iWon ? '#2ecc71' : '#e74c3c'};">
           ${iWon ? '🏆 YOU WIN! 🏆' : '💀 You lost!'}
+          ${(b.bet || 0) > 0 ? `<div style="font-size:16px;margin-top:6px;color:gold;">${iWon ? `+${(b.bet * 2).toLocaleString()}💰` : `-${b.bet.toLocaleString()}💰`}</div>` : ''}
         </div>
         <button class="casino-btn" onclick="pvpExit()">⬅️ Back to lobby</button>
       ` : `
@@ -9364,6 +9398,23 @@ function pvpStartPolling() {
           clearInterval(pvpGame.pollTimer);
           pvpGame.pollTimer = null;
           pvpDetachKeyboard();
+          // Hvis du vant og det var bet — sync coins fra server
+          if (b.winner === state.username && (b.bet || 0) > 0) {
+            try {
+              const r = await fetch('/api/account/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: state.username, password: state.password })
+              });
+              const d = await r.json();
+              if (d.ok && d.state) {
+                const srv = JSON.parse(d.state);
+                if (typeof srv.coins === 'number') {
+                  state.coins = srv.coins;
+                  save(); updateUI();
+                }
+              }
+            } catch {}
+          }
         }
       }
     } catch {}
@@ -9393,12 +9444,18 @@ function pvpDetachKeyboard() {
 
 async function pvpCancel() {
   if (pvpGame && pvpGame.code) {
+    const wasWaiting = pvpGame.screen === 'waiting';
     try {
       await fetch('/api/pvp/leave', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: pvpGame.code, username: state.username })
       });
     } catch {}
+    // Hvis vi cancelled mens vi venta og hadde bet — refunder lokalt
+    if (wasWaiting && (pvpGame.bet || 0) > 0) {
+      state.coins += pvpGame.bet;
+      save(); updateUI();
+    }
   }
   pvpExit();
 }

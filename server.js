@@ -523,6 +523,30 @@ function cleanupPvpRooms(battles) {
   }
 }
 
+// Belønn vinneren med begge innsatsene
+function pvpAwardWinner(battle) {
+  if (!battle || !battle.winner || !battle.bet) return;
+  if (battle.payoutDone) return; // unngå dobbel utbetaling
+  const payout = battle.bet * 2;
+  try {
+    const users = readJson(USERS_FILE, {});
+    if (users[battle.winner]) {
+      const ws = JSON.parse(users[battle.winner].state || '{}');
+      ws.coins = (ws.coins || 0) + payout;
+      users[battle.winner].state = JSON.stringify(ws);
+      writeJson(USERS_FILE, users);
+      // Oppdater også leaderboard
+      const scores = readJson(SCORES_FILE, {});
+      if (scores[battle.winner]) {
+        scores[battle.winner].coins = ws.coins;
+        writeJson(SCORES_FILE, scores);
+      }
+    }
+  } catch (e) { console.warn('pvp payout failed:', e.message); }
+  battle.payoutDone = true;
+  battle.payout = payout;
+}
+
 function readBattles() {
   const b = readJson(BATTLES_FILE, {});
   // Hvis filen var et array fra før, konverter
@@ -536,7 +560,22 @@ app.post('/api/pvp/create', (req, res) => {
   const pokeName = (d.pokeName || '').trim() || 'Pokémon';
   const cp = parseInt(d.cp) || 100;
   const isShiny = !!d.isShiny;
+  const bet = Math.max(0, parseInt(d.bet) || 0);
   if (!username || !pokeId) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  // Hvis innsats er satt, trekk fra hostens konto
+  if (bet > 0) {
+    const users = readJson(USERS_FILE, {});
+    if (!users[username]) return res.status(404).json({ ok: false, error: 'Your account is not on server (sync first)' });
+    try {
+      const hostState = JSON.parse(users[username].state || '{}');
+      if ((hostState.coins || 0) < bet) return res.status(400).json({ ok: false, error: `Not enough coins (need ${bet}, have ${hostState.coins || 0})` });
+      hostState.coins -= bet;
+      users[username].state = JSON.stringify(hostState);
+      writeJson(USERS_FILE, users);
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: 'Could not deduct bet' });
+    }
+  }
   const battles = readBattles();
   cleanupPvpRooms(battles);
   // Fjern eksisterende rom fra denne brukeren (max ett aktivt rom per spiller)
@@ -556,11 +595,12 @@ app.post('/api/pvp/create', (req, res) => {
     hostShiny: isShiny,
     guest: null,
     status: 'waiting',
+    bet,
     createdAt: Date.now(),
     lastUpdate: Date.now()
   };
   writeJson(BATTLES_FILE, battles);
-  res.json({ ok: true, code });
+  res.json({ ok: true, code, bet });
 });
 
 app.post('/api/pvp/join', (req, res) => {
@@ -578,6 +618,21 @@ app.post('/api/pvp/join', (req, res) => {
   if (b.guest) return res.status(409).json({ ok: false, error: 'Room is full' });
   if (b.host === username) return res.status(409).json({ ok: false, error: 'Cannot join your own room' });
   if (b.status !== 'waiting') return res.status(409).json({ ok: false, error: 'Room is not open' });
+  const bet = b.bet || 0;
+  // Trekk innsats fra guest hvis det er veddemål
+  if (bet > 0) {
+    const users = readJson(USERS_FILE, {});
+    if (!users[username]) return res.status(404).json({ ok: false, error: 'Your account is not on server (sync first)' });
+    try {
+      const guestState = JSON.parse(users[username].state || '{}');
+      if ((guestState.coins || 0) < bet) return res.status(400).json({ ok: false, error: `Not enough coins for bet (need ${bet}, have ${guestState.coins || 0})` });
+      guestState.coins -= bet;
+      users[username].state = JSON.stringify(guestState);
+      writeJson(USERS_FILE, users);
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: 'Could not deduct bet' });
+    }
+  }
   const hp = Math.max(20, cp * 2);
   b.guest = username;
   b.guestPokeId = pokeId;
@@ -611,10 +666,10 @@ app.post('/api/pvp/attack', (req, res) => {
   if (b.status !== 'active') return res.status(400).json({ ok: false, error: 'not_active' });
   if (b.host === username) {
     b.guestHp = Math.max(0, b.guestHp - dmg);
-    if (b.guestHp <= 0) { b.status = 'done'; b.winner = b.host; }
+    if (b.guestHp <= 0) { b.status = 'done'; b.winner = b.host; pvpAwardWinner(b); }
   } else if (b.guest === username) {
     b.hostHp = Math.max(0, b.hostHp - dmg);
-    if (b.hostHp <= 0) { b.status = 'done'; b.winner = b.guest; }
+    if (b.hostHp <= 0) { b.status = 'done'; b.winner = b.guest; pvpAwardWinner(b); }
   } else {
     return res.status(403).json({ ok: false });
   }
@@ -631,12 +686,25 @@ app.post('/api/pvp/leave', (req, res) => {
   if (battles[code]) {
     const b = battles[code];
     if (b.status === 'waiting' && b.host === username) {
+      // Refunder innsats hvis ingen joined enda
+      if (b.bet > 0) {
+        try {
+          const users = readJson(USERS_FILE, {});
+          if (users[username]) {
+            const us = JSON.parse(users[username].state || '{}');
+            us.coins = (us.coins || 0) + b.bet;
+            users[username].state = JSON.stringify(us);
+            writeJson(USERS_FILE, users);
+          }
+        } catch {}
+      }
       delete battles[code];
     } else if (b.status === 'active') {
-      // Den som forlater taper
+      // Den som forlater taper, motstander vinner og får utbetaling
       b.status = 'done';
       b.winner = b.host === username ? b.guest : b.host;
       b.lastUpdate = Date.now();
+      pvpAwardWinner(b);
     }
     writeJson(BATTLES_FILE, battles);
   }
@@ -649,7 +717,7 @@ app.get('/api/pvp/list', (req, res) => {
   writeJson(BATTLES_FILE, battles);
   const rooms = Object.entries(battles)
     .filter(([_, b]) => b.status === 'waiting')
-    .map(([code, b]) => ({ code, host: b.host, hostPokeName: b.hostPokeName, hostCp: b.hostCp, hostPokeId: b.hostPokeId, hostShiny: b.hostShiny }));
+    .map(([code, b]) => ({ code, host: b.host, hostPokeName: b.hostPokeName, hostCp: b.hostCp, hostPokeId: b.hostPokeId, hostShiny: b.hostShiny, bet: b.bet || 0 }));
   res.json({ rooms });
 });
 
