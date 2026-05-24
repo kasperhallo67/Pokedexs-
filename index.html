@@ -5288,10 +5288,21 @@ function submitScore() {
     // Buddy info
     let buddyName = '';
     let buddyCatches = 0;
+    let buddyCp = 0;
+    let buddyShiny = false;
     if (state.buddyId) {
       const buddyPoke = POKEMONS.find(p => p.id === state.buddyId);
       if (buddyPoke) buddyName = buddyPoke.name;
       buddyCatches = state.buddyCatches[state.buddyId] || 0;
+      // Hvis spesifikk individuell buddy er valgt, bruk dens eksakte CP/shiny
+      const buddyInd = state.buddyUid ? state.individuals.find(i => i.uid === state.buddyUid) : null;
+      if (buddyInd) {
+        buddyCp = buddyInd.cp;
+        buddyShiny = buddyInd.isShiny;
+      } else {
+        buddyCp = state.bestCp[state.buddyId] || 0;
+        buddyShiny = !!state.shinies[state.buddyId];
+      }
     }
     fetch('/api/score', {
       method: 'POST',
@@ -5308,6 +5319,8 @@ function submitScore() {
         buddyId: state.buddyId || 0,
         buddyName: buddyName,
         buddyCatches: buddyCatches,
+        buddyCp: buddyCp,
+        buddyShiny: buddyShiny,
         character: state.character ? {
           gender: state.character.gender,
           hat: state.character.equipped.hat,
@@ -5351,10 +5364,11 @@ async function renderLeaderboard() {
       const rankClass = rank <= 3 ? `rank-${rank}` : '';
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
-      // Buddy-celle med stjerner
+      // Buddy-celle med stjerner + CP
       let buddyCell = '<span style="color:#888;font-size:11px;">none</span>';
       if (e.buddyId && e.buddyName) {
         const cat = e.buddyCatches || 0;
+        const bCp = e.buddyCp || 0;
         let stars;
         if (cat >= 1000) stars = '<span style="background:linear-gradient(90deg,#ff0040,#ffd700,#7873f5);background-size:200%;color:white;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;text-shadow:0 0 3px black;">🌈★</span>';
         else if (cat >= 100) {
@@ -5363,13 +5377,18 @@ async function renderLeaderboard() {
         } else {
           stars = `<span style="color:#888;font-size:10px;">${cat}/100</span>`;
         }
+        // Bruk shiny sprite hvis buddy er shiny
         const sprite = e.buddyId < 9000
-          ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${e.buddyId}.png`
+          ? (e.buddyShiny
+              ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${e.buddyId}.png`
+              : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${e.buddyId}.png`)
           : '';
+        const cpBadge = bCp > 0 ? `<span style="color:#7df;font-size:10px;font-weight:bold;text-shadow:0 0 3px #2af;">⚔️ ${bCp}</span>` : '';
         buddyCell = `<div style="display:flex;align-items:center;gap:4px;">
-          ${sprite ? `<img src="${sprite}" style="width:32px;height:32px;image-rendering:pixelated;" alt="">` : ''}
-          <div style="display:flex;flex-direction:column;">
-            <span style="font-size:12px;color:#fff;">${escapeHtml(e.buddyName)}</span>
+          ${sprite ? `<img src="${sprite}" style="width:32px;height:32px;image-rendering:pixelated;${e.buddyShiny ? 'filter:drop-shadow(0 0 4px gold);' : ''}" alt="">` : ''}
+          <div style="display:flex;flex-direction:column;line-height:1.2;">
+            <span style="font-size:12px;color:#fff;">${e.buddyShiny ? '✨ ' : ''}${escapeHtml(e.buddyName)}</span>
+            ${cpBadge}
             ${stars}
           </div>
         </div>`;
@@ -6977,14 +6996,16 @@ function releaseAllWeak() {
   save(); updateUI();
   renderMyPokemons();
 }
-// Beregn oppgradering-kostnad — øker for hver upgrade på samme Pokémon
+// Beregn oppgradering-kostnad — mye dyrere nå, øker kraftig per level
 function upgradeCost(level) {
-  // Level 0 (første upgrade): 3 candy + 100 coins
-  // Level 1: 5 candy + 400 coins
-  // Level 2: 8 candy + 1600 coins
-  // Level 3: 12 candy + 6400 coins (×4 hver gang)
-  const candy = 3 + level * 2;
-  const coins = Math.round(100 * Math.pow(4, level));
+  // Level 0: 10 candy + 2 000 coins
+  // Level 1: 18 candy + 10 000 coins
+  // Level 2: 28 candy + 50 000 coins
+  // Level 3: 40 candy + 250 000 coins
+  // Level 4: 54 candy + 1 250 000 coins
+  // Coins skalerer ×5, candy med kvadratisk vekst
+  const candy = 10 + level * 8 + level * level * 2;
+  const coins = Math.round(2000 * Math.pow(5, level));
   return { candy, coins };
 }
 // Beregn HP for en individuell Pokémon (basert på CP)
@@ -8404,7 +8425,7 @@ function renderBattle() {
     <div style="text-align:center;color:#fff;">
       <label style="font-size:14px;">Choose bot opponent: </label>
       <select id="battleBotSelect" style="padding:6px;border-radius:6px;font-size:14px;">
-        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — Reward: ${b.candyReward}🍬 candy</option>`).join('')}
+        ${BOT_DIFFICULTIES.map((b, i) => `<option value="${i}" ${i === battleGame.selectedBotIdx ? 'selected' : ''}>${b.name} (~CP ${Math.round((CP_RANGES[b.rarity].min + CP_RANGES[b.rarity].max)/2)}) — practice only</option>`).join('')}
       </select>
     </div>
     <div style="margin-top:10px;text-align:center;color:#fff;">Your Pokémon (sorted by CP — pick one):</div>
@@ -8591,18 +8612,11 @@ function endBattle(playerWon) {
 
   const resultEl = document.getElementById('battleResult');
   if (playerWon) {
-    // Ingen coins-belønning — kun candy av botens Pokémon-art
-    let candyAmount = battleGame.bot.candyReward;
-    if (battleGame.bot.maxHp > battleGame.myMaxHp) {
-      candyAmount = Math.round(candyAmount * 1.5);
-    }
-    const botPokeId = battleGame.bot.poke.id;
-    const botPokeName = battleGame.bot.poke.name;
-    if (!state.candy || typeof state.candy !== 'object') state.candy = {};
-    state.candy[botPokeId] = (state.candy[botPokeId] || 0) + candyAmount;
+    // INGEN belønning — bare ære (følg bruker-spec)
+    state.aiBattleWins = (state.aiBattleWins || 0) + 1;
     save(); updateUI(); submitScore(); checkAchievements();
     resultEl.className = 'casino-result win';
-    resultEl.innerHTML = `🏆 You won! <strong>+${candyAmount} 🍬 ${botPokeName} Candy</strong><br><span style="font-size:12px;opacity:0.7;">No coin rewards from AI battles.</span>`;
+    resultEl.innerHTML = `🏆 Victory! <strong>${battleGame.bot.poke.name} (CP ${battleGame.bot.cp}) defeated!</strong><br><span style="font-size:12px;opacity:0.7;">AI battles give no rewards — just bragging rights.</span>`;
   } else {
     resultEl.className = 'casino-result lose';
     resultEl.innerHTML = `💀 Defeated! Try again or pick a stronger Pokémon.`;

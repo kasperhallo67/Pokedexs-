@@ -82,6 +82,8 @@ app.post('/api/score', (req, res) => {
     buddyId:         parseInt(d.buddyId) || 0,
     buddyName:       (d.buddyName || '').slice(0, 50),
     buddyCatches:    parseInt(d.buddyCatches) || 0,
+    buddyCp:         parseInt(d.buddyCp) || 0,
+    buddyShiny:      !!d.buddyShiny,
     character:       d.character || null,
     lastUpdated: new Date().toISOString().slice(0, 19),
     lastUpdatedMs: Date.now()
