@@ -54,6 +54,31 @@ function writeJson(file, data) {
   }
 }
 
+// === PROFANITY FILTER ===
+// Sensurerer dårlige ord på norsk og engelsk
+const BAD_WORDS = [
+  // English
+  'fuck','shit','bitch','asshole','dick','pussy','cunt','bastard','slut','whore',
+  'nigger','nigga','faggot','retard','wanker','prick','douche','motherfucker',
+  // Norwegian
+  'faen','fitte','kuk','jævla','jævel','jevla','jevel','dritt','drittsekk',
+  'fitta','fittetryne','homo','homse','hore','kjerring','tispe','niggern','negerjente',
+  'merrr','negar','rævhol','rævhull','rævhøl','pikk','pikkhode','idiot','idiotisk'
+];
+function censorText(text) {
+  if (!text || typeof text !== 'string') return text;
+  let result = text;
+  for (const word of BAD_WORDS) {
+    // Erstatter ord overalt, case-insensitive, til stjerner
+    const re = new RegExp(word.split('').map(c => {
+      // Escape regex-spesialtegn
+      return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join(''), 'gi');
+    result = result.replace(re, (match) => '*'.repeat(match.length));
+  }
+  return result;
+}
+
 // CORS headers
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -145,7 +170,7 @@ app.post('/api/dm/send', (req, res) => {
   const d = req.body || {};
   const from = (d.from || '').trim();
   const to   = (d.to   || '').trim();
-  const msg  = (d.message || '').trim().slice(0, 500);
+  const msg  = censorText((d.message || '').trim().slice(0, 500));
   if (!from || !to || !msg) return res.status(400).json({ ok: false, error: 'Missing fields' });
   const messages = readJson(DM_FILE, []);
   messages.push({
@@ -239,6 +264,10 @@ app.post('/api/account/create', (req, res) => {
   const p = password || '';
   if (!u || u.length > 30 || p.length < 3) {
     return res.status(400).json({ ok: false, error: 'Invalid username or password' });
+  }
+  // Blokker stygge ord i brukernavn
+  if (censorText(u) !== u) {
+    return res.status(400).json({ ok: false, error: 'Username contains banned words' });
   }
   const users = readJson(USERS_FILE, {});
   if (users[u]) {
@@ -460,12 +489,12 @@ app.post('/api/poker/close', (req, res) => {
 app.post('/api/chat/send', (req, res) => {
   const { username, message } = req.body || {};
   const u = (username || '').trim().slice(0, 30);
-  const m = (message  || '').trim().slice(0, 500);
+  const m = censorText((message || '').trim().slice(0, 500));
   if (!u || !m) return res.status(400).json({ ok: false, error: 'Missing fields' });
   const messages = readJson(CHAT_FILE, []);
   messages.push({
     id: crypto.randomUUID(),
-    username: u,
+    username: censorText(u),
     message: m,
     time: new Date().toISOString()
   });

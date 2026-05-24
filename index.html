@@ -7622,11 +7622,34 @@ function setChatView(view) {
   }
 }
 
+// Klient-sensur — gir umiddelbar feedback før server-svar
+const CLIENT_BAD_WORDS = [
+  'fuck','shit','bitch','asshole','dick','pussy','cunt','bastard','slut','whore',
+  'nigger','nigga','faggot','retard','wanker','prick','douche','motherfucker',
+  'faen','fitte','kuk','jævla','jævel','jevla','jevel','dritt','drittsekk',
+  'fitta','fittetryne','homo','homse','hore','kjerring','tispe','niggern','negerjente',
+  'merrr','negar','rævhol','rævhull','rævhøl','pikk','pikkhode','idiot','idiotisk'
+];
+function clientCensor(text) {
+  if (!text) return text;
+  let r = text;
+  for (const w of CLIENT_BAD_WORDS) {
+    const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    r = r.replace(re, m => '*'.repeat(m.length));
+  }
+  return r;
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chatInput');
-  const msg = input.value.trim();
+  let msg = input.value.trim();
   if (!msg) return;
   if (!state.username) { alert('Set a username first (top right)!'); return; }
+  // Vis brukeren at de bad words ble sensurert
+  const censored = clientCensor(msg);
+  if (censored !== msg) {
+    msg = censored;
+  }
   try {
     if (chatView === 'public') {
       await fetch('/api/chat/send', {
