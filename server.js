@@ -664,6 +664,10 @@ app.post('/api/pvp/attack', (req, res) => {
   if (!battles[code]) return res.status(404).json({ ok: false });
   const b = battles[code];
   if (b.status !== 'active') return res.status(400).json({ ok: false, error: 'not_active' });
+  // 3-sek countdown ved battle-start — angrep blokkeres
+  const now = Date.now();
+  const readyAt = (b.startedAt || now) + 3000;
+  if (now < readyAt) return res.status(400).json({ ok: false, error: 'wait_countdown', readyAt });
   if (b.host === username) {
     b.guestHp = Math.max(0, b.guestHp - dmg);
     if (b.guestHp <= 0) { b.status = 'done'; b.winner = b.host; pvpAwardWinner(b); }

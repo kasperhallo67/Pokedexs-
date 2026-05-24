@@ -9156,16 +9156,11 @@ function renderPvpLobby() {
     </div>
     <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;">
       <div style="font-weight:bold;color:#fff;margin-bottom:8px;">⚔️ Your Pokémon for battle (pick one):</div>
-      <div class="battle-pokemon-select">
-        ${myPokemons.slice(0, 20).map(({ poke, cp }) => `
-          <div class="battle-pokemon-card ${pvpGame.mySelectedId === poke.id ? 'selected' : ''}" onclick="pvpSelectPokemon(${poke.id})">
-            <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
-            <div class="name">${poke.name}</div>
-            <div class="cp">⚔️ ${cp}</div>
-            <div style="font-size:11px;color:#ff7676;">❤️ ${pokeHp(cp)}</div>
-          </div>
-        `).join('')}
+      <div style="display:flex;gap:5px;margin-bottom:8px;">
+        <input type="text" id="pvpPokeSearchInput" placeholder="🔍 Search your Pokémon..." value="${pvpGame.pokeSearch || ''}" oninput="pvpSetPokeSearch(this.value)" style="flex:1;padding:8px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;font-size:14px;">
+        ${pvpGame.pokeSearch ? `<button onclick="pvpClearPokeSearch()" style="background:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">×</button>` : ''}
       </div>
+      <div class="battle-pokemon-select" id="pvpPokeSelect"></div>
     </div>
     ${sel ? `<div style="text-align:center;color:#7df;font-weight:bold;margin:6px 0;">Selected: ${sel.poke.name} ⚔️ CP ${selCp} · ❤️ HP ${pokeHp(selCp)}</div>` : ''}
     <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;text-align:center;">
@@ -9182,11 +9177,50 @@ function renderPvpLobby() {
     <div id="pvpRoomsList"></div>
     <div class="casino-result" id="pvpResult"></div>
   `;
+  pvpRenderPokeSelect();
 }
 
 function pvpSelectPokemon(id) {
   pvpGame.mySelectedId = id;
+  // Bare re-render lista og det selected-display nederst i lobby (ikke hele lobby — for å beholde fokus i søk)
+  pvpRenderPokeSelect();
+  const sel = getMyBattlePokemon().find(({ poke }) => poke.id === id);
+  if (sel) {
+    // Oppdater "Selected: ..." linjen
+    const c = document.getElementById('casinoContent');
+    // Enkel re-render hele lobby
+    renderPvpLobby();
+    // Behold fokus i søkefelt om mulig
+    const inp = document.getElementById('pvpPokeSearchInput');
+    if (inp && pvpGame.pokeSearch) inp.focus();
+  }
+}
+function pvpSetPokeSearch(val) {
+  pvpGame.pokeSearch = (val || '').toLowerCase().trim();
+  pvpRenderPokeSelect();
+}
+function pvpClearPokeSearch() {
+  pvpGame.pokeSearch = '';
   renderPvpLobby();
+}
+function pvpRenderPokeSelect() {
+  const wrap = document.getElementById('pvpPokeSelect');
+  if (!wrap) return;
+  const search = pvpGame.pokeSearch || '';
+  let list = getMyBattlePokemon();
+  if (search) list = list.filter(({ poke }) => poke.name.toLowerCase().includes(search));
+  if (list.length === 0) {
+    wrap.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:15px;">No Pokémon match "${search}"</div>`;
+    return;
+  }
+  wrap.innerHTML = list.slice(0, 30).map(({ poke, cp }) => `
+    <div class="battle-pokemon-card ${pvpGame.mySelectedId === poke.id ? 'selected' : ''}" onclick="pvpSelectPokemon(${poke.id})">
+      <img src="${state.shinies[poke.id] ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id)}">
+      <div class="name">${poke.name}</div>
+      <div class="cp">⚔️ ${cp}</div>
+      <div style="font-size:11px;color:#ff7676;">❤️ ${pokeHp(cp)}</div>
+    </div>
+  `).join('');
 }
 
 async function pvpCreateRoom() {
@@ -9320,11 +9354,16 @@ function renderPvpBattle() {
   const isDone = b.status === 'done';
   const iWon = isDone && b.winner === state.username;
   const betText = (b.bet || 0) > 0 ? ` · 💰 ${b.bet.toLocaleString()} bet (winner gets ${(b.bet*2).toLocaleString()})` : '';
+  const readyAt = (b.startedAt || Date.now()) + 3000;
+  const msLeft = Math.max(0, readyAt - Date.now());
+  const inCountdown = !isDone && msLeft > 0;
+  const countSec = Math.ceil(msLeft / 1000);
   c.innerHTML = `
     <div style="text-align:center;color:#fff;margin-bottom:8px;">
       <strong>⚔️ ${escapeHtml(b.host)} vs ${escapeHtml(b.guest)}</strong>
       <div style="font-size:12px;opacity:0.7;">Code: ${pvpGame.code}${betText}${isDone ? '' : ' · Tap SPACE — first to 0 HP loses!'}</div>
     </div>
+    ${inCountdown ? `<div id="pvpCountdown" style="text-align:center;font-size:48px;font-weight:bold;color:#ffeb3b;text-shadow:0 0 20px #ff6b1a;padding:14px;background:rgba(255,69,0,0.15);border:3px dashed #ffeb3b;border-radius:14px;margin:10px 0;animation:pulse 0.5s infinite alternate;">⏱ ${countSec}</div>` : ''}
     <div class="battle-arena">
       <div class="battle-side">
         <div class="battle-name">${escapeHtml(me.username)} (You)</div>
@@ -9348,7 +9387,7 @@ function renderPvpBattle() {
         </div>
         <button class="casino-btn" onclick="pvpExit()">⬅️ Back to lobby</button>
       ` : `
-        <button class="battle-mash-btn" onclick="pvpAttack()" style="margin-top:10px;">⚔️ ATTACK (SPACE) — ${myDmg} dmg/hit</button>
+        <button class="battle-mash-btn" onclick="pvpAttack()" ${inCountdown ? 'disabled' : ''} style="margin-top:10px;${inCountdown ? 'opacity:0.4;cursor:not-allowed;' : ''}">${inCountdown ? `⏳ STARTING IN ${countSec}...` : `⚔️ ATTACK (SPACE) — ${myDmg} dmg/hit`}</button>
         <button class="casino-btn" style="background:#e74c3c;margin-top:6px;" onclick="pvpCancel()">🏳️ Forfeit</button>
       `}
     </div>
@@ -9360,6 +9399,10 @@ let pvpAttackPending = false;
 async function pvpAttack() {
   if (!pvpGame || !pvpGame.code || pvpAttackPending) return;
   if (!pvpGame.lastBattle || pvpGame.lastBattle.status !== 'active') return;
+  // Blokker attacks under 3-sek countdown
+  const b = pvpGame.lastBattle;
+  const readyAt = (b.startedAt || Date.now()) + 3000;
+  if (Date.now() < readyAt) return;
   pvpAttackPending = true;
   const myPoke = POKEMONS.find(p => p.id === pvpGame.mySelectedId);
   const dmg = playerAttackDmg(state.bestCp[myPoke?.id] || 100);
@@ -9379,6 +9422,14 @@ async function pvpAttack() {
 
 function pvpStartPolling() {
   if (pvpGame.pollTimer) clearInterval(pvpGame.pollTimer);
+  // I tillegg: en lokal countdown-ticker som re-rendrer hver 200ms uten å hamre serveren
+  if (pvpGame.countdownTimer) clearInterval(pvpGame.countdownTimer);
+  pvpGame.countdownTimer = setInterval(() => {
+    if (!pvpGame || pvpGame.screen !== 'battle' || !pvpGame.lastBattle) return;
+    const b = pvpGame.lastBattle;
+    const readyAt = (b.startedAt || 0) + 3000;
+    if (Date.now() < readyAt + 500) renderPvpBattle();
+  }, 200);
   pvpGame.pollTimer = setInterval(async () => {
     if (!pvpGame || !pvpGame.code) return;
     try {
@@ -9397,6 +9448,7 @@ function pvpStartPolling() {
         if (b.status === 'done') {
           clearInterval(pvpGame.pollTimer);
           pvpGame.pollTimer = null;
+          if (pvpGame.countdownTimer) { clearInterval(pvpGame.countdownTimer); pvpGame.countdownTimer = null; }
           pvpDetachKeyboard();
           // Hvis du vant og det var bet — sync coins fra server
           if (b.winner === state.username && (b.bet || 0) > 0) {
@@ -9462,6 +9514,7 @@ async function pvpCancel() {
 
 function pvpExit() {
   if (pvpGame && pvpGame.pollTimer) clearInterval(pvpGame.pollTimer);
+  if (pvpGame && pvpGame.countdownTimer) clearInterval(pvpGame.countdownTimer);
   pvpDetachKeyboard();
   const sel = pvpGame ? pvpGame.mySelectedId : null;
   pvpGame = { screen: 'lobby', mySelectedId: sel };
