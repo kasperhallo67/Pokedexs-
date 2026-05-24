@@ -7369,7 +7369,7 @@ function renderMines() {
         <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next safe chance:</span><span id="minesNextOdds">—</span></div>
         <div class="info-row" style="font-size:13px;opacity:0.85;"><span>Next multiplier:</span><span id="minesNextMult">—</span></div>
         <button class="casino-btn" id="cashoutBtn" onclick="cashOutMines()" disabled style="background:#2ecc71;">💰 Cash out</button>
-        <div style="font-size:11px;opacity:0.6;text-align:center;margin-top:8px;">1% house edge · provably random</div>
+        <div style="font-size:11px;opacity:0.6;text-align:center;margin-top:8px;">5% house edge · provably random</div>
       </div>
     </div>
     <div class="casino-result" id="minesResult"></div>
@@ -7423,9 +7423,9 @@ function renderMinesGrid() {
 }
 
 function calcMinesMultiplier(safeRevealed, mineCount) {
-  // Ekte Mines (Stake-style): 1% house edge
+  // Ekte Mines (Roobet/standard casino-style): 5% house edge
   // mult = (1 - edge) * C(25, picks) / C(25-mines, picks)
-  let mult = 0.99;
+  let mult = 0.95;
   for (let i = 0; i < safeRevealed; i++) {
     mult *= (25 - i) / (25 - mineCount - i);
   }
