@@ -5693,14 +5693,7 @@ function updateCooldownDisplay() {
 
 function openModal(name) {
   document.getElementById(name + 'Modal').classList.add('active');
-  if (name === 'pokedex') {
-    // Vis lade-animasjon først, så render etter ~900ms (føles som retro Pokédex-scan)
-    showPokedexLoading();
-    setTimeout(() => {
-      hidePokedexLoading();
-      renderPokedex();
-    }, 900);
-  }
+  if (name === 'pokedex') renderPokedex();
   if (name === 'shop') renderShop();
 }
 
