@@ -2928,6 +2928,46 @@
   .rarity-rare { background: #3498db; }
   .rarity-epic { background: #9b59b6; }
   .rarity-legendary { background: gold; color: #333; }
+  .rarity-rocket {
+    background: linear-gradient(135deg, #2c0000, #8b0000, #2c0000);
+    color: #ff5555;
+    text-shadow: 0 0 4px #ff0000, 1px 1px 0 #000;
+    border: 1px solid #ff0000;
+    font-weight: 900;
+    animation: rocketPulseBg 1.2s ease-in-out infinite;
+  }
+  @keyframes rocketPulseBg {
+    0%, 100% { box-shadow: 0 0 4px #ff0000; }
+    50%      { box-shadow: 0 0 16px #ff0000; }
+  }
+  /* Shadow Pokémon — mørke med rød glød */
+  .poke-card.rarity-rocket img,
+  .poke-card[data-rarity="rocket"] img,
+  .shadow-poke-sprite {
+    filter: brightness(0.3) contrast(1.4) saturate(0.5) drop-shadow(0 0 8px #ff0000) drop-shadow(0 0 16px #8b0000);
+  }
+  .poke-card.rocket-card {
+    background: linear-gradient(135deg, rgba(40,0,0,0.4), rgba(80,0,0,0.4));
+    border: 2px solid #ff0000;
+    box-shadow: 0 0 12px rgba(255,0,0,0.4), inset 0 0 20px rgba(255,0,0,0.15);
+    position: relative;
+  }
+  .poke-card.rocket-card::before {
+    content: 'R';
+    position: absolute;
+    top: 6px; right: 6px;
+    background: #d32f2f;
+    color: white;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-weight: 900;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 8px #ff0000;
+    z-index: 5;
+  }
   .rarity-ultimate {
     background: linear-gradient(90deg, #ff0040, #ff8c00, #ffd700, #2ecc71, #00bcd4, #7873f5, #ff0040);
     background-size: 300% 100%;
@@ -3785,7 +3825,13 @@ const POKEMONS = [
   { id: 503, name: 'Samurott', rarity: 'epic' },
   { id: 553, name: 'Krookodile', rarity: 'epic' },
   { id: 635, name: 'Hydreigon', rarity: 'epic' },
-  { id: 637, name: 'Volcarona', rarity: 'epic' },
+  // Team Rocket-tier (over legendary)
+  { id: 637, name: 'Shadow Volcarona', rarity: 'rocket' },
+  { id: 877, name: 'Shadow Morpeko',   rarity: 'rocket' },
+  { id: 248, name: 'Shadow Tyranitar', rarity: 'rocket' },
+  { id: 359, name: 'Shadow Absol',     rarity: 'rocket' },
+  { id: 491, name: 'Shadow Darkrai',   rarity: 'rocket' },
+  { id: 571, name: 'Shadow Zoroark',   rarity: 'rocket' },
   // Legendarisk
   { id: 494, name: 'Victini', rarity: 'legendary' },
   { id: 638, name: 'Cobalion', rarity: 'legendary' },
@@ -4293,6 +4339,7 @@ const RARITY_NAMES = {
   rare: 'Rare',
   epic: 'Epic',
   legendary: 'Legendary',
+  rocket: '💀 Team Rocket',
   ultimate: 'ULTIMATE'
 };
 const SELL_PRICES = {
@@ -4301,6 +4348,7 @@ const SELL_PRICES = {
   rare: 100,
   epic: 400,
   legendary: 1500,
+  rocket: 3500,
   ultimate: 10000
 };
 
@@ -4311,6 +4359,7 @@ const CP_RANGES = {
   rare:      { min: 50,   max: 350  },
   epic:      { min: 150,  max: 1500 },
   legendary: { min: 500,  max: 5000 },
+  rocket:    { min: 1500, max: 7500 },
   ultimate:  { min: 2000, max: 10000 }
 };
 
@@ -4460,11 +4509,11 @@ const BALLS = {
     name: 'Veteran Ball',
     icon: '🏆',
     price: 5000,
-    odds: { common: 0, uncommon: 5, rare: 25, epic: 40, legendary: 29, ultimate: 1 },
+    odds: { common: 0, uncommon: 5, rare: 22, epic: 38, legendary: 30, rocket: 4, ultimate: 1 },
     shinyChance: 0.5,
     unlockPlaytimeMs: 3600000,
     useCooldownMs: 3600000,
-    desc: '⏰ 1h cooldown · 1% ULTIMATE chance!'
+    desc: '⏰ 1h cooldown · 4% Team Rocket · 1% ULTIMATE!'
   },
   poke: {
     name: 'Poké Ball',
@@ -5817,7 +5866,8 @@ function renderPokedex() {
     const seen = !!state.seen[p.id];
     const hasShiny = !!state.shinySeen[p.id];
     const div = document.createElement('div');
-    div.className = `poke-card ${p.rarity} ${!seen ? 'unowned' : ''} ${hasShiny ? 'has-shiny' : ''}`;
+    div.className = `poke-card ${p.rarity} ${p.rarity === 'rocket' ? 'rocket-card rarity-rocket' : ''} ${!seen ? 'unowned' : ''} ${hasShiny ? 'has-shiny' : ''}`;
+    div.dataset.rarity = p.rarity;
     // Finn event-varianter for denne Pokémonen
     const eventKeys = Object.keys(state.eventsSeen).filter(k => k.startsWith(p.id + '-'));
     const eventCountTotal = eventKeys.length;
@@ -5869,6 +5919,18 @@ function renderPokedex() {
       <div class="name">${seen ? p.name : '???'}</div>
       <span class="rarity-tag rarity-${p.rarity}">${RARITY_NAMES[p.rarity]}</span>
       ${seen ? `<div style="font-size:11px;color:#ffd700;margin-top:5px;">Gives ~${SELL_PRICES[p.rarity]} 💰 (CP-based)${hasShiny ? `<br><span style="color:gold;">Shiny: ~${SELL_PRICES[p.rarity]*10} 💰</span>` : ''}${state.bestCp && state.bestCp[p.id] ? `<br><span style="color:#7df;font-weight:bold;">⚔️ Best CP: ${state.bestCp[p.id]}</span>` : ''}</div>` : ''}
+      ${(() => {
+        // Catch chance med valgt ball
+        const ball = BALLS[state.selectedBall] || BALLS.free;
+        const oddsForRarity = (ball.odds && ball.odds[p.rarity]) || 0;
+        const numOfRarity = POKEMONS.filter(x => x.rarity === p.rarity).length || 1;
+        const chance = oddsForRarity / numOfRarity;
+        if (chance <= 0) {
+          return `<div style="font-size:10px;color:#e74c3c;margin-top:3px;">❌ Cannot catch with ${ball.icon || ''} ${ball.name}</div>`;
+        }
+        const color = chance >= 5 ? '#2ecc71' : chance >= 1 ? '#f39c12' : '#e74c3c';
+        return `<div style="font-size:10px;color:${color};margin-top:3px;font-weight:bold;" title="With ${ball.name}">🎯 ${chance.toFixed(2)}% per throw</div>`;
+      })()}
       ${eventCollection}
       ${seen ? `<button class="set-buddy-btn ${state.buddyId === p.id ? 'active' : ''}" onclick="setBuddy(${p.id})">${state.buddyId === p.id ? '★ Buddy' : 'Set as buddy'}</button>` : ''}
       ${seen ? `<button class="set-buddy-btn ${state.favorites.includes(p.id) ? 'active' : ''}" style="background:${state.favorites.includes(p.id) ? '#f39c12' : '#777'};margin-top:2px;" onclick="toggleFavorite(${p.id})">${state.favorites.includes(p.id) ? '⭐ Favorite' : '☆ Favorite'}</button>` : ''}
@@ -9080,9 +9142,38 @@ function submitRocketAnswer() {
     state.rocketWins = (state.rocketWins || 0) + 1;
     save();
     checkAchievements();
-    document.getElementById('rocketResult').textContent = '✓ Correct! You chased Team Rocket away!';
-    document.getElementById('rocketResult').className = 'rocket-result win';
-    setTimeout(() => document.getElementById('rocketModal').classList.remove('active'), 1800);
+    // 15% sjanse å redde en Shadow Pokémon (rocket-tier) når du vinner
+    const shadowPool = POKEMONS.filter(p => p.rarity === 'rocket');
+    if (shadowPool.length > 0 && Math.random() < 0.15 && state.individuals.length < state.storageMax) {
+      const shadow = shadowPool[Math.floor(Math.random() * shadowPool.length)];
+      const cp = rollCp('rocket', false);
+      state.individuals.push({
+        uid: newIndividualUid(),
+        id: shadow.id,
+        rarity: 'rocket',
+        name: shadow.name,
+        type: getPokeType(shadow.id),
+        cp: cp,
+        isShiny: false,
+        eventType: null,
+        fromRocket: true,
+        caughtAt: Date.now()
+      });
+      state.caught[shadow.id] = (state.caught[shadow.id] || 0) + 1;
+      state.seen[shadow.id] = true;
+      if (!state.bestCp[shadow.id] || cp > state.bestCp[shadow.id]) state.bestCp[shadow.id] = cp;
+      save(); updateUI();
+      document.getElementById('rocketResult').innerHTML =
+        `✓ Correct!<br>💀 You rescued a <strong style="color:#ff5555;">Shadow ${shadow.name}</strong>!<br>` +
+        `<img src="${SPRITE_URL(shadow.id)}" class="shadow-poke-sprite" style="width:80px;height:80px;image-rendering:pixelated;">` +
+        `<div style="color:#7df;">⚔️ CP ${cp}</div>`;
+      document.getElementById('rocketResult').className = 'rocket-result win';
+      setTimeout(() => document.getElementById('rocketModal').classList.remove('active'), 4000);
+    } else {
+      document.getElementById('rocketResult').textContent = '✓ Correct! You chased Team Rocket away!';
+      document.getElementById('rocketResult').className = 'rocket-result win';
+      setTimeout(() => document.getElementById('rocketModal').classList.remove('active'), 1800);
+    }
   } else {
     clearInterval(rocketTimer); rocketTimer = null;
     handleRocketWrong(`Wrong! The answer was ${rocketProblem.answer}.`);
