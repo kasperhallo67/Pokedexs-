@@ -3488,6 +3488,7 @@
       <button class="filter-btn" onclick="setFilter('rare')">Rare</button>
       <button class="filter-btn" onclick="setFilter('epic')">Epic</button>
       <button class="filter-btn" onclick="setFilter('legendary')">Legendary</button>
+      <button class="filter-btn" onclick="setFilter('rocket')" style="background:linear-gradient(135deg,#2c0000,#8b0000);color:#ff5555;font-weight:900;border:1px solid #ff0000;text-shadow:0 0 4px #ff0000;">💀 Team Rocket</button>
       <button class="filter-btn" onclick="setFilter('ultimate')" style="background:linear-gradient(90deg,#ff0040,#ffd700,#7873f5);background-size:200% 100%;color:white;font-weight:900;animation:rainbowShift 3s linear infinite;">🌈 ULTIMATE</button>
     </div>
     <div class="pokedex-grid" id="pokedexGrid"></div>
@@ -4519,10 +4520,10 @@ const BALLS = {
     name: 'Rocket Ball',
     icon: '💀',
     price: 100000,
-    odds: { common: 0, uncommon: 0, rare: 5, epic: 10, legendary: 10, rocket: 75, ultimate: 0 },
+    odds: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, rocket: 90, ultimate: 10 },
     shinyChance: 5,
     moneyMult: 2,
-    desc: '💀 75% Team Rocket Pokémon! 5% shiny · 2x coins'
+    desc: '💀 90% Team Rocket · 10% ULTIMATE! 5% shiny · 2x coins'
   },
   poke: {
     name: 'Poké Ball',
@@ -5692,8 +5693,63 @@ function updateCooldownDisplay() {
 
 function openModal(name) {
   document.getElementById(name + 'Modal').classList.add('active');
-  if (name === 'pokedex') renderPokedex();
+  if (name === 'pokedex') {
+    // Vis lade-animasjon først, så render etter ~900ms (føles som retro Pokédex-scan)
+    showPokedexLoading();
+    setTimeout(() => {
+      hidePokedexLoading();
+      renderPokedex();
+    }, 900);
+  }
   if (name === 'shop') renderShop();
+}
+
+function showPokedexLoading() {
+  const stats = document.getElementById('pokedexStats');
+  const grid = document.getElementById('pokedexGrid');
+  if (stats) stats.innerHTML = '';
+  if (grid) {
+    grid.innerHTML = `
+      <div id="pokedexLoader" style="grid-column:1/-1;text-align:center;padding:40px;color:#fff;">
+        <div style="font-size:42px;margin-bottom:14px;">📖</div>
+        <div style="font-size:18px;font-weight:bold;color:#7df;text-shadow:0 0 8px #2af;margin-bottom:14px;letter-spacing:3px;">SCANNING POKÉDEX...</div>
+        <div style="width:280px;height:18px;background:rgba(0,0,0,0.6);border:2px solid #7df;border-radius:9px;margin:0 auto;overflow:hidden;box-shadow:0 0 12px rgba(125,221,255,0.4);">
+          <div style="height:100%;background:linear-gradient(90deg,#00ffea,#0066ff,#00ffea);background-size:200% 100%;animation:pokedexScanBar 0.9s linear forwards,pokedexScanShimmer 0.7s linear infinite;width:0;"></div>
+        </div>
+        <div style="margin-top:14px;font-size:12px;color:#aaa;font-family:monospace;" id="pokedexLoadingLines"></div>
+      </div>
+      <style>
+        @keyframes pokedexScanBar {
+          0% { width: 0; }
+          30% { width: 35%; }
+          60% { width: 55%; }
+          75% { width: 60%; }
+          100% { width: 100%; }
+        }
+        @keyframes pokedexScanShimmer {
+          0% { background-position: 0% 0%; }
+          100% { background-position: -200% 0%; }
+        }
+      </style>
+    `;
+    // Skriv "lade-linjer" som dukker opp gradvis (gir retro lade-følelse)
+    const lines = [
+      '> connecting to satellite...',
+      '> loading sprite cache...',
+      '> indexing ' + POKEMONS.length + ' species...',
+      '> ready.'
+    ];
+    const linesEl = document.getElementById('pokedexLoadingLines');
+    lines.forEach((line, i) => {
+      setTimeout(() => {
+        if (linesEl) linesEl.innerHTML += line + '<br>';
+      }, 100 + i * 200);
+    });
+  }
+}
+function hidePokedexLoading() {
+  const loader = document.getElementById('pokedexLoader');
+  if (loader) loader.remove();
 }
 function closeModal(name) {
   document.getElementById(name + 'Modal').classList.remove('active');
@@ -5835,11 +5891,17 @@ function renderPokedex() {
       buddyHtml = `<br><span style="color:#a8e6cf;">★ Buddy: <strong>${escapeHtml(buddyPoke.name)}</strong> ${starText} (${catches} catches together)</span>`;
     }
   }
+  // Team Rocket-teller — hvor mange Shadow Pokémon du har sett/eier
+  const rocketPokes = POKEMONS.filter(p => p.rarity === 'rocket');
+  const rocketTotal = rocketPokes.length;
+  const rocketSeen = rocketPokes.filter(p => state.seen[p.id]).length;
+  const rocketOwned = (state.individuals || []).filter(i => i.rarity === 'rocket').length;
   document.getElementById('pokedexStats').innerHTML = `
     <strong>Seen: ${seenCount} / ${total}</strong>
     (${Math.round(seenCount/total*100)}%)
     <br><span style="color:gold;">✨ Shiny: ${shinyCount} / ${total}</span>
     <br><span style="color:#ff6ec4;">🎉 Event variants: ${eventCount}</span>
+    <br><span style="color:#ff5555;text-shadow:0 0 4px #ff0000;font-weight:bold;">💀 Team Rocket: ${rocketSeen} / ${rocketTotal} seen · ${rocketOwned} in storage</span>
     <br><span style="color:#f39c12;">⭐ Favorites: ${state.favorites.length} / ${state.maxFavorites}</span>
     ${buddyHtml}
     <br><span style="font-size:14px;color:#ccc;">Total caught: ${state.totalCatches}</span>
