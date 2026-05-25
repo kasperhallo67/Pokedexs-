@@ -3388,6 +3388,7 @@
     <div class="trade-tabs">
       <button class="trade-tab active" data-tab="inbox" onclick="switchTradeTab('inbox')">📬 Inbox <span id="inboxCount"></span></button>
       <button class="trade-tab" data-tab="send" onclick="switchTradeTab('send')">📤 Send offer</button>
+      <button class="trade-tab" data-tab="individual" onclick="switchTradeTab('individual')">🎒 Trade Individuals</button>
       <button class="trade-tab" data-tab="sent" onclick="switchTradeTab('sent')">📨 Sent</button>
     </div>
     <div id="tradeContent" style="margin-top:20px;"></div>
@@ -6228,6 +6229,147 @@ function switchTradeTab(tab) {
   if (tab === 'inbox') renderInbox();
   else if (tab === 'send') renderSendForm();
   else if (tab === 'sent') renderSent();
+  else if (tab === 'individual') renderIndividualTrade();
+}
+
+// === INDIVIDUAL TRADE — bytt spesifikke individer (med CP) ===
+let indTradeState = { recipient: '', selectedMineUid: '', selectedTheirUid: '', theirIndividuals: [] };
+
+async function renderIndividualTrade() {
+  const container = document.getElementById('tradeContent');
+  const players = Object.keys(cachedLeaderboard || {}).filter(n => n !== state.username);
+  if (players.length === 0) {
+    container.innerHTML = '<div class="trade-empty">No other players yet — invite friends!</div>';
+    return;
+  }
+  // Sync vår state først så server har ferskeste individer
+  try {
+    await fetch('/api/account/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.username, password: state.password, state: JSON.stringify(state) })
+    });
+  } catch {}
+  if (!indTradeState.recipient) indTradeState.recipient = players[0];
+  container.innerHTML = `
+    <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;color:#fff;">
+      <strong>🎒 Trade individual Pokémon (with CP, shiny, type)</strong>
+      <div style="font-size:12px;opacity:0.8;">Pick one of yours and one of theirs. They must accept the trade.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <label style="color:#fff;">👤 Trade with:</label>
+      <select id="indTradeRecipient" onchange="indTradeChangeRecipient(this.value)" style="flex:1;padding:6px;border-radius:6px;">
+        ${players.map(p => `<option ${p === indTradeState.recipient ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+      </select>
+      <button onclick="renderIndividualTrade()" style="background:#3498db;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">🔄</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:260px;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;">
+        <div style="color:#7df;font-weight:bold;margin-bottom:6px;">📤 You offer:</div>
+        <input type="text" placeholder="🔍 Search your Pokémon..." oninput="indTradeFilterMine(this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;margin-bottom:6px;">
+        <div id="indTradeMineList" style="max-height:280px;overflow-y:auto;"></div>
+      </div>
+      <div style="flex:1;min-width:260px;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;">
+        <div style="color:#7df;font-weight:bold;margin-bottom:6px;">🎁 You want (their):</div>
+        <input type="text" placeholder="🔍 Search their Pokémon..." oninput="indTradeFilterTheir(this.value)" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:white;border:1px solid #777;border-radius:6px;margin-bottom:6px;">
+        <div id="indTradeTheirList" style="max-height:280px;overflow-y:auto;color:#aaa;">⏳ Loading...</div>
+      </div>
+    </div>
+    <button onclick="indTradeSend()" style="width:100%;margin-top:12px;background:#27ae60;color:white;border:none;padding:12px;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;">📤 Send trade offer</button>
+    <div id="indTradeMsg" style="margin-top:10px;text-align:center;color:#fff;"></div>
+  `;
+  indTradeRenderMine('');
+  indTradeLoadTheir();
+}
+
+function indTradeChangeRecipient(name) {
+  indTradeState.recipient = name;
+  indTradeState.selectedTheirUid = '';
+  indTradeLoadTheir();
+}
+async function indTradeLoadTheir() {
+  const listEl = document.getElementById('indTradeTheirList');
+  if (!listEl) return;
+  listEl.innerHTML = '⏳ Loading...';
+  try {
+    const res = await fetch('/api/user/individuals?username=' + encodeURIComponent(indTradeState.recipient));
+    const data = await res.json();
+    indTradeState.theirIndividuals = data.individuals || [];
+    indTradeRenderTheir('');
+  } catch (e) {
+    listEl.innerHTML = '<div style="color:#e74c3c;">Could not load their Pokémon</div>';
+  }
+}
+
+function indTradeIndividualCard(ind, isMine, isSelected) {
+  const sprite = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
+  return `
+    <div onclick="${isMine ? `indTradePickMine('${ind.uid}')` : `indTradePickTheir('${ind.uid}')`}"
+         style="display:flex;align-items:center;gap:8px;padding:6px;background:${isSelected ? 'rgba(46,204,113,0.3)' : 'rgba(255,255,255,0.05)'};border:2px solid ${isSelected ? '#2ecc71' : 'transparent'};border-radius:6px;margin-bottom:4px;cursor:pointer;">
+      <img src="${sprite}" style="width:40px;height:40px;image-rendering:pixelated;${ind.isShiny ? 'filter:drop-shadow(0 0 4px gold);' : ''}">
+      <div style="flex:1;color:#fff;font-size:13px;">
+        <div>${ind.isShiny ? '✨ ' : ''}${escapeHtml(ind.name)}</div>
+        <div style="font-size:11px;color:#7df;">⚔️ CP ${ind.cp} · ${ind.rarity}</div>
+      </div>
+    </div>
+  `;
+}
+
+let _indMineSearch = '', _indTheirSearch = '';
+function indTradeFilterMine(v) { _indMineSearch = (v || '').toLowerCase(); indTradeRenderMine(_indMineSearch); }
+function indTradeFilterTheir(v) { _indTheirSearch = (v || '').toLowerCase(); indTradeRenderTheir(_indTheirSearch); }
+
+function indTradeRenderMine(search) {
+  const listEl = document.getElementById('indTradeMineList');
+  if (!listEl) return;
+  let inds = (state.individuals || []).slice();
+  if (search) inds = inds.filter(i => i.name.toLowerCase().includes(search));
+  inds.sort((a, b) => b.cp - a.cp);
+  if (inds.length === 0) { listEl.innerHTML = '<div style="color:#aaa;text-align:center;padding:10px;">No Pokémon</div>'; return; }
+  listEl.innerHTML = inds.slice(0, 100).map(i => indTradeIndividualCard(i, true, indTradeState.selectedMineUid === i.uid)).join('');
+}
+function indTradeRenderTheir(search) {
+  const listEl = document.getElementById('indTradeTheirList');
+  if (!listEl) return;
+  let inds = indTradeState.theirIndividuals.slice();
+  if (search) inds = inds.filter(i => i.name.toLowerCase().includes(search));
+  inds.sort((a, b) => b.cp - a.cp);
+  if (inds.length === 0) { listEl.innerHTML = '<div style="color:#aaa;text-align:center;padding:10px;">They have no Pokémon</div>'; return; }
+  listEl.innerHTML = inds.slice(0, 100).map(i => indTradeIndividualCard(i, false, indTradeState.selectedTheirUid === i.uid)).join('');
+}
+function indTradePickMine(uid) { indTradeState.selectedMineUid = uid; indTradeRenderMine(_indMineSearch); }
+function indTradePickTheir(uid) { indTradeState.selectedTheirUid = uid; indTradeRenderTheir(_indTheirSearch); }
+
+async function indTradeSend() {
+  const msg = document.getElementById('indTradeMsg');
+  if (!indTradeState.selectedMineUid || !indTradeState.selectedTheirUid) {
+    msg.innerHTML = '<span style="color:#e74c3c;">✗ Pick one from each side first</span>';
+    return;
+  }
+  const myInd = state.individuals.find(i => i.uid === indTradeState.selectedMineUid);
+  const theirInd = indTradeState.theirIndividuals.find(i => i.uid === indTradeState.selectedTheirUid);
+  if (!myInd || !theirInd) { msg.innerHTML = '<span style="color:#e74c3c;">✗ Selection invalid</span>'; return; }
+  msg.innerHTML = '⏳ Sending...';
+  try {
+    const res = await fetch('/api/trade/ind/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: state.username, to: indTradeState.recipient,
+        offer: { uid: myInd.uid, id: myInd.id, name: myInd.name, cp: myInd.cp, isShiny: !!myInd.isShiny, eventType: myInd.eventType, type: myInd.type, rarity: myInd.rarity },
+        want:  { uid: theirInd.uid, id: theirInd.id, name: theirInd.name, cp: theirInd.cp, isShiny: !!theirInd.isShiny, eventType: theirInd.eventType, type: theirInd.type, rarity: theirInd.rarity }
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      msg.innerHTML = '<span style="color:#2ecc71;">✓ Trade offer sent to ' + escapeHtml(indTradeState.recipient) + '!</span>';
+      indTradeState.selectedMineUid = '';
+      indTradeState.selectedTheirUid = '';
+      setTimeout(() => switchTradeTab('sent'), 1500);
+    } else {
+      msg.innerHTML = '<span style="color:#e74c3c;">✗ ' + (data.error || 'Failed') + '</span>';
+    }
+  } catch (e) {
+    msg.innerHTML = '<span style="color:#e74c3c;">✗ ' + e.message + '</span>';
+  }
 }
 
 async function renderInbox() {
@@ -6244,7 +6386,39 @@ async function renderInbox() {
       return;
     }
 
-    container.innerHTML = incoming.map(t => `
+    container.innerHTML = incoming.map(t => {
+      // Individual trade (med CP)
+      if (t.kind === 'individual' && t.offer && t.want) {
+        return `
+        <div class="trade-item pending" style="border-left:4px solid #9b59b6;">
+          <div style="font-size:13px;color:#bbb;margin-bottom:8px;">🎒 Individual trade from <strong>${escapeHtml(t.from)}</strong></div>
+          <div class="trade-row">
+            <div class="trade-pokemon-mini ${t.offer.isShiny ? 'shiny' : ''}">
+              <img src="${t.offer.isShiny ? SHINY_SPRITE_URL(t.offer.id) : SPRITE_URL(t.offer.id)}">
+              <div>
+                <div style="font-weight:bold;">${t.offer.isShiny ? '✨ ' : ''}${escapeHtml(t.offer.name)}</div>
+                <div style="font-size:11px;color:#7df;">⚔️ CP ${t.offer.cp}</div>
+                <div style="font-size:10px;color:#888;">they offer</div>
+              </div>
+            </div>
+            <div class="trade-arrow-small">⇄</div>
+            <div class="trade-pokemon-mini ${t.want.isShiny ? 'shiny' : ''}">
+              <img src="${t.want.isShiny ? SHINY_SPRITE_URL(t.want.id) : SPRITE_URL(t.want.id)}">
+              <div>
+                <div style="font-weight:bold;">${t.want.isShiny ? '✨ ' : ''}${escapeHtml(t.want.name)}</div>
+                <div style="font-size:11px;color:#7df;">⚔️ CP ${t.want.cp}</div>
+                <div style="font-size:10px;color:#888;">they want from you</div>
+              </div>
+            </div>
+          </div>
+          <div class="trade-actions">
+            <button class="trade-accept" onclick="respondIndTrade('${t.id}', 'accept')">✓ Accept (swap)</button>
+            <button class="trade-decline" onclick="respondIndTrade('${t.id}', 'decline')">✗ Decline</button>
+          </div>
+        </div>`;
+      }
+      // Species trade (gammel)
+      return `
       <div class="trade-item pending">
         <div style="font-size:13px;color:#bbb;margin-bottom:8px;">From <strong>${escapeHtml(t.from)}</strong></div>
         <div class="trade-row">
@@ -6268,8 +6442,8 @@ async function renderInbox() {
           <button class="trade-accept" onclick="respondTrade('${t.id}', 'accept', ${t.offerId}, ${t.offerShiny}, ${t.wantId}, ${t.wantShiny})">✓ Accept</button>
           <button class="trade-decline" onclick="respondTrade('${t.id}', 'decline')">✗ Decline</button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch (e) {
     container.innerHTML = '<div class="trade-empty">⚠️ Could not load inbox</div>';
   }
@@ -6407,6 +6581,49 @@ async function sendTrade() {
     }
   } catch (e) {
     document.getElementById('tradeSendMsg').innerHTML = '<span style="color:#e74c3c;">⚠️ Could not send</span>';
+  }
+}
+
+// Respond til individuelt trade — bytter individer mellom kontoer
+async function respondIndTrade(tradeId, action) {
+  try {
+    // Sync vår state først så server har oppdaterte individer
+    await fetch('/api/account/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.username, password: state.password, state: JSON.stringify(state) })
+    });
+    const res = await fetch('/api/trade/ind/respond', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: tradeId, action, username: state.username })
+    });
+    const data = await res.json();
+    if (!data.ok) { alert('✗ ' + (data.error || 'Failed')); return; }
+    if (action === 'accept') {
+      // Last inn ny state fra server (med swapped individer)
+      const loginRes = await fetch('/api/account/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: state.username, password: state.password })
+      });
+      const loginData = await loginRes.json();
+      if (loginData.ok && loginData.state) {
+        try {
+          const srv = JSON.parse(loginData.state);
+          if (srv.individuals) state.individuals = srv.individuals;
+          save(); updateUI();
+        } catch {}
+      }
+      alert('✓ Trade complete! Check My Pokémon to see your new addition.');
+    } else {
+      alert('✗ Trade declined.');
+    }
+    // Acknowledge (slett fra server)
+    fetch('/api/trade/ack', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: tradeId })
+    }).catch(() => {});
+    renderInbox();
+  } catch (e) {
+    alert('Server error: ' + e.message);
   }
 }
 

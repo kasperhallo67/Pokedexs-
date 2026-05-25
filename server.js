@@ -259,6 +259,110 @@ app.post('/api/trade/ack', (req, res) => {
   res.json({ ok: true });
 });
 
+// === INDIVIDUAL TRADES — bytt spesifikke individer med CP ===
+
+// Hent en spillers individer (for å vise på trade-skjermen)
+app.get('/api/user/individuals', (req, res) => {
+  const u = (req.query.username || '').trim();
+  if (!u) return res.json({ individuals: [] });
+  const users = readJson(USERS_FILE, {});
+  if (!users[u] || !users[u].state) return res.json({ individuals: [] });
+  try {
+    const st = JSON.parse(users[u].state);
+    const inds = Array.isArray(st.individuals) ? st.individuals : [];
+    // Returner forenklet liste (uid, id, name, cp, isShiny, eventType, type, rarity)
+    res.json({
+      individuals: inds.map(i => ({
+        uid: i.uid, id: i.id, name: i.name, cp: i.cp,
+        isShiny: !!i.isShiny, eventType: i.eventType || null,
+        type: i.type || 'Normal', rarity: i.rarity || 'common'
+      }))
+    });
+  } catch {
+    res.json({ individuals: [] });
+  }
+});
+
+// Send individuelt trade-tilbud
+app.post('/api/trade/ind/send', (req, res) => {
+  const d = req.body || {};
+  const from = (d.from || '').trim();
+  const to   = (d.to   || '').trim();
+  const offer = d.offer || null;  // { uid, id, name, cp, isShiny, ... }
+  const want  = d.want  || null;
+  if (!from || !to || from === to || !offer || !want) {
+    return res.status(400).json({ ok: false, error: 'Missing fields' });
+  }
+  const trades = readJson(TRADES_FILE, []);
+  const newTrade = {
+    id: crypto.randomUUID(),
+    kind: 'individual',
+    from, to,
+    offer, want,
+    status: 'pending',
+    created: new Date().toISOString().slice(0, 19)
+  };
+  trades.push(newTrade);
+  writeJson(TRADES_FILE, trades);
+  res.json({ ok: true, trade: newTrade });
+});
+
+// Aksepter/avslå individuelt trade. Ved accept: bytt individer mellom brukerne.
+app.post('/api/trade/ind/respond', (req, res) => {
+  const { id, action, username } = req.body || {};
+  const trades = readJson(TRADES_FILE, []);
+  const t = trades.find(x => x && x.id === id && x.kind === 'individual' && x.to === username && x.status === 'pending');
+  if (!t) return res.status(404).json({ ok: false, error: 'Trade not found' });
+
+  if (action === 'decline') {
+    t.status = 'declined';
+    writeJson(TRADES_FILE, trades);
+    return res.json({ ok: true, trade: t });
+  }
+
+  // accept: validér og swap
+  const users = readJson(USERS_FILE, {});
+  if (!users[t.from] || !users[t.to]) {
+    t.status = 'failed';
+    t.error = 'User missing on server';
+    writeJson(TRADES_FILE, trades);
+    return res.status(400).json({ ok: false, error: 'User missing on server' });
+  }
+  let stFrom, stTo;
+  try { stFrom = JSON.parse(users[t.from].state || '{}'); stTo = JSON.parse(users[t.to].state || '{}'); }
+  catch {
+    t.status = 'failed'; writeJson(TRADES_FILE, trades);
+    return res.status(500).json({ ok: false, error: 'Could not read state' });
+  }
+  stFrom.individuals = Array.isArray(stFrom.individuals) ? stFrom.individuals : [];
+  stTo.individuals   = Array.isArray(stTo.individuals)   ? stTo.individuals   : [];
+
+  const fromIdx = stFrom.individuals.findIndex(i => i.uid === t.offer.uid);
+  const toIdx   = stTo.individuals.findIndex(i => i.uid === t.want.uid);
+  if (fromIdx === -1 || toIdx === -1) {
+    t.status = 'failed';
+    t.error = 'One of the Pokémon is no longer available';
+    writeJson(TRADES_FILE, trades);
+    return res.status(409).json({ ok: false, error: t.error });
+  }
+
+  // Faktisk swap
+  const fromInd = stFrom.individuals[fromIdx];
+  const toInd   = stTo.individuals[toIdx];
+  stFrom.individuals.splice(fromIdx, 1);
+  stTo.individuals.splice(toIdx, 1);
+  stFrom.individuals.push(toInd);
+  stTo.individuals.push(fromInd);
+
+  users[t.from].state = JSON.stringify(stFrom);
+  users[t.to].state   = JSON.stringify(stTo);
+  writeJson(USERS_FILE, users);
+
+  t.status = 'accepted';
+  writeJson(TRADES_FILE, trades);
+  res.json({ ok: true, trade: t });
+});
+
 // === ACCOUNTS ===
 app.post('/api/account/create', (req, res) => {
   const { username, password } = req.body || {};
