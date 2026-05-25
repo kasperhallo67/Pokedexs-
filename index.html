@@ -428,6 +428,140 @@
   }
   body.retro-sepia { filter: sepia(0.8) contrast(1.1) brightness(0.95); }
 
+  /* ULTIMATE CATCH — vill animasjon når du får en Ultimate Pokémon */
+  .ultimate-backdrop {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle, rgba(255,215,0,0.4), rgba(120,0,200,0.6) 60%, rgba(0,0,0,0.85));
+    z-index: 9000;
+    pointer-events: none;
+    animation: ultimateFlash 0.5s ease-out infinite alternate;
+  }
+  @keyframes ultimateFlash {
+    0%   { background-color: rgba(255,0,80,0.3); }
+    25%  { background-color: rgba(255,215,0,0.4); }
+    50%  { background-color: rgba(0,200,255,0.4); }
+    75%  { background-color: rgba(120,0,255,0.4); }
+    100% { background-color: rgba(0,255,150,0.3); }
+  }
+  .ultimate-shake {
+    animation: ultimateShake 0.15s linear infinite;
+  }
+  @keyframes ultimateShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-12px, -8px) rotate(-1deg); }
+    40% { transform: translate(14px, 6px) rotate(1deg); }
+    60% { transform: translate(-10px, 10px) rotate(-0.5deg); }
+    80% { transform: translate(8px, -10px) rotate(0.5deg); }
+  }
+  .ultimate-burst {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9100;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .ultimate-sprite {
+    width: 360px;
+    height: 360px;
+    image-rendering: pixelated;
+    filter:
+      drop-shadow(0 0 30px gold)
+      drop-shadow(0 0 60px #ff00ff)
+      drop-shadow(0 0 100px #00ffff);
+    animation: ultimateSpriteZoom 4s ease-in-out;
+  }
+  @keyframes ultimateSpriteZoom {
+    0%   { transform: scale(0) rotate(-720deg); opacity: 0; }
+    25%  { transform: scale(1.4) rotate(0deg); opacity: 1; }
+    50%  { transform: scale(1.1) rotate(0deg); }
+    75%  { transform: scale(1.3) rotate(0deg); }
+    100% { transform: scale(1.15) rotate(0deg); opacity: 1; }
+  }
+  .ultimate-title {
+    font-size: 88px;
+    font-weight: 900;
+    color: white;
+    -webkit-text-stroke: 4px #000;
+    text-shadow:
+      0 0 20px gold,
+      0 0 40px #ff00ff,
+      0 0 60px #00ffff;
+    background: linear-gradient(90deg, #ff0080, #ff8c00, #ffd700, #00ff80, #00bfff, #8a2be2);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: ultimateTitle 1s ease-in-out infinite, ultimateRainbow 2s linear infinite;
+    letter-spacing: 6px;
+    text-align: center;
+  }
+  @keyframes ultimateTitle {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.12); }
+  }
+  @keyframes ultimateRainbow {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 300% 0%; }
+  }
+  .ultimate-poke-name {
+    font-size: 36px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 0 12px gold, 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    letter-spacing: 3px;
+  }
+  /* Stjerne-partikler som flyr ut */
+  .ultimate-particle {
+    position: fixed;
+    width: 24px; height: 24px;
+    pointer-events: none;
+    z-index: 9050;
+    font-size: 24px;
+    animation: ultimateParticle 2s ease-out forwards;
+  }
+  @keyframes ultimateParticle {
+    0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
+    20%  { transform: translate(-50%, -50%) scale(1.5) rotate(180deg); opacity: 1; }
+    100% {
+      transform: translate(calc(-50% + var(--px)), calc(-50% + var(--py))) scale(0.3) rotate(720deg);
+      opacity: 0;
+    }
+  }
+  /* Sjokkbølge-ringer */
+  .ultimate-ring {
+    position: fixed;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    border: 8px solid;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9020;
+    transform: translate(-50%, -50%);
+    animation: ultimateRing 1.5s ease-out forwards;
+  }
+  @keyframes ultimateRing {
+    0%   { width: 20px; height: 20px; opacity: 1; border-width: 12px; }
+    100% { width: 1200px; height: 1200px; opacity: 0; border-width: 1px; }
+  }
+  /* Konfetti-strimler */
+  .ultimate-confetti {
+    position: fixed;
+    width: 12px; height: 30px;
+    border-radius: 3px;
+    top: -50px;
+    z-index: 9030;
+    pointer-events: none;
+    animation: ultimateConfetti linear forwards;
+  }
+  @keyframes ultimateConfetti {
+    0%   { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(110vh) rotate(720deg); }
+  }
   /* MY POKÉMON */
   .my-poke-header {
     display: flex;
@@ -4306,6 +4440,7 @@ function cpPriceMultiplier(cp, rarity) {
 const BALLS = {
   free: {
     name: 'Free Ball',
+    icon: '🟢',
     price: 0,
     cooldown: 8000,
     odds: { common: 85, uncommon: 14, rare: 1, epic: 0, legendary: 0 },
@@ -4314,6 +4449,7 @@ const BALLS = {
   },
   triple: {
     name: 'Triple Ball',
+    icon: '🎯',
     price: 60,
     odds: { common: 80, uncommon: 19, rare: 1, epic: 0, legendary: 0 },
     shinyChance: 0.005,
@@ -4322,15 +4458,17 @@ const BALLS = {
   },
   veteran: {
     name: 'Veteran Ball',
+    icon: '🏆',
     price: 5000,
     odds: { common: 0, uncommon: 5, rare: 25, epic: 40, legendary: 29, ultimate: 1 },
     shinyChance: 0.5,
-    unlockPlaytimeMs: 3600000, // 1 time spilltid før den låses opp
-    useCooldownMs: 3600000,    // 1 time mellom hver bruk
+    unlockPlaytimeMs: 3600000,
+    useCooldownMs: 3600000,
     desc: '⏰ 1h cooldown · 1% ULTIMATE chance!'
   },
   poke: {
     name: 'Poké Ball',
+    icon: '🔴',
     price: 20,
     odds: { common: 50, uncommon: 35, rare: 13, epic: 2, legendary: 0 },
     shinyChance: 0.01,
@@ -4338,6 +4476,7 @@ const BALLS = {
   },
   premier: {
     name: 'Premier Ball',
+    icon: '⚪',
     price: 30,
     odds: { common: 35, uncommon: 45, rare: 18, epic: 2, legendary: 0 },
     shinyChance: 0.02,
@@ -4345,6 +4484,7 @@ const BALLS = {
   },
   net: {
     name: 'Net Ball',
+    icon: '🕸️',
     price: 110,
     odds: { common: 10, uncommon: 60, rare: 25, epic: 5, legendary: 0 },
     shinyChance: 0.04,
@@ -4352,6 +4492,7 @@ const BALLS = {
   },
   super: {
     name: 'Super Ball',
+    icon: '🔵',
     price: 60,
     odds: { common: 20, uncommon: 40, rare: 30, epic: 9, legendary: 1 },
     shinyChance: 0.05,
@@ -4359,6 +4500,7 @@ const BALLS = {
   },
   heal: {
     name: 'Heal Ball',
+    icon: '💖',
     price: 120,
     odds: { common: 15, uncommon: 35, rare: 35, epic: 13, legendary: 2 },
     shinyChance: 0.08,
@@ -4367,6 +4509,7 @@ const BALLS = {
   },
   dusk: {
     name: 'Dusk Ball',
+    icon: '🌑',
     price: 600,
     odds: { common: 2, uncommon: 18, rare: 45, epic: 28, legendary: 7 },
     shinyChance: 0.3,
@@ -4374,6 +4517,7 @@ const BALLS = {
   },
   luxury: {
     name: 'Luxury Ball',
+    icon: '💎',
     price: 1200,
     odds: { common: 0, uncommon: 10, rare: 35, epic: 40, legendary: 15 },
     shinyChance: 2,
@@ -4382,6 +4526,7 @@ const BALLS = {
   },
   master: {
     name: 'Master Ball',
+    icon: '👑',
     price: 1500,
     odds: { common: 0, uncommon: 10, rare: 35, epic: 40, legendary: 15 },
     shinyChance: 1,
@@ -4389,6 +4534,7 @@ const BALLS = {
   },
   event: {
     name: 'Event Ball',
+    icon: '🎉',
     price: 800,
     odds: { common: 10, uncommon: 30, rare: 35, epic: 20, legendary: 5 },
     shinyChance: 1,
@@ -4398,6 +4544,7 @@ const BALLS = {
   },
   skynet: {
     name: 'Skynet Adn Ball',
+    icon: '🤖',
     price: 30000,
     odds: { common: 0, uncommon: 0, rare: 5, epic: 20, legendary: 75 },
     shinyChance: 45,
@@ -4985,9 +5132,14 @@ function throwBall() {
     if (numCatches > 1) {
       // Vis combined popup for multi-catch
       showMultiCatchPopup(catches);
+      // Vill animasjon hvis noen av dem er ultimate
+      const ultim = catches.find(c => c.pokemon.rarity === 'ultimate');
+      if (ultim) spawnUltimateAnimation(ultim.pokemon, ultim.isShiny);
     } else {
       showCatchPopup(mainCatch.pokemon, mainCatch.isNew, mainCatch.reward, mainCatch.isShiny, mainCatch.eventType, mainCatch.cp);
       if (mainCatch.isShiny) spawnShinyDancer(mainCatch.pokemon, mainCatch.eventType);
+      // Vill animasjon for Ultimate-fangst
+      if (mainCatch.pokemon.rarity === 'ultimate') spawnUltimateAnimation(mainCatch.pokemon, mainCatch.isShiny);
     }
 
     // Sist fanget = sist fra batch
@@ -5122,6 +5274,90 @@ function showMultiCatchPopup(catches) {
   catches.forEach(c => {
     if (c.isShiny) spawnShinyDancer(c.pokemon, c.eventType);
   });
+}
+
+// Vill animasjon når du fanger en Ultimate Pokémon
+function spawnUltimateAnimation(pokemon, isShiny) {
+  // Fjern eksisterende animasjoner
+  document.querySelectorAll('.ultimate-backdrop, .ultimate-burst, .ultimate-particle, .ultimate-ring, .ultimate-confetti').forEach(el => el.remove());
+
+  // 1) Bakgrunn med flash-effekt
+  const backdrop = document.createElement('div');
+  backdrop.className = 'ultimate-backdrop';
+  document.body.appendChild(backdrop);
+
+  // 2) Skjelv hele body
+  document.body.classList.add('ultimate-shake');
+
+  // 3) Hovedburst — sprite + ULTIMATE-tekst
+  const burst = document.createElement('div');
+  burst.className = 'ultimate-burst';
+  const spriteUrl = isShiny ? SHINY_SPRITE_URL(pokemon.id) : SPRITE_URL(pokemon.id);
+  burst.innerHTML = `
+    <div class="ultimate-title">🌈 ULTIMATE! 🌈</div>
+    <img src="${spriteUrl}" class="ultimate-sprite" alt="${pokemon.name}">
+    <div class="ultimate-poke-name">${isShiny ? '✨ ' : ''}${pokemon.name}${isShiny ? ' ✨' : ''}</div>
+  `;
+  document.body.appendChild(burst);
+
+  // 4) Sjokkbølge-ringer (5 stk)
+  const ringColors = ['#ffd700', '#ff00ff', '#00ffff', '#ff8c00', '#00ff7f'];
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const ring = document.createElement('div');
+      ring.className = 'ultimate-ring';
+      ring.style.borderColor = ringColors[i];
+      document.body.appendChild(ring);
+      setTimeout(() => ring.remove(), 1600);
+    }, i * 200);
+  }
+
+  // 5) Stjerne-partikler i alle retninger (40 stk)
+  const emojis = ['⭐', '✨', '🌟', '💫', '🌈', '🎆', '🎇', '💖', '🔥'];
+  for (let i = 0; i < 40; i++) {
+    setTimeout(() => {
+      const p = document.createElement('div');
+      p.className = 'ultimate-particle';
+      p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      p.style.left = '50%';
+      p.style.top = '50%';
+      const angle = (Math.PI * 2 * i) / 40 + Math.random() * 0.3;
+      const dist = 400 + Math.random() * 400;
+      p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+      p.style.fontSize = (20 + Math.random() * 30) + 'px';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 2100);
+    }, i * 30);
+  }
+
+  // 6) Konfetti som faller (50 stk i ulike farger)
+  const confettiColors = ['#ff0080', '#ff8c00', '#ffd700', '#00ff80', '#00bfff', '#8a2be2', '#ff1744'];
+  for (let i = 0; i < 50; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className = 'ultimate-confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+      c.style.animationDuration = (2 + Math.random() * 2) + 's';
+      c.style.transform = `rotate(${Math.random() * 360}deg)`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4500);
+    }, i * 60);
+  }
+
+  // 7) Rydd opp etter ~5 sekunder
+  setTimeout(() => {
+    document.body.classList.remove('ultimate-shake');
+  }, 1500);
+  setTimeout(() => {
+    backdrop.style.transition = 'opacity 0.5s';
+    backdrop.style.opacity = '0';
+    burst.style.transition = 'opacity 0.5s, transform 0.5s';
+    burst.style.opacity = '0';
+    burst.style.transform = 'translate(-50%, -50%) scale(0.5)';
+    setTimeout(() => { backdrop.remove(); burst.remove(); }, 600);
+  }, 4800);
 }
 
 function spawnShinyDancer(pokemon, eventType) {
@@ -5336,7 +5572,7 @@ function updateUI() {
   document.getElementById('usernameDisplay').textContent = state.username || 'Sett brukernavn';
   renderBuddy();
   const ball = BALLS[state.selectedBall];
-  document.getElementById('selectedBallName').textContent = ball.name;
+  document.getElementById('selectedBallName').innerHTML = (ball.icon || '') + ' ' + ball.name;
 
   if (state.selectedBall === 'free') {
     document.getElementById('ballInfo').textContent = 'cooldown';
@@ -5459,7 +5695,7 @@ function renderShop() {
         <div class="mini-bot"></div>
         <div class="mini-center"></div>
       </div>
-      <h3>${ball.name}</h3>
+      <h3 style="display:flex;align-items:center;gap:8px;justify-content:center;"><span style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));">${ball.icon || ''}</span>${ball.name}</h3>
       <div style="font-size:13px;color:#bbb;">${ball.desc}</div>
       <div class="odds">${oddsText}</div>
       ${shinyText}
