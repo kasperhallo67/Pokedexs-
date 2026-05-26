@@ -5113,15 +5113,27 @@ const GLOBAL_COOLDOWN = 4500; // 4.5 sek mellom alle baller
 
 function throwBall() {
   const ball = BALLS[state.selectedBall];
+  if (!ball) {
+    alert('⚠️ Ball not found: ' + state.selectedBall + '. Select a different ball in the shop!');
+    state.selectedBall = 'free';
+    save(); updateUI();
+    return;
+  }
   const now = Date.now();
 
   // Rocket-låst etter tap?
   if (state.rocketLockUntil && now < state.rocketLockUntil) {
-    return; // vises i progress
+    const sec = Math.ceil((state.rocketLockUntil - now) / 1000);
+    alert(`⛔ Locked for ${sec}s — Team Rocket penalty. Wait before throwing again.`);
+    return;
   }
 
   // Global cooldown alle baller (4.5 sek)
   if (now - state.lastBallUse < GLOBAL_COOLDOWN) {
+    const sec = ((GLOBAL_COOLDOWN - (now - state.lastBallUse)) / 1000).toFixed(1);
+    // Vis bare en kort, ikke-blokkerende beskjed siden dette er hyppig
+    const info = document.getElementById('cooldownInfo');
+    if (info) info.innerHTML = `<span style="color:#f39c12;">⏳ Cooldown: ${sec}s before next throw</span>`;
     return;
   }
 
@@ -5170,6 +5182,7 @@ function throwBall() {
   }, animDuration);
 
   setTimeout(() => {
+    try {
     // Antall fangster — begrenset av tilgjengelig storage
     const desiredCatches = ball.multiCatch || 1;
     const slotsLeft = state.storageMax - state.individuals.length;
@@ -5183,8 +5196,15 @@ function throwBall() {
     const milestoneThisThrow = state.shinyProgress % SHINY_INTERVAL === 0;
     const catches = [];
     for (let catchIdx = 0; catchIdx < numCatches; catchIdx++) {
-      // Bare første Pokémon i Triple Ball: kan utløse milepæl-shiny + teller for buddy-level
-      catches.push(processSingleCatch(ball, catchIdx === 0 && milestoneThisThrow, catchIdx === 0));
+      const c = processSingleCatch(ball, catchIdx === 0 && milestoneThisThrow, catchIdx === 0);
+      if (!c || !c.pokemon) {
+        alert('⚠️ Could not pick a Pokémon for that catch (empty pool for rarity). Try a different ball!');
+        // Refunder ballen
+        if (state.selectedBall !== 'free') state.inventory[state.selectedBall]++;
+        save(); updateUI();
+        return;
+      }
+      catches.push(c);
     }
     // Bruk siste catch som "main" for popup (eller multi-popup hvis multiCatch)
     const mainCatch = catches[catches.length - 1];
@@ -5217,6 +5237,16 @@ function throwBall() {
     updateUI();
     submitScore();
     checkAchievements();
+    } catch (err) {
+      // Surface eventuelle feil i catch-flyten så ballen ikke bare "fryser"
+      console.error('Catch error:', err);
+      alert('⚠️ Catch error: ' + (err && err.message ? err.message : err) + '\nThe ball was refunded. Please refresh the page.');
+      if (state.selectedBall !== 'free') {
+        if (!state.inventory[state.selectedBall]) state.inventory[state.selectedBall] = 0;
+        state.inventory[state.selectedBall]++;
+      }
+      save(); updateUI();
+    }
   }, animDuration);
 }
 
