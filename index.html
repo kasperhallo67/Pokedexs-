@@ -4058,7 +4058,7 @@ function duoImgHtml(id, opts = {}) {
     `</span>`;
 }
 
-const SHINY_INTERVAL = 100; // hver 100. fangst gir shiny
+const SHINY_INTERVAL = 50; // hver 50. fangst gir shiny
 
 // ====== EVENT-VARIANTER ======
 const EVENT_TYPES = {
@@ -4364,12 +4364,33 @@ const CP_RANGES = {
   ultimate:  { min: 2000, max: 10000 }
 };
 
+// CP-boost basert på pris på utstyr (klær + bakgrunn)
+// 0.05% boost per 100 coins, cap på 30% — veldig små men skalerer med verdi
+function getEquipmentCpBoost() {
+  if (!state.character || !state.character.equipped) return 0;
+  let totalPrice = 0;
+  const eq = state.character.equipped;
+  const cat = (typeof CLOTHES_CATALOG !== 'undefined') ? CLOTHES_CATALOG : {};
+  for (const slot of ['top', 'bottom', 'shoes', 'hat', 'glasses']) {
+    const item = eq[slot];
+    if (item && cat[item]) totalPrice += cat[item].price || 0;
+  }
+  // Active background pris
+  if (state.activeBackground && typeof BACKGROUNDS !== 'undefined' && BACKGROUNDS[state.activeBackground]) {
+    totalPrice += BACKGROUNDS[state.activeBackground].price || 0;
+  }
+  // 0.0005 multiplier per coin (0.05% per 100 coins) — cap 30%
+  return Math.min(0.30, totalPrice * 0.0005 / 100);
+}
+
 function rollCp(rarity, isShiny) {
   const range = CP_RANGES[rarity] || CP_RANGES.common;
-  // Skewed lower for realism (kvadratisk = sjeldnere å få høy CP)
   const roll = Math.random() * Math.random();
   let cp = Math.round(range.min + roll * (range.max - range.min));
   if (isShiny) cp = Math.min(range.max, Math.round(cp * 1.25)); // Shiny gir +25% CP
+  // Utstyrs-boost (veldig liten, skaleres med pris på klær+bakgrunn)
+  const boost = getEquipmentCpBoost();
+  if (boost > 0) cp = Math.round(cp * (1 + boost));
   return Math.max(1, cp);
 }
 
@@ -7004,6 +7025,9 @@ async function respondIndTrade(tradeId, action) {
           save(); updateUI();
         } catch {}
       }
+      // Track for achievements
+      state.tradesCompleted = (state.tradesCompleted || 0) + 1;
+      save(); checkAchievements();
       alert('✓ Trade complete! Check My Pokémon to see your new addition.');
     } else {
       alert('✗ Trade declined.');
@@ -8253,7 +8277,93 @@ const ACHIEVEMENTS = {
   royal_trainer:  { name: 'Royal Trainer', desc: 'Reach 50,000 coins', icon: '🏰', reward: 3000, bgReward: 'castle',
     check: s => s.coins >= 50000 },
   cosmic_trainer: { name: 'Cosmic Trainer', desc: 'Unlock 20 achievements', icon: '🌌', reward: 10000, bgReward: 'space',
-    check: s => (s.unlockedAchievements || []).length >= 20 }
+    check: s => (s.unlockedAchievements || []).length >= 20 },
+
+  // 🎯 NYE MILEPÆLER
+  catches_50:    { name: 'Apprentice', desc: 'Catch 50 Pokémon', icon: '🎯', reward: 250, check: s => s.totalCatches >= 50 },
+  catches_500:   { name: 'Veteran', desc: 'Catch 500 Pokémon', icon: '🏅', reward: 2500, check: s => s.totalCatches >= 500 },
+  catches_5000:  { name: 'Pokémon Pro', desc: 'Catch 5,000 Pokémon', icon: '🎖️', reward: 25000, check: s => s.totalCatches >= 5000 },
+  catches_50000: { name: 'Hall of Famer', desc: 'Catch 50,000 Pokémon', icon: '🏆', reward: 250000, check: s => s.totalCatches >= 50000 },
+
+  // ✨ NYE SHINY
+  shiny_25:   { name: 'Glitter Hunter', desc: 'See 25 different shinies', icon: '⭐✨', reward: 5000, check: s => Object.keys(s.shinySeen || {}).length >= 25 },
+  shiny_100:  { name: 'Shiny Master', desc: 'See 100 different shinies', icon: '💫', reward: 30000, check: s => Object.keys(s.shinySeen || {}).length >= 100 },
+  shiny_all:  { name: 'All That Glitters', desc: 'See ALL shinies', icon: '🌟', reward: 500000, check: s => Object.keys(s.shinySeen || {}).length >= POKEMONS.length },
+
+  // 💀 TEAM ROCKET (Pokémon)
+  rocket_seen_1:  { name: 'Shadow Encounter', desc: 'See first Team Rocket Pokémon', icon: '💀', reward: 2500, check: s => POKEMONS.some(p => p.rarity === 'rocket' && s.seen && s.seen[p.id]) },
+  rocket_seen_3:  { name: 'Shadow Hunter', desc: 'See 3 Team Rocket Pokémon', icon: '☠️', reward: 10000, check: s => POKEMONS.filter(p => p.rarity === 'rocket' && s.seen && s.seen[p.id]).length >= 3 },
+  rocket_seen_all:{ name: 'Shadow Master', desc: 'See ALL Team Rocket Pokémon', icon: '👹', reward: 100000, check: s => POKEMONS.filter(p => p.rarity === 'rocket').every(p => s.seen && s.seen[p.id]) },
+  rocket_win_50:  { name: 'Math Wizard', desc: 'Defeat Team Rocket 50 times', icon: '🧙', reward: 25000, check: s => (s.rocketWins || 0) >= 50 },
+
+  // ⚔️ CP
+  cp_500:   { name: 'Decent Fighter', desc: 'Catch a Pokémon with CP 500+', icon: '⚔️', reward: 1000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 500) },
+  cp_2000:  { name: 'Strong Trainer', desc: 'Catch a Pokémon with CP 2000+', icon: '💪', reward: 5000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 2000) },
+  cp_5000:  { name: 'Power Trainer', desc: 'Catch a Pokémon with CP 5000+', icon: '🔥', reward: 25000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 5000) },
+  cp_9000:  { name: 'Over 9000!', desc: 'Catch a Pokémon with CP 9000+', icon: '⚡', reward: 100000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 9000) },
+
+  // 🍬 CANDY
+  candy_collector: { name: 'Sweet Tooth', desc: 'Collect 50 candy total', icon: '🍬', reward: 1000, check: s => {
+    if (!s.candy || typeof s.candy !== 'object') return false;
+    return Object.values(s.candy).reduce((a, b) => a + b, 0) >= 50;
+  }},
+  candy_hoarder: { name: 'Candy Hoarder', desc: 'Collect 500 candy total', icon: '🎂', reward: 10000, check: s => {
+    if (!s.candy || typeof s.candy !== 'object') return false;
+    return Object.values(s.candy).reduce((a, b) => a + b, 0) >= 500;
+  }},
+
+  // 🎒 STORAGE
+  storage_50:  { name: 'Collector', desc: 'Have 50 Pokémon in storage', icon: '🎒', reward: 500, check: s => (s.individuals || []).length >= 50 },
+  storage_200: { name: 'Hoarder', desc: 'Have 200 Pokémon in storage', icon: '📦', reward: 5000, check: s => (s.individuals || []).length >= 200 },
+  storage_max: { name: 'Storage Master', desc: 'Buy storage upgrade', icon: '🏦', reward: 2000, check: s => (s.storagePurchases || 0) >= 1 },
+
+  // 🆚 PVP
+  pvp_win_1:  { name: 'First Blood', desc: 'Win a PvP battle', icon: '🆚', reward: 1000, check: s => (s.pvpWins || 0) >= 1 },
+  pvp_win_10: { name: 'PvP Veteran', desc: 'Win 10 PvP battles', icon: '⚔️🏆', reward: 10000, check: s => (s.pvpWins || 0) >= 10 },
+
+  // 💱 TRADE
+  first_trade: { name: 'Trader', desc: 'Complete your first trade', icon: '🔄', reward: 500, check: s => (s.tradesCompleted || 0) >= 1 },
+  trade_10:    { name: 'Trade Master', desc: 'Complete 10 trades', icon: '💱', reward: 5000, check: s => (s.tradesCompleted || 0) >= 10 },
+
+  // 🎰 CASINO
+  casino_jackpot: { name: 'Lucky Strike', desc: 'Cash out 10,000+ in Mines', icon: '💎', reward: 2000, check: s => (s.minesBestWin || 0) >= 10000 },
+  coinflip_streak5: { name: 'Coin Master', desc: 'Get a 5-streak in Coin Flip', icon: '🪙', reward: 3000, check: s => (s.coinflipBestStreak || 0) >= 5 },
+
+  // 🏷️ TYPE COLLECTOR (få av forskjellige typer)
+  type_collector: { name: 'Type Collector', desc: 'See Pokémon of 10 different types', icon: '🌈', reward: 3000, check: s => {
+    if (!s.seen) return false;
+    const types = new Set();
+    for (const id of Object.keys(s.seen)) {
+      if (typeof getPokeType === 'function') types.add(getPokeType(parseInt(id)));
+    }
+    return types.size >= 10;
+  }},
+  type_master: { name: 'Type Master', desc: 'See Pokémon of all 18 types', icon: '🎨', reward: 25000, check: s => {
+    if (!s.seen) return false;
+    const types = new Set();
+    for (const id of Object.keys(s.seen)) {
+      if (typeof getPokeType === 'function') types.add(getPokeType(parseInt(id)));
+    }
+    return types.size >= 18;
+  }},
+
+  // 🏆 VETERAN BALL
+  veteran_user: { name: 'Patient Player', desc: 'Use the Veteran Ball', icon: '⏰', reward: 5000, check: s => s.ballCooldowns && s.ballCooldowns.veteran > 0 },
+
+  // 🌟 FANCY GEAR (utstyrs-boost)
+  full_outfit: { name: 'Dressed to Impress', desc: 'Wear top, bottom, shoes, hat & glasses', icon: '👔', reward: 3000, check: s => {
+    if (!s.character || !s.character.equipped) return false;
+    const e = s.character.equipped;
+    return !!(e.top && e.bottom && e.shoes && e.hat && e.glasses);
+  }},
+  gold_outfit: { name: 'Gold Standard', desc: 'Wear an item worth 10,000+ coins', icon: '💎👔', reward: 5000, check: s => {
+    if (!s.character || !s.character.equipped || typeof CLOTHES_CATALOG === 'undefined') return false;
+    const e = s.character.equipped;
+    for (const slot of ['top','bottom','shoes','hat','glasses']) {
+      if (e[slot] && CLOTHES_CATALOG[e[slot]] && (CLOTHES_CATALOG[e[slot]].price || 0) >= 10000) return true;
+    }
+    return false;
+  }}
 };
 
 function checkAchievements() {
@@ -9889,7 +9999,9 @@ function cashOutMines() {
   if (!minesGame || minesGame.gameOver) return;
   const winnings = Math.round(minesGame.bet * minesGame.multiplier);
   state.coins += winnings;
-  save(); updateUI(); submitScore();
+  // Track best Mines win for achievement
+  if (winnings > (state.minesBestWin || 0)) state.minesBestWin = winnings;
+  save(); updateUI(); submitScore(); checkAchievements();
   minesGame.gameOver = true;
   renderMinesGrid();
   const profit = winnings - minesGame.bet;
@@ -10605,6 +10717,11 @@ function pvpStartPolling() {
           pvpGame.pollTimer = null;
           if (pvpGame.countdownTimer) { clearInterval(pvpGame.countdownTimer); pvpGame.countdownTimer = null; }
           pvpDetachKeyboard();
+          // Track pvp wins for achievements
+          if (b.winner === state.username) {
+            state.pvpWins = (state.pvpWins || 0) + 1;
+            save(); checkAchievements();
+          }
           // Hvis du vant og det var bet — sync coins fra server
           if (b.winner === state.username && (b.bet || 0) > 0) {
             try {
@@ -10780,6 +10897,11 @@ function coinflipGuess(side) {
       // Vinn — doble multiplikator
       coinflipGame.streak++;
       coinflipGame.currentMult = Math.pow(2, coinflipGame.streak);
+      // Track best streak for achievement
+      if (coinflipGame.streak > (state.coinflipBestStreak || 0)) {
+        state.coinflipBestStreak = coinflipGame.streak;
+        save(); checkAchievements();
+      }
       const potential = coinflipGame.bet * coinflipGame.currentMult;
       resultEl.className = 'casino-result win';
       resultEl.innerHTML = `✓ Correct! Streak <strong>${coinflipGame.streak}</strong> · Multiplier <strong>${coinflipGame.currentMult}x</strong> · Potential <strong>${potential.toLocaleString()}💰</strong><br><span style="font-size:12px;opacity:0.8;">Double again or cash out!</span>`;
