@@ -877,6 +877,129 @@
     margin: 5px 0;
   }
 
+  /* SLOTS */
+  .slots-machine {
+    background: linear-gradient(180deg, #b71c1c 0%, #7f0000 100%);
+    border: 6px solid #ffd700;
+    border-radius: 18px;
+    padding: 20px;
+    margin: 12px auto;
+    max-width: 460px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.4);
+  }
+  .slots-title {
+    text-align: center;
+    color: #ffd700;
+    font-size: 28px;
+    font-weight: 900;
+    text-shadow: 0 0 8px gold, 2px 2px 0 #000;
+    margin-bottom: 12px;
+    letter-spacing: 4px;
+  }
+  .slots-reels {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    background: #000;
+    border: 4px inset #4a0000;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .slots-reel {
+    width: 90px;
+    height: 110px;
+    background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.4);
+  }
+  .slots-reel-strip {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    transition: top 0s linear;
+  }
+  .slots-reel-symbol {
+    width: 100%;
+    height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    user-select: none;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .slots-reel.spinning .slots-reel-strip {
+    animation: slotsSpin 0.15s linear infinite;
+  }
+  @keyframes slotsSpin {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-110px); }
+  }
+  .slots-payline {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(255,215,0,0.5);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .slots-info {
+    display: flex;
+    justify-content: space-around;
+    color: #fff;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  .slots-info-box {
+    background: rgba(0,0,0,0.4);
+    padding: 6px 12px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .slots-paytable {
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 10px;
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .slots-paytable-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+  }
+  .slots-spin-btn {
+    width: 100%;
+    padding: 18px;
+    font-size: 22px;
+    font-weight: bold;
+    background: linear-gradient(180deg, #ffd700, #b8860b);
+    color: #4a0000;
+    border: 3px solid #fff;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #6b4d0a, 0 8px 18px rgba(0,0,0,0.4);
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+    transition: transform 0.05s, box-shadow 0.05s;
+    letter-spacing: 3px;
+  }
+  .slots-spin-btn:hover:not(:disabled) { transform: translateY(-2px); }
+  .slots-spin-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 #6b4d0a; }
+  .slots-spin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .slots-win-flash {
+    animation: slotsWinFlash 0.6s ease-in-out 3;
+  }
+  @keyframes slotsWinFlash {
+    0%, 100% { background: linear-gradient(180deg, #b71c1c 0%, #7f0000 100%); }
+    50%      { background: linear-gradient(180deg, #ffd700 0%, #ff8c00 100%); }
+  }
+
   /* COIN FLIP */
   .coinflip-arena {
     text-align: center;
@@ -3658,6 +3781,7 @@
       <button class="trade-tab" data-game="battle" onclick="switchCasino('battle')">⚔️ Bot Battle</button>
       <button class="trade-tab" data-game="pvp" onclick="switchCasino('pvp')">🆚 PvP Battle</button>
       <button class="trade-tab" data-game="coinflip" onclick="switchCasino('coinflip')">🪙 Coin Flip</button>
+      <button class="trade-tab" data-game="slots" onclick="switchCasino('slots')">🎰 Slots</button>
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
@@ -9764,6 +9888,7 @@ function switchCasino(game) {
   else if (game === 'battle') renderBattle();
   else if (game === 'pvp') renderPvp();
   else if (game === 'coinflip') renderCoinflip();
+  else if (game === 'slots') renderSlots();
 }
 
 // ----- PLINKO -----
@@ -10955,6 +11080,185 @@ function pvpExit() {
   const team = pvpGame && pvpGame.team ? pvpGame.team : null;
   pvpGame = { screen: 'lobby', team };
   renderPvpLobby();
+}
+
+// ----- SLOTS -----
+let slotsGame = null;
+const SLOT_SYMBOLS = [
+  { sym: '🍒', weight: 28, payouts: { 2: 1.5, 3: 2 } },   // Cherry — 2-of-a-kind teller også
+  { sym: '🍋', weight: 22, payouts: { 3: 3 } },
+  { sym: '🍇', weight: 16, payouts: { 3: 5 } },
+  { sym: '🔔', weight: 12, payouts: { 3: 10 } },
+  { sym: '⭐', weight: 10, payouts: { 3: 15 } },
+  { sym: '💎', weight: 8,  payouts: { 3: 25 } },
+  { sym: '7️⃣', weight: 4,  payouts: { 3: 50 } }   // Jackpot
+];
+const SLOT_TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((s, x) => s + x.weight, 0);
+
+function pickSlotSymbol() {
+  let r = Math.random() * SLOT_TOTAL_WEIGHT;
+  for (const s of SLOT_SYMBOLS) {
+    r -= s.weight;
+    if (r < 0) return s.sym;
+  }
+  return SLOT_SYMBOLS[0].sym;
+}
+function symbolEntry(sym) { return SLOT_SYMBOLS.find(s => s.sym === sym); }
+
+function renderSlots() {
+  const c = document.getElementById('casinoContent');
+  c.innerHTML = `
+    <div class="casino-controls">
+      <label>Bet: <input id="slotsBet" type="number" min="10" value="100"></label>
+      <button class="quick-bet" onclick="setBet('slotsBet', 100)">100</button>
+      <button class="quick-bet" onclick="setBet('slotsBet', 1000)">1k</button>
+      <button class="quick-bet" onclick="setBet('slotsBet', 10000)">10k</button>
+    </div>
+    <div class="slots-machine" id="slotsMachine">
+      <div class="slots-title">🎰 SLOTS 🎰</div>
+      <div class="slots-reels" id="slotsReels">
+        <div class="slots-reel" id="slotsReel0">
+          <div class="slots-reel-strip" id="slotsStrip0">
+            <div class="slots-reel-symbol">❓</div>
+          </div>
+          <div class="slots-payline"></div>
+        </div>
+        <div class="slots-reel" id="slotsReel1">
+          <div class="slots-reel-strip" id="slotsStrip1">
+            <div class="slots-reel-symbol">❓</div>
+          </div>
+          <div class="slots-payline"></div>
+        </div>
+        <div class="slots-reel" id="slotsReel2">
+          <div class="slots-reel-strip" id="slotsStrip2">
+            <div class="slots-reel-symbol">❓</div>
+          </div>
+          <div class="slots-payline"></div>
+        </div>
+      </div>
+      <div class="slots-info">
+        <div class="slots-info-box">💰 Bet: <strong id="slotsBetDisplay">100</strong></div>
+        <div class="slots-info-box">🎁 Last win: <strong id="slotsLastWin">0</strong></div>
+      </div>
+      <div class="slots-paytable">
+        <div style="text-align:center;font-weight:bold;margin-bottom:4px;">PAYOUTS (per bet)</div>
+        ${SLOT_SYMBOLS.slice().reverse().map(s => `
+          <div class="slots-paytable-row">
+            <span>${s.sym} ${s.sym} ${s.sym}</span>
+            <span>×${s.payouts[3]}</span>
+          </div>
+        `).join('')}
+        <div class="slots-paytable-row" style="border-top:1px solid #555;padding-top:4px;margin-top:4px;">
+          <span>🍒 🍒 (2 cherries)</span>
+          <span>×1.5</span>
+        </div>
+      </div>
+      <button class="slots-spin-btn" id="slotsSpinBtn" onclick="slotsSpin()">🎰 SPIN! 🎰</button>
+    </div>
+    <div class="casino-result" id="slotsResult"></div>
+  `;
+}
+
+function slotsSpin() {
+  const bet = parseInt(document.getElementById('slotsBet').value);
+  const resultEl = document.getElementById('slotsResult');
+  if (!bet || bet < 10) { resultEl.className = 'casino-result lose'; resultEl.textContent = 'Min bet is 10'; return; }
+  if (state.coins < bet) { resultEl.className = 'casino-result lose'; resultEl.textContent = 'Not enough coins!'; return; }
+
+  state.coins -= bet;
+  save(); updateUI();
+  document.getElementById('slotsBetDisplay').textContent = bet;
+  document.getElementById('slotsSpinBtn').disabled = true;
+  resultEl.textContent = '';
+
+  // Roll resultatene
+  const results = [pickSlotSymbol(), pickSlotSymbol(), pickSlotSymbol()];
+
+  // Animer hjulene — stopp dem en etter en
+  for (let i = 0; i < 3; i++) {
+    const reel = document.getElementById('slotsReel' + i);
+    reel.classList.add('spinning');
+    // Fyll stripen med tilfeldige symboler under spinn
+    const strip = document.getElementById('slotsStrip' + i);
+    strip.innerHTML = Array.from({length: 6}, () => `<div class="slots-reel-symbol">${pickSlotSymbol()}</div>`).join('');
+  }
+
+  // Stopp hjulene en etter en med litt forsinkelse
+  const stopReel = (i) => {
+    const reel = document.getElementById('slotsReel' + i);
+    const strip = document.getElementById('slotsStrip' + i);
+    reel.classList.remove('spinning');
+    strip.innerHTML = `<div class="slots-reel-symbol">${results[i]}</div>`;
+    strip.style.transform = 'translateY(0)';
+  };
+  setTimeout(() => stopReel(0), 900);
+  setTimeout(() => stopReel(1), 1300);
+  setTimeout(() => {
+    stopReel(2);
+    // Sjekk gevinst
+    slotsResolve(bet, results);
+  }, 1700);
+}
+
+function slotsResolve(bet, results) {
+  const resultEl = document.getElementById('slotsResult');
+  const spinBtn = document.getElementById('slotsSpinBtn');
+  spinBtn.disabled = false;
+
+  let multiplier = 0;
+  let winText = '';
+
+  // Sjekk 3-of-a-kind
+  if (results[0] === results[1] && results[1] === results[2]) {
+    const entry = symbolEntry(results[0]);
+    if (entry && entry.payouts[3]) {
+      multiplier = entry.payouts[3];
+      winText = `${results[0]} ${results[0]} ${results[0]} = ×${multiplier}!`;
+    }
+  } else {
+    // Sjekk 2 cherries
+    const cherryCount = results.filter(r => r === '🍒').length;
+    if (cherryCount >= 2) {
+      multiplier = 1.5;
+      winText = `🍒🍒 (${cherryCount} cherries) = ×1.5`;
+    }
+  }
+
+  if (multiplier > 0) {
+    const win = Math.round(bet * multiplier);
+    state.coins += win;
+    document.getElementById('slotsLastWin').textContent = win.toLocaleString();
+    save(); updateUI(); submitScore(); checkAchievements();
+    // Track best slot win for achievements
+    if (win > (state.slotsBestWin || 0)) state.slotsBestWin = win;
+    resultEl.className = 'casino-result win';
+    resultEl.innerHTML = `🎉 ${winText}<br>+${win.toLocaleString()} 💰`;
+    // Win-flash animation
+    const machine = document.getElementById('slotsMachine');
+    machine.classList.add('slots-win-flash');
+    setTimeout(() => machine.classList.remove('slots-win-flash'), 1800);
+    // Spawn coins flying if jackpot
+    if (multiplier >= 25) {
+      for (let i = 0; i < 30; i++) {
+        setTimeout(() => {
+          const c = document.createElement('div');
+          c.textContent = '💰';
+          c.style.cssText = `position:fixed;left:${Math.random()*100}vw;top:-50px;font-size:${20+Math.random()*30}px;z-index:9999;pointer-events:none;`;
+          document.body.appendChild(c);
+          let y = 0;
+          const fall = setInterval(() => {
+            y += 8;
+            c.style.top = (y - 50) + 'px';
+            if (y > window.innerHeight) { clearInterval(fall); c.remove(); }
+          }, 16);
+        }, i * 60);
+      }
+    }
+  } else {
+    document.getElementById('slotsLastWin').textContent = '0';
+    resultEl.className = 'casino-result lose';
+    resultEl.innerHTML = `😔 ${results.join(' ')} — no match. Try again!`;
+  }
 }
 
 // ----- COIN FLIP -----
