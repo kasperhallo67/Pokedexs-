@@ -3894,9 +3894,19 @@
       <button class="filter-btn" onclick="setFilter('uncommon')">Uncommon</button>
       <button class="filter-btn" onclick="setFilter('rare')">Rare</button>
       <button class="filter-btn" onclick="setFilter('epic')">Epic</button>
+      <button class="filter-btn" onclick="setFilter('trash')" style="background:#4a4a4a;color:#bbb;">🗑️ Trash</button>
+      <button class="filter-btn" onclick="setFilter('decent')" style="background:linear-gradient(135deg,#27ae60,#16a085);color:white;">🟢 Decent</button>
+      <button class="filter-btn" onclick="setFilter('special')" style="background:linear-gradient(135deg,#00bcd4,#0097a7);color:white;">🔷 Special</button>
+      <button class="filter-btn" onclick="setFilter('hyper')" style="background:linear-gradient(135deg,#6a5acd,#4b0082);color:white;text-shadow:0 0 4px #9370db;">💫 Hyper</button>
+      <button class="filter-btn" onclick="setFilter('mega')" style="background:linear-gradient(135deg,#f39c12,#e67e22);color:white;font-weight:900;text-shadow:0 0 4px #ff8c00;">⚡ Mega</button>
       <button class="filter-btn" onclick="setFilter('legendary')">Legendary</button>
+      <button class="filter-btn" onclick="setFilter('champion')" style="background:linear-gradient(135deg,#ffd700,#ff8c00,#ffd700);background-size:200% 100%;color:#4a2c00;font-weight:900;animation:rainbowShift 2s linear infinite;">🥇 Champion</button>
       <button class="filter-btn" onclick="setFilter('rocket')" style="background:linear-gradient(135deg,#2c0000,#8b0000);color:#ff5555;font-weight:900;border:1px solid #ff0000;text-shadow:0 0 4px #ff0000;">💀 Team Rocket</button>
+      <button class="filter-btn" onclick="setFilter('shadowking')" style="background:linear-gradient(135deg,#1a0033,#4a0080,#8b0000);color:#ff66cc;font-weight:900;text-shadow:0 0 6px #8b00ff;border:1px solid #8b00ff;">👹 Shadow King</button>
       <button class="filter-btn" onclick="setFilter('ultimate')" style="background:linear-gradient(90deg,#ff0040,#ffd700,#7873f5);background-size:200% 100%;color:white;font-weight:900;animation:rainbowShift 3s linear infinite;">🌈 ULTIMATE</button>
+      <button class="filter-btn" onclick="setFilter('mythic')" style="background:linear-gradient(135deg,#ff1493,#9370db,#00ffff);background-size:200% 100%;color:white;font-weight:900;text-shadow:0 0 4px #fff;animation:rainbowShift 2.5s linear infinite;">🦄 Mythic</button>
+      <button class="filter-btn" onclick="setFilter('godultimate')" style="background:linear-gradient(90deg,#fff,#ffd700,#ff0080,#8a2be2,#00bfff,#ffd700,#fff);background-size:400% 100%;color:#1a0033;font-weight:900;animation:rainbowShift 1.5s linear infinite;">✨ GOD ULT</button>
+      <button class="filter-btn" onclick="setFilter('eternal')" style="background:linear-gradient(90deg,#000033,#4a0080,#000033,#001a4d);background-size:300% 100%;color:#fff;font-weight:900;text-shadow:0 0 4px #fff,0 0 10px #00ffff,0 0 18px #ff00ff;animation:rainbowShift 4s linear infinite;">🌌 ETERNAL</button>
     </div>
     <div class="pokedex-grid" id="pokedexGrid"></div>
   </div>
@@ -4054,8 +4064,17 @@ const POKEMONS = [
   { id: 19, name: 'Rattata', rarity: 'trash' },
   { id: 21, name: 'Spearow', rarity: 'common' },
   { id: 129, name: 'Magikarp', rarity: 'trash' },
-  { id: 41, name: 'Zubat', rarity: 'common' },
+  { id: 41, name: 'Zubat', rarity: 'trash' },
   { id: 74, name: 'Geodude', rarity: 'common' },
+  // Decent — slightly better than common
+  { id: 27, name: 'Sandshrew', rarity: 'decent' },
+  { id: 35, name: 'Clefairy', rarity: 'decent' },
+  { id: 50, name: 'Diglett', rarity: 'decent' },
+  { id: 60, name: 'Poliwag', rarity: 'decent' },
+  { id: 96, name: 'Drowzee', rarity: 'decent' },
+  { id: 116, name: 'Horsea', rarity: 'decent' },
+  { id: 161, name: 'Sentret', rarity: 'decent' },
+  { id: 191, name: 'Sunkern', rarity: 'decent' },
   // Uvanlig (uncommon)
   { id: 25, name: 'Pikachu', rarity: 'decent' },
   { id: 133, name: 'Eevee', rarity: 'special' },
@@ -4063,8 +4082,15 @@ const POKEMONS = [
   { id: 4, name: 'Charmander', rarity: 'uncommon' },
   { id: 7, name: 'Squirtle', rarity: 'uncommon' },
   { id: 39, name: 'Jigglypuff', rarity: 'uncommon' },
-  { id: 54, name: 'Psyduck', rarity: 'uncommon' },
-  { id: 58, name: 'Growlithe', rarity: 'uncommon' },
+  { id: 54, name: 'Psyduck', rarity: 'decent' },
+  { id: 58, name: 'Growlithe', rarity: 'special' },
+  // Special — premium Pokémon
+  { id: 37, name: 'Vulpix', rarity: 'special' },
+  { id: 63, name: 'Abra', rarity: 'special' },
+  { id: 92, name: 'Gastly', rarity: 'special' },
+  { id: 147, name: 'Dratini', rarity: 'special' },
+  { id: 172, name: 'Pichu', rarity: 'special' },
+  { id: 175, name: 'Togepi', rarity: 'special' },
   // Sjelden (rare)
   { id: 143, name: 'Snorlax', rarity: 'hyper' },
   { id: 131, name: 'Lapras', rarity: 'hyper' },
@@ -4120,14 +4146,14 @@ const POKEMONS = [
   { id: 169, name: 'Crobat', rarity: 'epic' },
   { id: 212, name: 'Scizor', rarity: 'epic' },
   { id: 230, name: 'Kingdra', rarity: 'epic' },
-  { id: 248, name: 'Tyranitar', rarity: 'epic' },
+  { id: 248, name: 'Tyranitar', rarity: 'mega' },
   // Legendarisk
-  { id: 243, name: 'Raikou', rarity: 'legendary' },
-  { id: 244, name: 'Entei', rarity: 'legendary' },
-  { id: 245, name: 'Suicune', rarity: 'legendary' },
-  { id: 249, name: 'Lugia', rarity: 'legendary' },
-  { id: 250, name: 'Ho-Oh', rarity: 'legendary' },
-  { id: 251, name: 'Celebi', rarity: 'legendary' },
+  { id: 243, name: 'Raikou', rarity: 'champion' },
+  { id: 244, name: 'Entei', rarity: 'champion' },
+  { id: 245, name: 'Suicune', rarity: 'champion' },
+  { id: 249, name: 'Lugia', rarity: 'godultimate' },
+  { id: 250, name: 'Ho-Oh', rarity: 'godultimate' },
+  { id: 251, name: 'Celebi', rarity: 'mythic' },
 
   // ========== GEN 3 - HOENN ==========
   // Vanlig
@@ -4159,13 +4185,13 @@ const POKEMONS = [
   { id: 257, name: 'Blaziken', rarity: 'epic' },
   { id: 260, name: 'Swampert', rarity: 'epic' },
   { id: 373, name: 'Salamence', rarity: 'epic' },
-  { id: 376, name: 'Metagross', rarity: 'epic' },
+  { id: 376, name: 'Metagross', rarity: 'mega' },
   // Legendarisk
-  { id: 380, name: 'Latias', rarity: 'legendary' },
-  { id: 381, name: 'Latios', rarity: 'legendary' },
+  { id: 380, name: 'Latias', rarity: 'mythic' },
+  { id: 381, name: 'Latios', rarity: 'mythic' },
   { id: 382, name: 'Kyogre', rarity: 'legendary' },
   { id: 383, name: 'Groudon', rarity: 'legendary' },
-  { id: 384, name: 'Rayquaza', rarity: 'legendary' },
+  { id: 384, name: 'Rayquaza', rarity: 'godultimate' },
   { id: 385, name: 'Jirachi', rarity: 'legendary' },
   { id: 386, name: 'Deoxys', rarity: 'legendary' },
 
