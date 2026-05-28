@@ -2091,50 +2091,51 @@
   }
   .avatar-head::before { left: 9px; }
   .avatar-head::after  { right: 9px; }
-  /* Wrapper for resten av ansiktsdetaljene (øyebryn + kinn) */
+  /* Wrapper for ansiktsdetaljene — fyller hele figuren (240px) */
   .avatar-cheeks {
     position: absolute;
     inset: 0;
     z-index: 6;
     pointer-events: none;
   }
-  /* Øyebryn — over hvert øye via boxshadow på avatar-cheeks */
+  /* Øyebryn — over hvert øye (eyes er på y≈50-63 i figuren, dvs head top 26 + eye top 24) */
   .avatar-cheeks::before {
     content: '';
     position: absolute;
-    top: 18px;
-    left: 9px;
+    top: 46px;
+    left: 50%;
+    margin-left: -22px;
     width: 11px;
     height: 2.5px;
     background: #3a2010;
     border-radius: 3px;
     transform: rotate(-6deg);
     box-shadow:
-      28px 0 0 -0.2px #3a2010,
-      28px 0.5px 1px 0 rgba(58,32,16,0.6);
-    /* Den andre skyggen lager høyre øyebryn */
+      22px 0 0 0 #3a2010,
+      0 1px 1px 0 rgba(58,32,16,0.5),
+      22px 1px 1px 0 rgba(58,32,16,0.5);
   }
-  /* Nese — liten lys skygge midt i fjeset */
+  /* Nese — mellom øyne og munn på hodet */
   .avatar-cheeks::after {
     content: '';
     position: absolute;
-    top: 36px;
+    top: 62px;
     left: 50%;
     transform: translateX(-50%);
     width: 4px;
-    height: 8px;
+    height: 7px;
     background: radial-gradient(ellipse at top, rgba(170,110,70,0.55) 0%, rgba(200,140,90,0.35) 60%, transparent 80%);
     border-radius: 40% 40% 50% 50%;
-    filter: blur(0.5px);
+    filter: blur(0.4px);
   }
   /* Kinn-blush — via skygge på hodet (siden alle pseudo-elementer er brukt) */
   .avatar-head {
     /* legg til blush via gradient i background — to rosa punkter */
   }
-  /* Smil — diskret med klar kurve */
+  /* Smil — i nedre del av hodet (hodet spenner 26-84 i figuren) */
   .avatar-mouth {
     position: absolute;
-    top: 47px;
+    top: 70px;
     left: 50%;
     transform: translateX(-50%);
     width: 14px;
