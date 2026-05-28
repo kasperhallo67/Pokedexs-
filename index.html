@@ -2051,27 +2051,53 @@
   .avatar-figure::after {
     /* override below */
   }
-  /* Hode — realistiske proporsjoner med hudtone-shading + integrert blush */
+  /* Hode — definert hode-form med skarp jawline */
   .avatar-head {
-    width: 54px;
-    height: 58px;
-    border-radius: 50% 50% 44% 44%;
+    width: 52px;
+    height: 64px;
+    /* Clip-path skaper en hode-form med kinn-utvidelse og smal kjeve */
+    clip-path: polygon(
+      28% 0%,    /* topp venstre */
+      72% 0%,    /* topp høyre */
+      92% 18%,   /* tinning høyre */
+      96% 38%,   /* over øre høyre */
+      94% 58%,   /* under øre høyre — bredeste punkt (kinn) */
+      82% 80%,   /* kjevevinkel høyre */
+      62% 96%,   /* hake høyre */
+      50% 100%,  /* haken */
+      38% 96%,   /* hake venstre */
+      18% 80%,   /* kjevevinkel venstre */
+      6% 58%,    /* kinn venstre */
+      4% 38%,    /* over øre venstre */
+      8% 18%     /* tinning venstre */
+    );
+    /* Bakgrunn med hudtone, kjeve-skygge og blush */
     background:
-      radial-gradient(circle 5px at 9px 39px, rgba(245,130,140,0.55) 0%, transparent 100%),
-      radial-gradient(circle 5px at 45px 39px, rgba(245,130,140,0.55) 0%, transparent 100%),
-      radial-gradient(ellipse at 60% 80%, rgba(160,100,60,0.35) 0%, transparent 50%),
+      /* Blush venstre kinn */
+      radial-gradient(circle 5px at 9px 38px, rgba(245,130,140,0.55) 0%, transparent 100%),
+      /* Blush høyre kinn */
+      radial-gradient(circle 5px at 43px 38px, rgba(245,130,140,0.55) 0%, transparent 100%),
+      /* Kjeve-skygge nederst (skarp jawline-effekt) */
+      linear-gradient(180deg, transparent 60%, rgba(120,70,40,0.35) 90%, rgba(80,40,20,0.45) 100%),
+      /* Kjeve-skygge venstre side */
+      linear-gradient(135deg, transparent 65%, rgba(120,70,40,0.2) 90%, transparent 100%),
+      /* Kjeve-skygge høyre side */
+      linear-gradient(-135deg, transparent 65%, rgba(120,70,40,0.2) 90%, transparent 100%),
+      /* Hovedhudfarge med lys ovenfra-venstre */
       radial-gradient(circle at 32% 28%, #fff0d8 0%, #fbd9b3 45%, #d49a6e 100%);
     position: absolute;
-    top: 26px;
+    top: 22px;
     left: 50%;
     transform: translateX(-50%);
-    border: 1.5px solid rgba(60,30,15,0.85);
     z-index: 3;
     overflow: visible;
-    box-shadow:
-      inset -3px -4px 7px rgba(110,70,35,0.35),
-      inset 3px 2px 4px rgba(255,235,210,0.45),
-      0 2px 4px rgba(0,0,0,0.3);
+    /* Drop-shadow erstatter border siden clip-path fjerner border-display */
+    filter:
+      drop-shadow(0 1px 0 rgba(60,30,15,0.7))
+      drop-shadow(0 -1px 0 rgba(60,30,15,0.4))
+      drop-shadow(1px 0 0 rgba(60,30,15,0.5))
+      drop-shadow(-1px 0 0 rgba(60,30,15,0.5))
+      drop-shadow(0 3px 4px rgba(0,0,0,0.35));
   }
   /* Øyne — STORE blå med tydelige hvite highlights */
   .avatar-head::before, .avatar-head::after {
@@ -2098,11 +2124,11 @@
     z-index: 6;
     pointer-events: none;
   }
-  /* Øyebryn — over hvert øye (eyes er på y≈50-63 i figuren, dvs head top 26 + eye top 24) */
+  /* Øyebryn — over hvert øye (head nå på top:22, så øynene er på y≈46-59) */
   .avatar-cheeks::before {
     content: '';
     position: absolute;
-    top: 46px;
+    top: 42px;
     left: 50%;
     margin-left: -22px;
     width: 11px;
@@ -2115,11 +2141,11 @@
       0 1px 1px 0 rgba(58,32,16,0.5),
       22px 1px 1px 0 rgba(58,32,16,0.5);
   }
-  /* Nese — mellom øyne og munn på hodet */
+  /* Nese — mellom øyne og munn */
   .avatar-cheeks::after {
     content: '';
     position: absolute;
-    top: 62px;
+    top: 58px;
     left: 50%;
     transform: translateX(-50%);
     width: 4px;
