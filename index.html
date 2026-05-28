@@ -877,15 +877,6 @@
     margin: 5px 0;
   }
 
-  /* GAMBLE-RESULTAT (Premier Ball mm.) */
-  @keyframes gambleFade {
-    0%   { opacity: 0; transform: translate(-50%, -70%) scale(0.5); }
-    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-    25%  { transform: translate(-50%, -50%) scale(1); }
-    85%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -40%) scale(0.9); }
-  }
-
   /* SLOTS */
   .slots-machine {
     background: linear-gradient(180deg, #b71c1c 0%, #7f0000 100%);
@@ -4765,10 +4756,9 @@ const BALLS = {
     name: 'Premier Ball',
     icon: '⚪',
     price: 30,
-    odds: { common: 30, uncommon: 25, rare: 15, epic: 5, legendary: 0 },
+    odds: { common: 35, uncommon: 45, rare: 18, epic: 2, legendary: 0 },
     shinyChance: 0.02,
-    gambleType: 'premier', // 30% +2 balls, 20% +1 (break even), 50% lose
-    desc: '🎲 GAMBLE: 30% win balls · 20% break even · 50% lose'
+    desc: "Collector's favorite"
   },
   net: {
     name: 'Net Ball',
@@ -5499,41 +5489,6 @@ function throwBall() {
       setTimeout(startRocketEncounter, mainCatch.isShiny ? 4500 : 2500);
     }
 
-    // GAMBLE-MEKANIKK (f.eks. Premier Ball)
-    if (ball.gambleType === 'premier' && state.selectedBall !== 'free') {
-      const roll = Math.random() * 100;
-      let gambleMsg = '';
-      let gambleColor = '';
-      if (roll < 30) {
-        // 30% — vinn balls (+2 returnert, så net +1)
-        state.inventory[state.selectedBall] = (state.inventory[state.selectedBall] || 0) + 2;
-        gambleMsg = '🎉 GAMBLE WIN! +2 ' + ball.name + ' (net +1)';
-        gambleColor = '#2ecc71';
-      } else if (roll < 50) {
-        // 20% — break even (+1, så net 0)
-        state.inventory[state.selectedBall] = (state.inventory[state.selectedBall] || 0) + 1;
-        gambleMsg = '🤝 BREAK EVEN! +1 ' + ball.name + ' refunded';
-        gambleColor = '#f39c12';
-      } else {
-        // 50% — tap (ingen refund)
-        gambleMsg = '💸 LOST THE BET — ball spent normally';
-        gambleColor = '#e74c3c';
-      }
-      // Vis gamble-resultatet under Pokeballen i ~3 sek
-      setTimeout(() => {
-        let div = document.getElementById('gambleResult');
-        if (!div) {
-          div = document.createElement('div');
-          div.id = 'gambleResult';
-          div.style.cssText = 'position:fixed;top:25%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);padding:14px 22px;border-radius:14px;font-size:18px;font-weight:bold;z-index:9000;pointer-events:none;animation:gambleFade 3s forwards;';
-          document.body.appendChild(div);
-        }
-        div.style.color = gambleColor;
-        div.style.border = '3px solid ' + gambleColor;
-        div.textContent = gambleMsg;
-        setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 3000);
-      }, 200);
-    }
     save();
     updateUI();
     submitScore();
