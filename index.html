@@ -2007,63 +2007,42 @@
     width: 130px;
     height: 240px;
     position: relative;
-    margin: 30px auto;
-    animation: avIdle 2.2s ease-in-out infinite;
+    margin: 0 auto;
+    animation: avIdle 2.6s ease-in-out infinite;
     filter:
-      drop-shadow(0 8px 14px rgba(0,0,0,0.5))
-      drop-shadow(0 0 18px rgba(255,215,0,0.45))
-      drop-shadow(0 0 32px rgba(120,180,255,0.35));
-    transform: scale(1.55);
-    transform-origin: center bottom;
+      drop-shadow(0 6px 8px rgba(0,0,0,0.45))
+      drop-shadow(0 2px 4px rgba(0,0,0,0.3));
   }
   @keyframes avIdle {
-    0%, 100% { transform: scale(1.55) translateY(0); }
-    50%      { transform: scale(1.55) translateY(-6px); }
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-2px); }
   }
-  /* Glødende aura bak traineren */
-  .avatar-area {
-    position: relative;
-  }
+  /* Subtil bakke-skygge */
   .avatar-area::before {
     content: '';
     position: absolute;
-    top: -10px;
+    bottom: -6px;
     left: 50%;
+    width: 90px;
+    height: 14px;
     transform: translateX(-50%);
-    width: 240px;
-    height: 360px;
-    border-radius: 50%;
-    background: radial-gradient(
-      ellipse at center,
-      rgba(255,215,0,0.22) 0%,
-      rgba(255,120,200,0.14) 35%,
-      rgba(120,180,255,0.1) 55%,
-      transparent 75%
-    );
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.35), transparent 70%);
     z-index: -1;
     pointer-events: none;
-    animation: avAura 3.5s ease-in-out infinite;
-    filter: blur(8px);
+    animation: avGroundShadow 2.6s ease-in-out infinite;
+    filter: blur(3px);
   }
+  @keyframes avGroundShadow {
+    0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.45; }
+    50%      { transform: translateX(-50%) scaleX(0.95); opacity: 0.55; }
+  }
+  /* placeholder så de gamle keyframes ikke knekker (avAura/avSparkleOrbit ikke i bruk) */
   @keyframes avAura {
-    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-    50%      { opacity: 1;   transform: translateX(-50%) scale(1.1); }
-  }
-  /* Glitter-stjerner som spinner rundt traineren */
-  .avatar-area::after {
-    content: '✨';
-    position: absolute;
-    top: 20%;
-    left: 50%;
-    font-size: 22px;
-    z-index: 5;
-    pointer-events: none;
-    animation: avSparkleOrbit 4s linear infinite;
-    filter: drop-shadow(0 0 6px gold);
+    0%, 100% { opacity: 0; }
   }
   @keyframes avSparkleOrbit {
-    0%   { transform: rotate(0deg) translateX(120px) rotate(0deg); opacity: 1; }
-    25%  { opacity: 0.4; }
+    0%   { opacity: 0; }
+    25%  { opacity: 0; }
     50%  { transform: rotate(180deg) translateX(120px) rotate(-180deg); opacity: 1; }
     75%  { opacity: 0.4; }
     100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); opacity: 1; }
@@ -2072,57 +2051,62 @@
   .avatar-figure::after {
     /* override below */
   }
-  /* Hode - stort og rundt (Pokemon-stil), nå med dybde og blush */
+  /* Hode — mer realistiske proporsjoner, naturlig hudtone-shading */
   .avatar-head {
-    width: 68px;
-    height: 68px;
-    border-radius: 50% 50% 48% 48%;
-    background: radial-gradient(circle at 35% 30%, #ffe4c4 0%, #fcd9b6 50%, #d4a684 100%);
+    width: 54px;
+    height: 58px;
+    border-radius: 50% 50% 44% 44%;
+    background:
+      radial-gradient(ellipse at 60% 80%, rgba(160,100,60,0.35) 0%, transparent 50%),
+      radial-gradient(circle at 32% 28%, #fff0d8 0%, #fbd9b3 45%, #d49a6e 100%);
     position: absolute;
-    top: 22px;
+    top: 26px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2.5px solid #2c1810;
+    border: 1.5px solid rgba(60,30,15,0.85);
     z-index: 3;
-    box-shadow: inset -4px -4px 8px rgba(150,100,60,0.3);
+    box-shadow:
+      inset -3px -4px 7px rgba(110,70,35,0.35),
+      inset 3px 2px 4px rgba(255,235,210,0.45);
   }
-  /* Øyne — større og mer uttrykksfulle med highlight */
+  /* Øyne — mindre, mer realistiske */
   .avatar-head::before, .avatar-head::after {
     content: '';
     position: absolute;
-    top: 28px;
-    width: 9px;
-    height: 12px;
+    top: 22px;
+    width: 6px;
+    height: 8px;
     background: #1a1a2e;
     border-radius: 50%;
-    box-shadow: inset 1.5px -1.5px 0 1px #fff;
+    box-shadow: inset 1px -1px 0 1px rgba(255,255,255,0.9);
   }
-  .avatar-head::before { left: 14px; }
-  .avatar-head::after  { right: 14px; }
-  /* Kinn-rødme */
+  .avatar-head::before { left: 12px; }
+  .avatar-head::after  { right: 12px; }
+  /* Kinn-rødme — diskret */
   .avatar-cheeks::before, .avatar-cheeks::after {
     content: '';
     position: absolute;
-    top: 56px;
-    width: 11px;
-    height: 7px;
-    background: radial-gradient(circle, rgba(255,120,140,0.7), transparent 70%);
+    top: 50px;
+    width: 7px;
+    height: 4px;
+    background: radial-gradient(circle, rgba(225,110,120,0.5), transparent 70%);
     border-radius: 50%;
     z-index: 4;
+    filter: blur(0.5px);
   }
-  .avatar-cheeks::before { left: 18%; }
-  .avatar-cheeks::after  { right: 18%; }
-  /* Smil under øynene */
+  .avatar-cheeks::before { left: 20%; }
+  .avatar-cheeks::after  { right: 20%; }
+  /* Diskret smil */
   .avatar-mouth {
     position: absolute;
-    top: 62px;
+    top: 56px;
     left: 50%;
     transform: translateX(-50%);
-    width: 22px;
-    height: 11px;
-    border: 2.5px solid #1a1a2e;
+    width: 12px;
+    height: 5px;
+    border: 1.5px solid #2a1a14;
     border-top: none;
-    border-radius: 0 0 22px 22px;
+    border-radius: 0 0 14px 14px;
     z-index: 4;
   }
   /* Briller på øynene */
@@ -2173,72 +2157,91 @@
     border: 1.5px solid #1a1a2e;
     border-top: none;
   }
-  /* Overkropp - jakke/skjorte */
+  /* Overkropp — slankere, tapering, mer realistiske proporsjoner */
   .avatar-torso {
-    width: 76px;
-    height: 66px;
-    background: linear-gradient(135deg, #6a5a4a 0%, #5a4a3a 100%);
+    width: 56px;
+    height: 72px;
+    background:
+      linear-gradient(to bottom, rgba(255,255,255,0.12), transparent 35%),
+      linear-gradient(135deg, #6a5a4a 0%, #5a4a3a 60%, #463524 100%);
     position: absolute;
-    top: 88px;
+    top: 80px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2.5px solid #1a1a2e;
-    border-radius: 12px 12px 5px 5px;
+    border: 1.5px solid rgba(20,15,5,0.85);
+    border-radius: 10px 10px 14px 14px / 16px 16px 8px 8px;
     z-index: 2;
-    box-shadow: inset -3px -3px 6px rgba(0,0,0,0.25), inset 3px 3px 6px rgba(255,255,255,0.1);
+    box-shadow:
+      inset -4px -3px 8px rgba(0,0,0,0.35),
+      inset 3px 3px 6px rgba(255,255,255,0.1);
   }
-  /* Armer (synlige sider) — animert vinking */
+  /* Armer — tynnere, lengre, mer realistisk */
   .avatar-figure::before, .avatar-figure::after {
     content: '';
     position: absolute;
-    top: 94px;
-    width: 14px;
-    height: 52px;
-    background: linear-gradient(to right, #fcd9b6, #d4a684);
-    border: 2px solid #1a1a2e;
-    border-radius: 7px;
+    top: 86px;
+    width: 10px;
+    height: 64px;
+    background:
+      linear-gradient(to right, #fff0d8 0%, #fbd9b3 45%, #c89868 100%);
+    border: 1.2px solid rgba(60,30,15,0.85);
+    border-radius: 5px 5px 6px 6px;
     z-index: 1;
     transform-origin: top center;
+    box-shadow: inset -2px 0 3px rgba(120,80,40,0.4);
   }
-  .avatar-figure::before { left: 18px; animation: avArmL 2.2s ease-in-out infinite; }
-  .avatar-figure::after  { right: 18px; animation: avArmR 2.2s ease-in-out infinite; }
+  .avatar-figure::before { left: 26px; animation: avArmL 2.6s ease-in-out infinite; }
+  .avatar-figure::after  { right: 26px; animation: avArmR 2.6s ease-in-out infinite; }
   @keyframes avArmL {
     0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(-4deg); }
+    50%      { transform: rotate(-3deg); }
   }
   @keyframes avArmR {
     0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(4deg); }
+    50%      { transform: rotate(3deg); }
   }
-  /* Bein */
+  /* Ben — to-delt med subtilt sentralt skille for mer realisme */
   .avatar-legs {
-    width: 62px;
-    height: 60px;
-    background: linear-gradient(135deg, #6a5a4a 0%, #5a4a3a 100%);
+    width: 50px;
+    height: 76px;
+    background:
+      linear-gradient(to right,
+        #6a5a4a 0%, #5a4a3a 48%,
+        #2a2418 49%, #2a2418 51%,
+        #5a4a3a 52%, #6a5a4a 100%);
     position: absolute;
-    top: 150px;
+    top: 152px;
     left: 50%;
     transform: translateX(-50%);
-    border: 2.5px solid #1a1a2e;
-    border-radius: 0 0 6px 6px;
+    border: 1.5px solid rgba(20,15,5,0.85);
+    border-radius: 6px 6px 4px 4px;
     z-index: 2;
-    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3);
+    box-shadow:
+      inset 0 -3px 5px rgba(0,0,0,0.4),
+      inset 3px 0 4px rgba(255,255,255,0.05);
   }
-  /* Bare-bein indikator (skinnfarge når ingen bukser) */
-  .avatar-legs.bare { background: linear-gradient(135deg, #ffe4c4, #d4a684); }
-  /* Sko/føtter */
+  .avatar-legs.bare {
+    background:
+      linear-gradient(to right,
+        #fbd9b3 0%, #e2b487 48%,
+        #c89868 49%, #c89868 51%,
+        #e2b487 52%, #fbd9b3 100%);
+  }
+  /* Sko — bredere men flatere, mer naturlig form */
   .avatar-feet {
-    width: 78px;
-    height: 20px;
-    background: linear-gradient(180deg, #fcd9b6, #b8845c);
+    width: 60px;
+    height: 14px;
+    background: linear-gradient(180deg, #6a5a4a 0%, #3a2c1a 100%);
     position: absolute;
-    top: 208px;
+    top: 222px;
     left: 50%;
     transform: translateX(-50%);
-    border-radius: 8px;
-    border: 2.5px solid #1a1a2e;
+    border-radius: 12px 12px 4px 4px / 8px 8px 4px 4px;
+    border: 1.5px solid rgba(15,8,3,0.95);
     z-index: 2;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.45),
+      inset 0 -2px 3px rgba(0,0,0,0.5),
+      inset 0 2px 3px rgba(255,255,255,0.08);
   }
   /* Bakke-skygge under figur */
   .avatar-figure > .avatar-ground {
