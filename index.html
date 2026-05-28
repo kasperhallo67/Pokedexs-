@@ -2425,6 +2425,114 @@
     border-radius: 50%;
   }
 
+  /* === HOVED-POKEBALL UTSEENDE PER BALL-TYPE === */
+  /* (gjelder bare den store ballen i bakgrunnen, ikke butikken) */
+  .pokeball.ball-free .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #95a5a6 0%, #7f8c8d 40%, #34495e 100%);
+  }
+  .pokeball.ball-triple .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #f1c40f 0%, #f39c12 40%, #d35400 100%);
+  }
+  .pokeball.ball-veteran .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #f1c40f 0%, #c0a32e 40%, #7c5e0f 100%);
+  }
+  .pokeball.ball-poke .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #ff5252 0%, #e63946 40%, #b71c1c 100%);
+  }
+  .pokeball.ball-premier .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.85) 0%, transparent 35%),
+                linear-gradient(160deg, #fff 0%, #e0e0e0 50%, #9e9e9e 100%);
+    border-color: #aa0000;
+  }
+  .pokeball.ball-premier .ball-bot { border-color: #aa0000; }
+  .pokeball.ball-net .ball-top {
+    background:
+      repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,0.18) 6px 7px),
+      linear-gradient(160deg, #f06292 0%, #c2185b 40%, #880e4f 100%);
+  }
+  .pokeball.ball-super .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #5dade2 0%, #2980b9 40%, #1b4f72 100%);
+  }
+  .pokeball.ball-heal .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #fff 0%, #f8c8dd 50%, #f48fb1 100%);
+  }
+  .pokeball.ball-dusk .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,180,0,0.4) 0%, transparent 35%),
+                linear-gradient(160deg, #6c3483 0%, #4a235a 40%, #1c0a26 100%);
+  }
+  .pokeball.ball-luxury .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.8) 0%, transparent 35%),
+                linear-gradient(160deg, #1a1a1a 0%, #2c2c2c 50%, #000 100%);
+    border-color: #ffd700;
+  }
+  .pokeball.ball-luxury .ball-bot { border-color: #ffd700; }
+  .pokeball.ball-luxury .ball-center {
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #ffe066 50%, #ffd700 100%);
+    border-color: #ffd700;
+    box-shadow: 0 0 14px gold, inset 0 -4px 8px rgba(160,120,0,0.3);
+  }
+  .pokeball.ball-master .ball-top {
+    background:
+      radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.6) 0%, transparent 35%),
+      linear-gradient(160deg, #9b59b6 0%, #7d3c98 40%, #4a235a 100%);
+  }
+  .pokeball.ball-master .ball-center {
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #fff 40%, #ff9aa7 100%);
+  }
+  .pokeball.ball-master .ball-center::after {
+    background: radial-gradient(circle at 35% 35%, #ff5252, #c62828);
+    box-shadow: 0 0 8px #ff5252;
+  }
+  .pokeball.ball-event .ball-top {
+    background:
+      conic-gradient(from 0deg, #ff0080, #ff8c00, #ffd700, #00ff80, #00bfff, #8a2be2, #ff0080);
+    animation: rainbowShift 4s linear infinite;
+  }
+  .pokeball.ball-skynet .ball-top {
+    background: radial-gradient(ellipse at 30% 25%, rgba(0,255,200,0.7) 0%, transparent 35%),
+                linear-gradient(160deg, #00ffd5 0%, #00bcd4 40%, #006064 100%);
+    border-color: #00ffea;
+    box-shadow: inset 0 0 12px rgba(0,255,200,0.4);
+  }
+  .pokeball.ball-skynet .ball-bot {
+    background: radial-gradient(ellipse at 30% 75%, rgba(150,255,255,0.9) 0%, transparent 40%),
+                linear-gradient(160deg, #263238 0%, #1a1a1a 50%, #000 100%);
+    border-color: #00ffea;
+  }
+  .pokeball.ball-rocketball .ball-top {
+    background:
+      radial-gradient(ellipse at 30% 25%, rgba(255,80,80,0.4) 0%, transparent 35%),
+      linear-gradient(160deg, #2c0000 0%, #6e0000 40%, #2c0000 100%);
+    border-color: #ff0000;
+    box-shadow: 0 0 16px #ff0000, inset 0 0 10px rgba(255,0,0,0.4);
+    animation: rocketBallPulse 1s ease-in-out infinite;
+  }
+  .pokeball.ball-rocketball .ball-bot {
+    background:
+      radial-gradient(ellipse at 30% 75%, rgba(255,80,80,0.4) 0%, transparent 40%),
+      linear-gradient(160deg, #1a1a1a 0%, #2c0000 50%, #000 100%);
+    border-color: #ff0000;
+  }
+  .pokeball.ball-rocketball .ball-center {
+    background: radial-gradient(circle at 35% 35%, #ff0000 0%, #8b0000 100%);
+    border-color: #ff0000;
+    box-shadow: 0 0 12px #ff0000;
+  }
+  .pokeball.ball-rocketball .ball-center::after {
+    background: radial-gradient(circle, #fff, #ffeb3b);
+    box-shadow: 0 0 8px #fff;
+  }
+  @keyframes rocketBallPulse {
+    0%, 100% { box-shadow: 0 0 16px #ff0000, inset 0 0 10px rgba(255,0,0,0.4); }
+    50%      { box-shadow: 0 0 28px #ff0000, inset 0 0 18px rgba(255,0,0,0.7); }
+  }
+
   .selected-ball {
     margin-top: 25px;
     font-size: 18px;
@@ -5683,6 +5791,13 @@ function updateUI() {
   renderBuddy();
   const ball = BALLS[state.selectedBall];
   document.getElementById('selectedBallName').innerHTML = (ball.icon || '') + ' ' + ball.name;
+  // Oppdater pokeball-utseendet basert på valgt ball
+  const pokeballEl = document.getElementById('pokeball');
+  if (pokeballEl) {
+    // Fjern alle ball-typer først
+    Object.keys(BALLS).forEach(k => pokeballEl.classList.remove('ball-' + k));
+    pokeballEl.classList.add('ball-' + state.selectedBall);
+  }
 
   if (state.selectedBall === 'free') {
     document.getElementById('ballInfo').textContent = 'cooldown';
@@ -8363,7 +8478,56 @@ const ACHIEVEMENTS = {
       if (e[slot] && CLOTHES_CATALOG[e[slot]] && (CLOTHES_CATALOG[e[slot]].price || 0) >= 10000) return true;
     }
     return false;
-  }}
+  }},
+
+  // 💪 EVEN MORE — 20 nye
+  catches_250:   { name: 'Trainee', desc: 'Catch 250 Pokémon', icon: '🥉', reward: 1000, check: s => s.totalCatches >= 250 },
+  catches_2500:  { name: 'Expert', desc: 'Catch 2,500 Pokémon', icon: '🥈', reward: 7500, check: s => s.totalCatches >= 2500 },
+  catches_25000: { name: 'God Catcher', desc: 'Catch 25,000 Pokémon', icon: '👼', reward: 150000, check: s => s.totalCatches >= 25000 },
+
+  // 💰 MORE WEALTH
+  rich_500k:  { name: 'Half-Millionaire', desc: 'Have 500,000 coins', icon: '🪙', reward: 25000, check: s => s.coins >= 500000 },
+  rich_5m:    { name: 'Multi-Millionaire', desc: 'Have 5,000,000 coins', icon: '🏦', reward: 250000, check: s => s.coins >= 5000000 },
+  rich_10m:   { name: 'Tycoon', desc: 'Have 10,000,000 coins', icon: '💰💰', reward: 500000, check: s => s.coins >= 10000000 },
+
+  // 🎒 BUYING BALLS
+  ball_collector:    { name: 'Ball Collector', desc: 'Own at least 1 of each non-free ball', icon: '🎱', reward: 5000, check: s => {
+    if (!s.inventory || typeof BALLS === 'undefined') return false;
+    return Object.keys(BALLS).filter(k => k !== 'free').every(k => (s.inventory[k] || 0) >= 1);
+  }},
+  ball_hoarder:      { name: 'Ball Hoarder', desc: 'Have 100+ balls in inventory total', icon: '🎯', reward: 3000, check: s => {
+    if (!s.inventory) return false;
+    return Object.entries(s.inventory).filter(([k]) => k !== 'free').reduce((sum, [,v]) => sum + (v || 0), 0) >= 100;
+  }},
+  master_ball_used:  { name: 'Master Move', desc: 'Buy a Master Ball', icon: '👑', reward: 1500, check: s => (s.inventory && s.inventory.master >= 1) },
+  rocketball_user:   { name: 'Rocket Believer', desc: 'Buy a Rocket Ball (100k!)', icon: '💀', reward: 10000, check: s => (s.inventory && s.inventory.rocketball >= 1) },
+  skynet_user:       { name: 'AI Trainer', desc: 'Buy a Skynet Ball', icon: '🤖', reward: 5000, check: s => (s.inventory && s.inventory.skynet >= 1) },
+
+  // ⚔️ MORE CP
+  cp_1000:   { name: 'Tough Trainer', desc: 'Catch a Pokémon with CP 1000+', icon: '💪', reward: 2000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 1000) },
+  cp_7000:   { name: 'Elite Powerhouse', desc: 'Catch a Pokémon with CP 7000+', icon: '⚡⚡', reward: 50000, check: s => Object.values(s.bestCp || {}).some(cp => cp >= 7000) },
+
+  // 🎨 ULTIMATE / RARITY COLLECTOR
+  legendary_5:  { name: 'Legendary Hunter', desc: 'See 5 different Legendaries', icon: '👑', reward: 5000, check: s => POKEMONS.filter(p => p.rarity === 'legendary' && s.seen && s.seen[p.id]).length >= 5 },
+  legendary_all:{ name: 'All Legends', desc: 'See ALL Legendaries', icon: '🏵️', reward: 50000, check: s => POKEMONS.filter(p => p.rarity === 'legendary').every(p => s.seen && s.seen[p.id]) },
+  epic_10:      { name: 'Epic Collector', desc: 'See 10 different Epics', icon: '💜', reward: 2000, check: s => POKEMONS.filter(p => p.rarity === 'epic' && s.seen && s.seen[p.id]).length >= 10 },
+
+  // 🎰 MORE CASINO
+  mines_50k:  { name: 'Mine Millionaire', desc: 'Cash out 50,000+ in Mines', icon: '💰💣', reward: 10000, check: s => (s.minesBestWin || 0) >= 50000 },
+  coinflip_streak10: { name: 'Lucky Streak', desc: '10-streak in Coin Flip!', icon: '🍀🪙', reward: 10000, check: s => (s.coinflipBestStreak || 0) >= 10 },
+
+  // ⚔️ MORE PVP
+  pvp_win_50: { name: 'PvP Champion', desc: 'Win 50 PvP battles', icon: '🏆🆚', reward: 30000, check: s => (s.pvpWins || 0) >= 50 },
+
+  // 🍬 CANDY MASTER
+  candy_master: { name: 'Candy Tycoon', desc: 'Collect 2000+ total candy', icon: '🍭', reward: 30000, check: s => {
+    if (!s.candy || typeof s.candy !== 'object') return false;
+    return Object.values(s.candy).reduce((a, b) => a + b, 0) >= 2000;
+  }},
+
+  // 🌟 META
+  achievement_hunter:  { name: 'Achievement Hunter', desc: 'Unlock 40 achievements', icon: '🎖️', reward: 30000, check: s => (s.unlockedAchievements || []).length >= 40 },
+  achievement_god:     { name: 'Achievement God', desc: 'Unlock 60 achievements', icon: '🏅', reward: 100000, check: s => (s.unlockedAchievements || []).length >= 60 }
 };
 
 function checkAchievements() {
@@ -12187,7 +12351,6 @@ function doubleBet(inputId) {
 
 // ========== CHEAT CODE ==========
 const CHEAT_PASSWORD = 'Slippmeginn123';
-const CHEAT_PASSWORD_SHORT = '5577'; // Samme som Slippmeginn123 men kortere kode
 const CHEAT_PASSWORD_ULTIMATE = 'Slippmeginn135';
 const CHEAT_PASSWORD_RESET = 'Slippmeginn1234';
 const CHEAT_PASSWORD_PICK = 'Slippmeginn135!';
@@ -12217,7 +12380,7 @@ function submitCheat() {
   const msg = document.getElementById('cheatMsg');
 
   if (cheatStage === 'password') {
-    if (input.value === CHEAT_PASSWORD || input.value === CHEAT_PASSWORD_SHORT) {
+    if (input.value === CHEAT_PASSWORD) {
       cheatStage = 'amount';
       document.getElementById('cheatTitle').textContent = '💰 CHEAT ACTIVATED';
       input.type = 'number';
