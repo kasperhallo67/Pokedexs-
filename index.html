@@ -2007,13 +2007,66 @@
     width: 130px;
     height: 240px;
     position: relative;
-    margin: 0 auto;
+    margin: 30px auto;
     animation: avIdle 2.2s ease-in-out infinite;
-    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.4));
+    filter:
+      drop-shadow(0 8px 14px rgba(0,0,0,0.5))
+      drop-shadow(0 0 18px rgba(255,215,0,0.45))
+      drop-shadow(0 0 32px rgba(120,180,255,0.35));
+    transform: scale(1.55);
+    transform-origin: center bottom;
   }
   @keyframes avIdle {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px); }
+    0%, 100% { transform: scale(1.55) translateY(0); }
+    50%      { transform: scale(1.55) translateY(-6px); }
+  }
+  /* Glødende aura bak traineren */
+  .avatar-area {
+    position: relative;
+  }
+  .avatar-area::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 240px;
+    height: 360px;
+    border-radius: 50%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255,215,0,0.22) 0%,
+      rgba(255,120,200,0.14) 35%,
+      rgba(120,180,255,0.1) 55%,
+      transparent 75%
+    );
+    z-index: -1;
+    pointer-events: none;
+    animation: avAura 3.5s ease-in-out infinite;
+    filter: blur(8px);
+  }
+  @keyframes avAura {
+    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+    50%      { opacity: 1;   transform: translateX(-50%) scale(1.1); }
+  }
+  /* Glitter-stjerner som spinner rundt traineren */
+  .avatar-area::after {
+    content: '✨';
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    font-size: 22px;
+    z-index: 5;
+    pointer-events: none;
+    animation: avSparkleOrbit 4s linear infinite;
+    filter: drop-shadow(0 0 6px gold);
+  }
+  @keyframes avSparkleOrbit {
+    0%   { transform: rotate(0deg) translateX(120px) rotate(0deg); opacity: 1; }
+    25%  { opacity: 0.4; }
+    50%  { transform: rotate(180deg) translateX(120px) rotate(-180deg); opacity: 1; }
+    75%  { opacity: 0.4; }
+    100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); opacity: 1; }
   }
   /* Skygge under figur */
   .avatar-figure::after {
