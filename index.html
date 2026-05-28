@@ -4735,12 +4735,14 @@ const BALLS = {
   veteran: {
     name: 'Veteran Ball',
     icon: '🏆',
-    price: 5000,
-    odds: { common: 0, uncommon: 5, rare: 22, epic: 38, legendary: 30, rocket: 4, ultimate: 1 },
-    shinyChance: 0.5,
+    price: 0,
+    odds: { common: 0, uncommon: 0, rare: 12, epic: 35, legendary: 40, rocket: 10, ultimate: 3 },
+    shinyChance: 2,
+    moneyMult: 1.5,
     unlockPlaytimeMs: 3600000,
     useCooldownMs: 3600000,
-    desc: '⏰ 1h cooldown · 4% Team Rocket · 1% ULTIMATE!'
+    activeOnly: true, // cooldown teller bare ned mens du er aktiv (kaster baller)
+    desc: '⏰ FREE! 1h ACTIVE cooldown · 3% ULTIMATE · 10% Rocket'
   },
   poke: {
     name: 'Poké Ball',
@@ -5116,12 +5118,27 @@ if (state.storagePurchases === undefined) state.storagePurchases = 0;
 if (state.candy === undefined || typeof state.candy === 'number') state.candy = {};
 // Playtime-tracking — øker mens spillet er åpent (brukes til å låse opp Veteran Ball)
 if (state.playtimeMs === undefined) state.playtimeMs = 0;
+// Active veteran-cooldown — teller bare ned mens du er aktiv (kaster baller hvert 60. sek)
+if (state.veteranCooldownRemaining === undefined) state.veteranCooldownRemaining = 0;
+// Migrate fra gammelt timestamp-system til ms-system
+if (state.ballCooldowns && state.ballCooldowns.veteran) {
+  const oldExpiry = state.ballCooldowns.veteran + 3600000;
+  state.veteranCooldownRemaining = Math.max(0, oldExpiry - Date.now());
+  delete state.ballCooldowns.veteran;
+}
 let __playtimeLastTick = Date.now();
 setInterval(() => {
   const now = Date.now();
   const diff = now - __playtimeLastTick;
   if (diff > 0 && diff < 30000) {
     state.playtimeMs += diff;
+    // Active cooldown — bare tell ned hvis brukeren har kastet en ball siste 60 sek
+    if (state.veteranCooldownRemaining > 0) {
+      const lastThrow = state.lastBallUse || 0;
+      if (now - lastThrow < 60000) {
+        state.veteranCooldownRemaining = Math.max(0, state.veteranCooldownRemaining - diff);
+      }
+    }
     if (state.playtimeMs % 30000 < 10000) save();
   }
   __playtimeLastTick = now;
@@ -5154,23 +5171,30 @@ function updateVeteranCountdown() {
     return;
   }
 
-  // 2) Hvis ulåst men på cooldown: vis cooldown
-  if (veteran.useCooldownMs && state.ballCooldowns && state.ballCooldowns.veteran) {
-    const cdLeft = (state.ballCooldowns.veteran + veteran.useCooldownMs) - Date.now();
-    if (cdLeft > 0) {
-      el.style.display = 'block';
-      el.style.background = 'linear-gradient(135deg,#9b59b6,#6a3a8a)';
-      const totalSec = Math.ceil(cdLeft / 1000);
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
-      let str = '';
-      if (h > 0) str += h + 'h ';
-      if (m > 0 || h > 0) str += m + 'm ';
-      str += s + 's';
-      el.innerHTML = `⏳ Veteran Ball cooldown: <strong>${str}</strong> until next use`;
-      return;
+  // 2) Hvis ulåst men på active cooldown: vis cooldown + pause-status
+  if (veteran.useCooldownMs && (state.veteranCooldownRemaining || 0) > 0) {
+    const cdLeft = state.veteranCooldownRemaining;
+    const lastThrow = state.lastBallUse || 0;
+    const idleMs = Date.now() - lastThrow;
+    const isPaused = idleMs >= 60000; // ingen ball-kast siste 60 sek
+    el.style.display = 'block';
+    el.style.background = isPaused
+      ? 'linear-gradient(135deg,#7f8c8d,#2c3e50)'
+      : 'linear-gradient(135deg,#9b59b6,#6a3a8a)';
+    const totalSec = Math.ceil(cdLeft / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    let str = '';
+    if (h > 0) str += h + 'h ';
+    if (m > 0 || h > 0) str += m + 'm ';
+    str += s + 's';
+    if (isPaused) {
+      el.innerHTML = `⏸ Veteran cooldown PAUSED: <strong>${str}</strong> left<br><span style="font-size:11px;opacity:0.85;">Throw any ball to resume countdown!</span>`;
+    } else {
+      el.innerHTML = `⏳ Veteran cooldown: <strong>${str}</strong> of ACTIVE play left`;
     }
+    return;
   }
 
   // 3) Ulåst og klar til bruk: skjul (eller vis "Ready" kort)
@@ -5361,16 +5385,26 @@ function throwBall() {
       return;
     }
   }
-  // Per-ball cooldown (f.eks. Veteran Ball: 1 time mellom hver bruk)
+  // Per-ball cooldown — Veteran Ball bruker active-cooldown (teller ned mens du spiller)
   if (ball.useCooldownMs) {
-    if (!state.ballCooldowns) state.ballCooldowns = {};
-    const lastUse = state.ballCooldowns[state.selectedBall] || 0;
-    const cooldownLeft = (lastUse + ball.useCooldownMs) - now;
-    if (cooldownLeft > 0) {
-      const min = Math.floor(cooldownLeft / 60000);
-      const sec = Math.floor((cooldownLeft % 60000) / 1000);
-      alert(`⏳ ${ball.name} cooldown!\nWait ${min}m ${sec}s before using it again.`);
-      return;
+    if (state.selectedBall === 'veteran') {
+      const left = state.veteranCooldownRemaining || 0;
+      if (left > 0) {
+        const min = Math.floor(left / 60000);
+        const sec = Math.floor((left % 60000) / 1000);
+        alert(`⏳ Veteran Ball cooldown!\nWait ${min}m ${sec}s of ACTIVE play.\n(Timer pauses if idle for 1 min)`);
+        return;
+      }
+    } else {
+      if (!state.ballCooldowns) state.ballCooldowns = {};
+      const lastUse = state.ballCooldowns[state.selectedBall] || 0;
+      const cooldownLeft = (lastUse + ball.useCooldownMs) - now;
+      if (cooldownLeft > 0) {
+        const min = Math.floor(cooldownLeft / 60000);
+        const sec = Math.floor((cooldownLeft % 60000) / 1000);
+        alert(`⏳ ${ball.name} cooldown!\nWait ${min}m ${sec}s before using it again.`);
+        return;
+      }
     }
   }
   // Storage-sjekk: trenger plass til minst 1 Pokémon
@@ -5381,10 +5415,15 @@ function throwBall() {
   if (state.selectedBall !== 'free') {
     state.inventory[state.selectedBall]--;
   }
-  // Lagre tidspunktet for bruk (per-ball cooldown)
+  // Lagre cooldown etter bruk
   if (ball.useCooldownMs) {
-    if (!state.ballCooldowns) state.ballCooldowns = {};
-    state.ballCooldowns[state.selectedBall] = now;
+    if (state.selectedBall === 'veteran') {
+      // Sett full cooldown — teller ned bare når brukeren er aktiv
+      state.veteranCooldownRemaining = ball.useCooldownMs;
+    } else {
+      if (!state.ballCooldowns) state.ballCooldowns = {};
+      state.ballCooldowns[state.selectedBall] = now;
+    }
   }
   state.lastBallUse = now;
   state.lastFreeUse = now; // bakoverkompatibilitet
