@@ -2628,33 +2628,6 @@
                 linear-gradient(160deg, #263238 0%, #1a1a1a 50%, #000 100%);
     border-color: #00ffea;
   }
-  .pokeball.ball-rocketball .ball-top {
-    background:
-      radial-gradient(ellipse at 30% 25%, rgba(255,80,80,0.4) 0%, transparent 35%),
-      linear-gradient(160deg, #2c0000 0%, #6e0000 40%, #2c0000 100%);
-    border-color: #ff0000;
-    box-shadow: 0 0 16px #ff0000, inset 0 0 10px rgba(255,0,0,0.4);
-    animation: rocketBallPulse 1s ease-in-out infinite;
-  }
-  .pokeball.ball-rocketball .ball-bot {
-    background:
-      radial-gradient(ellipse at 30% 75%, rgba(255,80,80,0.4) 0%, transparent 40%),
-      linear-gradient(160deg, #1a1a1a 0%, #2c0000 50%, #000 100%);
-    border-color: #ff0000;
-  }
-  .pokeball.ball-rocketball .ball-center {
-    background: radial-gradient(circle at 35% 35%, #ff0000 0%, #8b0000 100%);
-    border-color: #ff0000;
-    box-shadow: 0 0 12px #ff0000;
-  }
-  .pokeball.ball-rocketball .ball-center::after {
-    background: radial-gradient(circle, #fff, #ffeb3b);
-    box-shadow: 0 0 8px #fff;
-  }
-  @keyframes rocketBallPulse {
-    0%, 100% { box-shadow: 0 0 16px #ff0000, inset 0 0 10px rgba(255,0,0,0.4); }
-    50%      { box-shadow: 0 0 28px #ff0000, inset 0 0 18px rgba(255,0,0,0.7); }
-  }
 
   .selected-ball {
     margin-top: 25px;
@@ -4768,15 +4741,6 @@ const BALLS = {
     unlockPlaytimeMs: 3600000,
     useCooldownMs: 3600000,
     desc: '⏰ 1h cooldown · 4% Team Rocket · 1% ULTIMATE!'
-  },
-  rocketball: {
-    name: 'Rocket Ball',
-    icon: '💀',
-    price: 100000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0, rocket: 90, ultimate: 10 },
-    shinyChance: 5,
-    moneyMult: 2,
-    desc: '💀 90% Team Rocket · 10% ULTIMATE! 5% shiny · 2x coins'
   },
   poke: {
     name: 'Poké Ball',
@@ -8624,7 +8588,6 @@ const ACHIEVEMENTS = {
     return Object.entries(s.inventory).filter(([k]) => k !== 'free').reduce((sum, [,v]) => sum + (v || 0), 0) >= 100;
   }},
   master_ball_used:  { name: 'Master Move', desc: 'Buy a Master Ball', icon: '👑', reward: 1500, check: s => (s.inventory && s.inventory.master >= 1) },
-  rocketball_user:   { name: 'Rocket Believer', desc: 'Buy a Rocket Ball (100k!)', icon: '💀', reward: 10000, check: s => (s.inventory && s.inventory.rocketball >= 1) },
   skynet_user:       { name: 'AI Trainer', desc: 'Buy a Skynet Ball', icon: '🤖', reward: 5000, check: s => (s.inventory && s.inventory.skynet >= 1) },
 
   // ⚔️ MORE CP
