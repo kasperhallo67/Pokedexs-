@@ -3246,11 +3246,37 @@
     margin-top: 3px;
     font-weight: bold;
   }
+  .rarity-trash { background: #4a4a4a; color: #999; }
   .rarity-common { background: #95a5a6; }
+  .rarity-decent { background: linear-gradient(135deg, #27ae60, #16a085); color: white; }
   .rarity-uncommon { background: #2ecc71; }
+  .rarity-special { background: linear-gradient(135deg, #00bcd4, #0097a7); color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
   .rarity-rare { background: #3498db; }
+  .rarity-hyper {
+    background: linear-gradient(135deg, #6a5acd, #4b0082);
+    color: white;
+    text-shadow: 0 0 4px #9370db;
+  }
   .rarity-epic { background: #9b59b6; }
+  .rarity-mega {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    text-shadow: 0 0 4px #ff8c00, 1px 1px 0 #000;
+    font-weight: 900;
+  }
   .rarity-legendary { background: gold; color: #333; }
+  .rarity-champion {
+    background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700);
+    background-size: 200% 100%;
+    color: #4a2c00;
+    font-weight: 900;
+    text-shadow: 0 0 2px rgba(255,255,255,0.7);
+    animation: championShine 2s linear infinite;
+  }
+  @keyframes championShine {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
   .rarity-rocket {
     background: linear-gradient(135deg, #2c0000, #8b0000, #2c0000);
     color: #ff5555;
@@ -3291,6 +3317,19 @@
     box-shadow: 0 0 8px #ff0000;
     z-index: 5;
   }
+  .rarity-shadowking {
+    background: linear-gradient(135deg, #1a0033, #4a0080, #8b0000, #4a0080, #1a0033);
+    background-size: 250% 100%;
+    color: #ff66cc;
+    text-shadow: 0 0 6px #8b00ff, 1px 1px 0 #000;
+    border: 1px solid #8b00ff;
+    font-weight: 900;
+    animation: shadowKingPulse 1.5s ease-in-out infinite, championShine 4s linear infinite;
+  }
+  @keyframes shadowKingPulse {
+    0%, 100% { box-shadow: 0 0 6px #8b00ff, 0 0 12px #4a0080; }
+    50%      { box-shadow: 0 0 14px #ff00ff, 0 0 24px #8b00ff; }
+  }
   .rarity-ultimate {
     background: linear-gradient(90deg, #ff0040, #ff8c00, #ffd700, #2ecc71, #00bcd4, #7873f5, #ff0040);
     background-size: 300% 100%;
@@ -3298,6 +3337,51 @@
     text-shadow: 0 0 4px black, 1px 1px 0 black;
     animation: rainbowShift 3s linear infinite;
     font-weight: 900;
+  }
+  .rarity-mythic {
+    background: linear-gradient(135deg, #ff1493, #9370db, #00ffff, #ff1493);
+    background-size: 250% 100%;
+    color: white;
+    text-shadow: 0 0 4px #fff, 1px 1px 0 #000;
+    border: 1px solid #ff69b4;
+    font-weight: 900;
+    animation: championShine 2.5s linear infinite;
+    box-shadow: 0 0 10px #ff1493;
+  }
+  .rarity-godultimate {
+    background: linear-gradient(90deg, #fff, #ffd700, #ff0080, #8a2be2, #00bfff, #00ff80, #ffd700, #fff);
+    background-size: 400% 100%;
+    color: #1a0033;
+    text-shadow: 0 0 2px #fff, 0 0 6px #ffd700;
+    font-weight: 900;
+    animation: rainbowShift 1.5s linear infinite;
+    box-shadow: 0 0 16px #ffd700, 0 0 32px #ff0080, 0 0 48px rgba(255,215,0,0.5);
+    border: 2px solid #ffd700;
+  }
+  .rarity-eternal {
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent 60%),
+      linear-gradient(90deg, #000033, #4a0080, #000033, #001a4d, #000033);
+    background-size: 100% 100%, 300% 100%;
+    color: #fff;
+    text-shadow:
+      0 0 4px #fff,
+      0 0 10px #00ffff,
+      0 0 18px #ff00ff,
+      0 0 26px gold;
+    font-weight: 900;
+    animation: rainbowShift 4s linear infinite, eternalGlow 2s ease-in-out infinite;
+    border: 2px solid;
+    border-image: linear-gradient(45deg, gold, #ff00ff, #00ffff, gold) 1;
+    box-shadow:
+      0 0 12px #00ffff,
+      0 0 24px #ff00ff,
+      0 0 36px gold,
+      inset 0 0 12px rgba(255,255,255,0.3);
+  }
+  @keyframes eternalGlow {
+    0%, 100% { filter: brightness(1) saturate(1.2); }
+    50%      { filter: brightness(1.3) saturate(1.6); }
   }
   .poke-card.ultimate {
     background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,110,196,0.2), rgba(120,115,245,0.2));
@@ -3964,17 +4048,17 @@
 // ========== POKEMON DATA ==========
 const POKEMONS = [
   // Vanlig (common)
-  { id: 10, name: 'Caterpie', rarity: 'common' },
-  { id: 13, name: 'Weedle', rarity: 'common' },
+  { id: 10, name: 'Caterpie', rarity: 'trash' },
+  { id: 13, name: 'Weedle', rarity: 'trash' },
   { id: 16, name: 'Pidgey', rarity: 'common' },
-  { id: 19, name: 'Rattata', rarity: 'common' },
+  { id: 19, name: 'Rattata', rarity: 'trash' },
   { id: 21, name: 'Spearow', rarity: 'common' },
-  { id: 129, name: 'Magikarp', rarity: 'common' },
+  { id: 129, name: 'Magikarp', rarity: 'trash' },
   { id: 41, name: 'Zubat', rarity: 'common' },
   { id: 74, name: 'Geodude', rarity: 'common' },
   // Uvanlig (uncommon)
-  { id: 25, name: 'Pikachu', rarity: 'uncommon' },
-  { id: 133, name: 'Eevee', rarity: 'uncommon' },
+  { id: 25, name: 'Pikachu', rarity: 'decent' },
+  { id: 133, name: 'Eevee', rarity: 'special' },
   { id: 1, name: 'Bulbasaur', rarity: 'uncommon' },
   { id: 4, name: 'Charmander', rarity: 'uncommon' },
   { id: 7, name: 'Squirtle', rarity: 'uncommon' },
@@ -3982,26 +4066,26 @@ const POKEMONS = [
   { id: 54, name: 'Psyduck', rarity: 'uncommon' },
   { id: 58, name: 'Growlithe', rarity: 'uncommon' },
   // Sjelden (rare)
-  { id: 143, name: 'Snorlax', rarity: 'rare' },
-  { id: 131, name: 'Lapras', rarity: 'rare' },
+  { id: 143, name: 'Snorlax', rarity: 'hyper' },
+  { id: 131, name: 'Lapras', rarity: 'hyper' },
   { id: 94, name: 'Gengar', rarity: 'rare' },
-  { id: 95, name: 'Onix', rarity: 'rare' },
+  { id: 95, name: 'Onix', rarity: 'special' },
   { id: 123, name: 'Scyther', rarity: 'rare' },
-  { id: 26, name: 'Raichu', rarity: 'rare' },
+  { id: 26, name: 'Raichu', rarity: 'special' },
   // Episk (epic)
-  { id: 149, name: 'Dragonite', rarity: 'epic' },
-  { id: 130, name: 'Gyarados', rarity: 'epic' },
+  { id: 149, name: 'Dragonite', rarity: 'mega' },
+  { id: 130, name: 'Gyarados', rarity: 'mega' },
   { id: 65, name: 'Alakazam', rarity: 'epic' },
-  { id: 68, name: 'Machamp', rarity: 'epic' },
-  { id: 6, name: 'Charizard', rarity: 'epic' },
+  { id: 68, name: 'Machamp', rarity: 'hyper' },
+  { id: 6, name: 'Charizard', rarity: 'mega' },
   { id: 9, name: 'Blastoise', rarity: 'epic' },
   { id: 3, name: 'Venusaur', rarity: 'epic' },
   // Legendarisk (legendary)
-  { id: 150, name: 'Mewtwo', rarity: 'legendary' },
-  { id: 151, name: 'Mew', rarity: 'legendary' },
-  { id: 144, name: 'Articuno', rarity: 'legendary' },
-  { id: 145, name: 'Zapdos', rarity: 'legendary' },
-  { id: 146, name: 'Moltres', rarity: 'legendary' },
+  { id: 150, name: 'Mewtwo', rarity: 'godultimate' },
+  { id: 151, name: 'Mew', rarity: 'mythic' },
+  { id: 144, name: 'Articuno', rarity: 'champion' },
+  { id: 145, name: 'Zapdos', rarity: 'champion' },
+  { id: 146, name: 'Moltres', rarity: 'champion' },
 
   // ========== GEN 2 - JOHTO ==========
   // Vanlig
@@ -4151,8 +4235,8 @@ const POKEMONS = [
   { id: 553, name: 'Krookodile', rarity: 'epic' },
   { id: 635, name: 'Hydreigon', rarity: 'epic' },
   // Team Rocket-tier (over legendary) — unike IDs (ingen duplikater med andre rariteter)
-  { id: 637, name: 'Shadow Volcarona', rarity: 'rocket' },
-  { id: 877, name: 'Shadow Morpeko',   rarity: 'rocket' },
+  { id: 637, name: 'Shadow Volcarona', rarity: 'shadowking' },
+  { id: 877, name: 'Shadow Morpeko',   rarity: 'shadowking' },
   { id: 875, name: 'Shadow Eiscue',    rarity: 'rocket' },
   { id: 947, name: 'Shadow Brambleghast', rarity: 'rocket' },
   { id: 972, name: 'Shadow Houndstone',   rarity: 'rocket' },
@@ -4343,7 +4427,7 @@ const CUSTOM_POKEMONS_DATA = {
 };
 const CUSTOM_POKEMONS = [
   { id: 9001, name: 'Zito & Mickey', rarity: 'rare' },
-  { id: 9002, name: 'Trippel T', rarity: 'ultimate' }
+  { id: 9002, name: 'Trippel T', rarity: 'eternal' }
 ];
 
 const _origSpriteUrl = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
@@ -4659,33 +4743,63 @@ function pokemonImgHtml(id, opts = {}) {
 }
 
 const RARITY_NAMES = {
-  common: 'Common',
-  uncommon: 'Uncommon',
-  rare: 'Rare',
-  epic: 'Epic',
-  legendary: 'Legendary',
-  rocket: '💀 Team Rocket',
-  ultimate: 'ULTIMATE'
+  trash:       '🗑️ Trash',
+  common:      'Common',
+  decent:      '🟢 Decent',
+  uncommon:    'Uncommon',
+  special:     '🔷 Special',
+  rare:        'Rare',
+  hyper:       '💫 Hyper',
+  epic:        'Epic',
+  mega:        '⚡ Mega',
+  legendary:   'Legendary',
+  champion:    '🥇 Champion',
+  rocket:      '💀 Team Rocket',
+  shadowking:  '👹 Shadow King',
+  ultimate:    'ULTIMATE',
+  mythic:      '🦄 Mythic',
+  godultimate: '✨ GOD ULTIMATE',
+  eternal:     '🌌 ETERNAL'
 };
 const SELL_PRICES = {
-  common: 5,
-  uncommon: 25,
-  rare: 100,
-  epic: 400,
-  legendary: 1500,
-  rocket: 3500,
-  ultimate: 10000
+  trash:       1,
+  common:      5,
+  decent:      12,
+  uncommon:    25,
+  special:     75,
+  rare:        100,
+  hyper:       220,
+  epic:        400,
+  mega:        850,
+  legendary:   1500,
+  champion:    2400,
+  rocket:      3500,
+  shadowking:  5500,
+  ultimate:    10000,
+  mythic:      18000,
+  godultimate: 40000,
+  eternal:     120000
 };
 
 // CP-områder per rarity (Pokémon GO-stil — hver fangst får tilfeldig CP i området)
 const CP_RANGES = {
-  common:    { min: 1,    max: 168  },
-  uncommon:  { min: 1,    max: 127  },
-  rare:      { min: 50,   max: 350  },
-  epic:      { min: 150,  max: 1500 },
-  legendary: { min: 500,  max: 5000 },
-  rocket:    { min: 1500, max: 7500 },
-  ultimate:  { min: 2000, max: 10000 }
+  trash:       { min: 1,     max: 50    },
+  common:      { min: 1,     max: 168   },
+  decent:      { min: 1,     max: 220   },
+  uncommon:    { min: 1,     max: 127   },
+  special:     { min: 50,    max: 280   },
+  rare:        { min: 50,    max: 350   },
+  hyper:       { min: 100,   max: 600   },
+  epic:        { min: 150,   max: 1500  },
+  mega:        { min: 300,   max: 2400  },
+  legendary:   { min: 500,   max: 5000  },
+  champion:    { min: 800,   max: 6000  },
+  rocket:      { min: 1500,  max: 7500  },
+  shadowking:  { min: 2200,  max: 8500  },
+  ultimate:    { min: 2000,  max: 10000 },
+  mythic:      { min: 3500,  max: 12000 },
+  godultimate: { min: 6000,  max: 18000 },
+  eternal:     { min: 12000, max: 30000 }
 };
 
 // CP-boost basert på pris på utstyr (klær + bakgrunn)
