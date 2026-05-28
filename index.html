@@ -5387,11 +5387,36 @@ function throwBall() {
     return;
   }
 
-  // Inventory-sjekk for ikke-gratis-baller
+  // Inventory-sjekk for ikke-gratis-baller — tilby quick-buy
   if (state.selectedBall !== 'free') {
     if (state.inventory[state.selectedBall] <= 0) {
-      alert("You have no " + ball.name + ' left! Buy in the shop.');
-      return;
+      const price = ball.price || 0;
+      if (price === 0) {
+        alert(`You have no ${ball.name} left!`);
+        return;
+      }
+      const maxAffordable = Math.floor(state.coins / price);
+      if (maxAffordable === 0) {
+        alert(`You have no ${ball.name} left and can't afford one (need ${price} 💰, have ${state.coins} 💰).`);
+        return;
+      }
+      const input = prompt(
+        `🛒 Out of ${ball.icon || ''} ${ball.name}!\n` +
+        `Price: ${price.toLocaleString()} 💰 each\n` +
+        `You have: ${state.coins.toLocaleString()} 💰\n` +
+        `Max affordable: ${maxAffordable}\n\n` +
+        `How many do you want to buy?`,
+        '1'
+      );
+      if (!input) return;
+      const qty = parseInt(input);
+      if (!qty || qty < 1) { alert('Invalid number.'); return; }
+      if (qty > maxAffordable) { alert(`You can only afford ${maxAffordable}.`); return; }
+      // Kjøp og fortsett til kast
+      state.coins -= price * qty;
+      state.inventory[state.selectedBall] = (state.inventory[state.selectedBall] || 0) + qty;
+      save(); updateUI();
+      // Fall through til vanlig throw — inventory er nå > 0
     }
   }
   // Per-ball cooldown — Veteran Ball bruker active-cooldown (teller ned mens du spiller)
@@ -5499,15 +5524,15 @@ function throwBall() {
     }
 
     // GAMBLE-MEKANIKK — refund i COINS basert på ballens pris (stille, ingen popups)
-    // 30% win: 2x-4x prisen tilbake (plus). 20% break even: ~0.9x-1.1x. 50% lose: 0x-0.3x (minus)
+    // 45% win: 2x-4x prisen. 30% break even: ~0.9x-1.1x. 25% lose: 0x-0.3x
     if (ball.gamble && state.selectedBall !== 'free' && (ball.price || 0) > 0) {
       const roll = Math.random() * 100;
       const price = ball.price;
       let refund = 0;
-      if (roll < 30) {
+      if (roll < 45) {
         // Win: 2x til 4x prisen
         refund = Math.round(price * (2 + Math.random() * 2));
-      } else if (roll < 50) {
+      } else if (roll < 75) {
         // Break even: 0.9x til 1.1x prisen
         refund = Math.round(price * (0.9 + Math.random() * 0.2));
       } else {
