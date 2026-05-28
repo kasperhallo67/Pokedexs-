@@ -5030,9 +5030,9 @@ const BALLS = {
     name: 'Premier Ball',
     icon: '⚪',
     price: 30,
-    odds: { common: 35, uncommon: 45, rare: 18, epic: 2, legendary: 0 },
+    odds: { trash: 0, common: 25, decent: 30, uncommon: 15, special: 25, rare: 5 },
     shinyChance: 0.02,
-    desc: "Collector's favorite"
+    desc: 'Collector: bias toward Decent + Special tiers'
   },
   phoenix: {
     name: 'Phoenix Ball',
@@ -5055,9 +5055,9 @@ const BALLS = {
     name: 'Net Ball',
     icon: '🕸️',
     price: 110,
-    odds: { common: 10, uncommon: 60, rare: 25, epic: 5, legendary: 0 },
+    odds: { uncommon: 50, special: 30, hyper: 15, rare: 5 },
     shinyChance: 0.04,
-    desc: 'Great against Uncommons'
+    desc: 'Uncommon + Special hunter'
   },
   frost: {
     name: 'Frost Ball',
@@ -5071,9 +5071,9 @@ const BALLS = {
     name: 'Super Ball',
     icon: '🔵',
     price: 60,
-    odds: { common: 20, uncommon: 40, rare: 30, epic: 9, legendary: 1 },
+    odds: { decent: 10, rare: 25, hyper: 40, epic: 20, mega: 5 },
     shinyChance: 0.05,
-    desc: 'Better odds'
+    desc: 'Mid-tier specialist (Rare + Hyper)'
   },
   crystal: {
     name: 'Crystal Ball',
@@ -5096,9 +5096,9 @@ const BALLS = {
     name: 'Heal Ball',
     icon: '💖',
     price: 120,
-    odds: { common: 15, uncommon: 35, rare: 35, epic: 13, legendary: 2 },
+    odds: { rare: 10, hyper: 25, epic: 40, mega: 20, legendary: 5 },
     shinyChance: 0.08,
-    desc: 'Healing touch'
+    desc: 'Epic/Mega healer'
   },
   lava: {
     name: 'Lava Ball',
@@ -5112,17 +5112,17 @@ const BALLS = {
     name: 'Dusk Ball',
     icon: '🌑',
     price: 600,
-    odds: { common: 2, uncommon: 18, rare: 45, epic: 27, legendary: 7, rocket: 1 },
+    odds: { epic: 15, mega: 30, legendary: 25, champion: 20, rocket: 8, shadowking: 2 },
     shinyChance: 0.3,
-    desc: 'Tough · 1% Team Rocket chance'
+    desc: 'Dark hunter (Mega/Champion/Rocket focus)'
   },
   luxury: {
     name: 'Luxury Ball',
     icon: '💎',
     price: 1200,
-    odds: { common: 0, uncommon: 10, rare: 35, epic: 38, legendary: 15, rocket: 2 },
-    shinyChance: 2,
-    desc: '2% shiny · 2% Rocket'
+    odds: { rare: 20, epic: 30, mega: 30, legendary: 18, mythic: 2 },
+    shinyChance: 8,
+    desc: '8% shiny — pure shiny specialist!'
   },
   aurora: {
     name: 'Aurora Ball',
@@ -5136,9 +5136,9 @@ const BALLS = {
     name: 'Master Ball',
     icon: '👑',
     price: 1500,
-    odds: { common: 0, uncommon: 10, rare: 35, epic: 37, legendary: 15, rocket: 3 },
+    odds: { legendary: 30, champion: 25, rocket: 15, mythic: 18, shadowking: 7, godultimate: 5 },
     shinyChance: 1,
-    desc: 'The best ball! · 3% Team Rocket'
+    desc: 'TOP tier guaranteed (Champion+ focus)'
   },
   event: {
     name: 'Event Ball',
