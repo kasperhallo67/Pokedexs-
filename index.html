@@ -5498,16 +5498,23 @@ function throwBall() {
       setTimeout(startRocketEncounter, mainCatch.isShiny ? 4500 : 2500);
     }
 
-    // GAMBLE-MEKANIKK — stille refund (ingen popup-meldinger)
-    // 30% win (+3 returned = +2 net), 20% break even (+2 returned = +1 net), 50% lose (no refund)
-    if (ball.gamble && state.selectedBall !== 'free') {
+    // GAMBLE-MEKANIKK — refund i COINS basert på ballens pris (stille, ingen popups)
+    // 30% win: 2x-4x prisen tilbake (plus). 20% break even: ~0.9x-1.1x. 50% lose: 0x-0.3x (minus)
+    if (ball.gamble && state.selectedBall !== 'free' && (ball.price || 0) > 0) {
       const roll = Math.random() * 100;
+      const price = ball.price;
+      let refund = 0;
       if (roll < 30) {
-        state.inventory[state.selectedBall] = (state.inventory[state.selectedBall] || 0) + 3;
+        // Win: 2x til 4x prisen
+        refund = Math.round(price * (2 + Math.random() * 2));
       } else if (roll < 50) {
-        state.inventory[state.selectedBall] = (state.inventory[state.selectedBall] || 0) + 2;
+        // Break even: 0.9x til 1.1x prisen
+        refund = Math.round(price * (0.9 + Math.random() * 0.2));
+      } else {
+        // Lose: 0x til 0.3x prisen
+        refund = Math.round(price * (Math.random() * 0.3));
       }
-      // 50% — ingenting refundert
+      state.coins += refund;
     }
     save();
     updateUI();
