@@ -6428,14 +6428,20 @@ function throwBall() {
     if (numCatches > 1) {
       // Vis combined popup for multi-catch
       showMultiCatchPopup(catches);
-      // Vill animasjon hvis noen av dem er ultimate
-      const ultim = catches.find(c => c.pokemon.rarity === 'ultimate');
-      if (ultim) spawnUltimateAnimation(ultim.pokemon, ultim.isShiny);
+      // Vill animasjon hvis noen av dem er ultimate (catch errors så fangsten ikke kræsjer)
+      const ultim = catches.find(c => c.pokemon && c.pokemon.rarity === 'ultimate');
+      if (ultim) {
+        try { spawnUltimateAnimation(ultim.pokemon, ultim.isShiny); }
+        catch (e) { console.warn('Ultimate animation failed:', e); }
+      }
     } else {
       showCatchPopup(mainCatch.pokemon, mainCatch.isNew, mainCatch.reward, mainCatch.isShiny, mainCatch.eventType, mainCatch.cp);
       if (mainCatch.isShiny) spawnShinyDancer(mainCatch.pokemon, mainCatch.eventType);
       // Vill animasjon for Ultimate-fangst
-      if (mainCatch.pokemon.rarity === 'ultimate') spawnUltimateAnimation(mainCatch.pokemon, mainCatch.isShiny);
+      if (mainCatch.pokemon && mainCatch.pokemon.rarity === 'ultimate') {
+        try { spawnUltimateAnimation(mainCatch.pokemon, mainCatch.isShiny); }
+        catch (e) { console.warn('Ultimate animation failed:', e); }
+      }
     }
 
     // Sist fanget = sist fra batch
@@ -6710,14 +6716,22 @@ function spawnShinyDancer(pokemon, eventType) {
 }
 
 function showCatchPopup(pokemon, isNew, reward, isShiny, eventType, cpArg) {
+  if (!pokemon) return;
   const popup = document.getElementById('catchPopup');
+  if (!popup) return;
   const imgWrapper = document.getElementById('catchImg');
-  // Erstatt img-element med en wrapper hvis vi har event
-  imgWrapper.outerHTML = `<div id="catchImg">${pokemonImgHtml(pokemon.id, { shiny: isShiny, event: eventType, size: 150 })}</div>`;
-  document.getElementById('catchName').textContent = (isShiny ? '✨ ' : '') + pokemon.name + (isShiny ? ' ✨' : '');
+  if (imgWrapper) {
+    imgWrapper.outerHTML = `<div id="catchImg">${pokemonImgHtml(pokemon.id, { shiny: isShiny, event: eventType, size: 150 })}</div>`;
+  }
+  const nameEl = document.getElementById('catchName');
+  if (nameEl) nameEl.textContent = (isShiny ? '✨ ' : '') + (pokemon.name || ('#' + pokemon.id)) + (isShiny ? ' ✨' : '');
   const rarityTag = document.getElementById('catchRarity');
-  rarityTag.textContent = (isShiny ? 'SHINY ' : '') + RARITY_NAMES[pokemon.rarity];
-  rarityTag.className = 'rarity-tag rarity-' + pokemon.rarity;
+  if (rarityTag) {
+    // Fallback hvis pokémon har gammel rarity som ikke finnes lenger
+    const rarityKey = pokemon.rarity && RARITY_NAMES[pokemon.rarity] ? pokemon.rarity : 'common';
+    rarityTag.textContent = (isShiny ? 'SHINY ' : '') + RARITY_NAMES[rarityKey];
+    rarityTag.className = 'rarity-tag rarity-' + rarityKey;
+  }
   let info = '';
   if (isShiny) info += '<div style="color:gold;font-size:24px;font-weight:bold;text-shadow:0 0 10px gold;">⭐ SHINY! ⭐</div>';
   if (eventType) info += `<div style="color:#ff6ec4;font-size:20px;font-weight:bold;text-shadow:0 0 8px #ff6ec4;">🎉 EVENT: ${eventName(eventType)}! 🎉</div>`;
