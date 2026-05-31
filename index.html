@@ -6305,7 +6305,10 @@ function rollRarity(odds) {
 }
 
 function pickPokemon(rarity) {
-  const pool = POKEMONS.filter(p => p.rarity === rarity);
+  let pool = POKEMONS.filter(p => p.rarity === rarity);
+  // Fallback hvis poolen er tom (gammel rarity-key i ball-odds, eller ingen Pokémon i tier)
+  if (!pool.length) pool = POKEMONS.filter(p => p.rarity === 'common');
+  if (!pool.length) pool = POKEMONS; // siste fallback
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -6514,7 +6517,12 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
       pokemon = pickPokemon(rollRarity(boostedOdds));
     }
   }
-  const rarity = pokemon.rarity;
+  // Siste defensive sjekk — hvis alt feiler, fall tilbake til første common Pokémon
+  if (!pokemon) {
+    pokemon = POKEMONS.find(p => p.rarity === 'common') || POKEMONS[0];
+    if (!pokemon) return null;
+  }
+  const rarity = pokemon.rarity || 'common';
   state.totalCatches++;
   // Buddy-progresjon: bare +1 per ball-kast (ikke per Pokémon for Triple Ball)
   if (state.buddyId && countForBuddy) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
