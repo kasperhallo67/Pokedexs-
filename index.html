@@ -5412,7 +5412,7 @@ const SELL_PRICES = {
   epic: 400,
   legendary: 1500,
   rocket: 3500,
-  ultimate: 10000
+  ultimate: 33000   // CP-scaling gir 7000-100000 per fangst
 };
 
 // CP-områder per rarity (Pokémon GO-stil — hver fangst får tilfeldig CP i området)
@@ -6561,13 +6561,20 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     });
   }
   // Pris skalerer med CP rundt midten av området
-  const cpMult = cpPriceMultiplier(cp, rarity);
-  const baseReward = SELL_PRICES[rarity];
-  const mult = ball.moneyMult || 1;
+  // Defensive: sørg for at alt er tall — ellers blir reward NaN
+  let cpMult = cpPriceMultiplier(cp, rarity);
+  if (!isFinite(cpMult) || isNaN(cpMult)) cpMult = 1;
+  let baseReward = SELL_PRICES[rarity];
+  if (!isFinite(baseReward) || isNaN(baseReward)) baseReward = SELL_PRICES.common || 5;
+  const mult = (ball.moneyMult && isFinite(ball.moneyMult)) ? ball.moneyMult : 1;
   let reward = Math.round((isShiny ? baseReward * 10 : baseReward) * mult * cpMult);
+  if (!isFinite(reward) || isNaN(reward)) reward = baseReward;
   if (pokemon.id === state.buddyId) reward = Math.min(reward, 300);
-  reward = Math.round(reward * getCoinBonusMult());
+  const bonusMult = getCoinBonusMult();
+  reward = Math.round(reward * (isFinite(bonusMult) ? bonusMult : 1));
+  if (!isFinite(state.coins) || isNaN(state.coins)) state.coins = 0;
   if (state.coins >= 10000) reward = Math.round(reward * 0.85);
+  if (!isFinite(reward) || isNaN(reward) || reward < 0) reward = baseReward;
   let eventType;
   if (ball.guaranteedEvent) {
     const options = Object.keys(EVENT_TYPES);
