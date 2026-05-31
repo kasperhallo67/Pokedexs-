@@ -6506,6 +6506,11 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
     state.nextPokemonOverride = null;
   }
+  // Cheat: forcer neste fangst til Ultimate-tier (sett via 'ult777'-cheat)
+  if (!pokemon && state.forceNextRarity) {
+    pokemon = pickPokemon(state.forceNextRarity);
+    state.forceNextRarity = null;
+  }
   if (!pokemon) {
     const boostedOdds = applyBuddyBoost(ball.odds);
     const buddyCatchChance = getBuddyCatchChance();
@@ -13677,6 +13682,7 @@ const CHEAT_PASSWORD_RESET = 'Slippmeginn1234';
 const CHEAT_PASSWORD_PICK = 'Slippmeginn135!';
 const CHEAT_PASSWORD_GIVE = '6741'; // Gi penger til andre brukere
 const CHEAT_PASSWORD_REMOVE = 'høk67'; // Trekk penger fra deg selv
+const CHEAT_PASSWORD_FORCE_ULT = 'ult777'; // Tving neste ball til Ultimate-tier
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -13753,6 +13759,13 @@ function submitCheat() {
       msg.textContent = '✓ Type a Pokémon name or ID and press OK';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_FORCE_ULT) {
+      // Sett en flag — neste ball-kast gir en tilfeldig Ultimate-tier Pokémon
+      state.forceNextRarity = 'ultimate';
+      save();
+      msg.innerHTML = '🌈 ULTIMATE FORCED!<br>Your <strong>next ball throw</strong> will catch a random ULTIMATE Pokémon!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>';
+      msg.className = 'cheat-msg ok';
+      setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_GIVE) {
       cheatStage = 'give_target';
       document.getElementById('cheatTitle').textContent = '🎁 GIVE COINS TO PLAYER';
