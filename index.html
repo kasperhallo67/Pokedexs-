@@ -6044,6 +6044,29 @@ if (state.totalCatches === undefined) {
 if (state.shinyProgress === undefined) state.shinyProgress = state.totalCatches;
 // CP per Pokémon — vi lagrer beste CP per art
 if (!state.bestCp) state.bestCp = {};
+
+// MIGRASJON: gamle kontoer kan ha individer med rarities som ikke finnes lenger
+// (mythic, godultimate, eternal, champion, shadowking, mega, hyper, special, decent, trash)
+// Map dem til nærmeste eksisterende rarity slik at fangst/render ikke kræsjer
+const __oldRarityMigration = {
+  trash: 'common',
+  decent: 'common',
+  special: 'uncommon',
+  hyper: 'rare',
+  mega: 'epic',
+  champion: 'legendary',
+  shadowking: 'rocket',
+  mythic: 'ultimate',
+  godultimate: 'ultimate',
+  eternal: 'ultimate'
+};
+if (Array.isArray(state.individuals)) {
+  for (const ind of state.individuals) {
+    if (ind && __oldRarityMigration[ind.rarity]) {
+      ind.rarity = __oldRarityMigration[ind.rarity];
+    }
+  }
+}
 if (state.lastCp === undefined) state.lastCp = 0;
 // Individuelle Pokémon med egne CP-verdier (Pokémon GO-stil storage)
 if (!state.individuals) state.individuals = [];
