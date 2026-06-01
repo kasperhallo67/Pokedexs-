@@ -6527,12 +6527,16 @@ function throwBall() {
 
 function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = true) {
   let pokemon;
+  let forceShinyFromCheat = false;
   if (state.nextPokemonOverride) {
     pokemon = POKEMONS.find(p => p.id === state.nextPokemonOverride);
     state.nextPokemonOverride = null;
+    if (state.forceNextShiny) {
+      forceShinyFromCheat = true;
+      state.forceNextShiny = false;
+    }
   }
   // Cheat: forcer neste fangst til Ultimate-tier (sett via 'ult777'-cheat)
-  let forceShinyFromCheat = false;
   if (!pokemon && state.forceNextRarity) {
     pokemon = pickPokemon(state.forceNextRarity);
     state.forceNextRarity = null;
@@ -13790,11 +13794,15 @@ function submitCheat() {
       msg.className = 'cheat-msg ok';
       input.focus();
     } else if (input.value === CHEAT_PASSWORD_FORCE_ULT) {
-      // Sett flagg — neste ball-kast gir en tilfeldig SHINY Ultimate-tier Pokémon
-      state.forceNextRarity = 'ultimate';
+      // ID-basert: velg tilfeldig fra kjente Ultimate-IDs (funker selv med gammel cache)
+      const ultimateIds = [9002, 150, 151, 144, 145, 146, 243, 244, 245, 249, 250, 251,
+                            380, 381, 384, 643, 644, 646, 647, 649, 716, 717, 718, 720,
+                            791, 792, 800, 801, 802, 888, 889, 890, 1007, 1008];
+      const pickedId = ultimateIds[Math.floor(Math.random() * ultimateIds.length)];
+      state.nextPokemonOverride = pickedId;
       state.forceNextShiny = true;
       save();
-      msg.innerHTML = '✨🌈 SHINY ULTIMATE FORCED! 🌈✨<br>Your <strong>next ball throw</strong> will catch a SHINY ULTIMATE Pokémon!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>';
+      msg.innerHTML = `✨🌈 SHINY ULTIMATE FORCED! 🌈✨<br>Your <strong>next ball</strong> will catch <strong>SHINY #${pickedId}</strong>!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>`;
       msg.className = 'cheat-msg ok';
       setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_GIVE) {
