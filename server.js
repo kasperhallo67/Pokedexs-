@@ -126,7 +126,27 @@ app.post('/api/score', (req, res) => {
 });
 
 app.get('/api/leaderboard', (req, res) => {
-  res.json(readJson(SCORES_FILE, {}));
+  // Returner ALLE registrerte brukere — selv om de ikke har spilt.
+  // Slik beholder vi alle spillere på leaderboarden for evig.
+  const scores = readJson(SCORES_FILE, {});
+  const users = readJson(USERS_FILE, {});
+  const merged = { ...scores };
+  for (const username of Object.keys(users)) {
+    if (!merged[username]) {
+      // Bruker som finnes men aldri har sendt score — vis med 0-stats
+      merged[username] = {
+        totalCaught: 0, shinies: 0, uniqueSeen: 0, coins: 0,
+        lastPokemonId: 0, lastPokemonName: '', lastShiny: false,
+        buddyId: 0, buddyName: '', buddyCatches: 0, buddyCp: 0, buddyShiny: false,
+        bestPokemonId: 0, bestPokemonName: '', bestPokemonCp: 0, bestPokemonShiny: false,
+        character: null,
+        lastUpdated: 'never',
+        lastUpdatedMs: 0,
+        neverPlayed: true
+      };
+    }
+  }
+  res.json(merged);
 });
 
 // === CHEAT: gi penger til en bestemt bruker (kun med riktig cheat-kode) ===

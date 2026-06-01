@@ -7827,10 +7827,21 @@ async function renderLeaderboard() {
           </div>
         </div>`;
       }
-      html += `<tr class="${isMe ? 'me' : ''}">
+      // Vis hvor lenge siden de var aktiv (eller "registered" hvis aldri spilt)
+      let activityLabel = '';
+      if (e.neverPlayed) {
+        activityLabel = '<span style="color:#666;font-size:10px;font-style:italic;"> (new)</span>';
+      } else if (e.lastUpdatedMs) {
+        const ageMs = Date.now() - e.lastUpdatedMs;
+        const ageDays = Math.floor(ageMs / 86400000);
+        if (ageDays >= 30) activityLabel = `<span style="color:#888;font-size:10px;"> (${ageDays}d ago)</span>`;
+        else if (ageDays >= 7) activityLabel = `<span style="color:#aaa;font-size:10px;"> (${ageDays}d ago)</span>`;
+      }
+      const rowOpacity = e.neverPlayed ? '0.65' : '1';
+      html += `<tr class="${isMe ? 'me' : ''}" style="opacity:${rowOpacity};">
         <td class="rank-cell ${rankClass}">${medal}</td>
         <td>${miniAvatar}</td>
-        <td><strong>${escapeHtml(e.name)}${isMe ? ' (you)' : ''}</strong></td>
+        <td><strong>${escapeHtml(e.name)}${isMe ? ' (you)' : ''}</strong>${activityLabel}</td>
         <td>${bestCell}</td>
         <td>${e.totalCaught || 0}</td>
         <td style="color:gold;">${e.shinies || 0}</td>
