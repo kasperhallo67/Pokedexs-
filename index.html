@@ -13954,6 +13954,7 @@ const CHEAT_PASSWORD_PICK = 'pickpoke';        // Velg spesifikk Pokémon
 const CHEAT_PASSWORD_GIVE = 'sendgift';        // Gi penger til andre brukere
 const CHEAT_PASSWORD_REMOVE = 'paytax';        // Trekk penger fra deg selv
 const CHEAT_PASSWORD_FORCE_ULT = 'kingult';    // Tving neste ball til shiny Ultimate
+const CHEAT_PASSWORD_ONETIME70 = 'free70';     // Engangs: +70 coins (kun én gang per konto)
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -14030,6 +14031,20 @@ function submitCheat() {
       msg.textContent = '✓ Type a Pokémon name or ID and press OK';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_ONETIME70) {
+      // Engangs-kode: +70 coins, kun én gang per konto
+      if (state.usedOneTime70) {
+        msg.innerHTML = '✗ Du har allerede brukt denne koden!<br><span style="font-size:12px;color:#fbb;">Engangs-koder kan kun brukes én gang per konto.</span>';
+        msg.className = 'cheat-msg err';
+        input.value = '';
+        return;
+      }
+      state.usedOneTime70 = true;
+      state.coins += 70;
+      save(); updateUI(); submitScore();
+      msg.innerHTML = '🎉 +70 💰 lagt til!<br><span style="font-size:12px;color:#ffb;">(Engangs-kode — kan ikke brukes igjen)</span>';
+      msg.className = 'cheat-msg ok';
+      setTimeout(closeCheat, 2200);
     } else if (input.value === CHEAT_PASSWORD_FORCE_ULT) {
       // ID-basert: velg tilfeldig fra kjente Ultimate-IDs (funker selv med gammel cache)
       const ultimateIds = [9002, 150, 151, 144, 145, 146, 243, 244, 245, 249, 250, 251,
