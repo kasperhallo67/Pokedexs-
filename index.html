@@ -6067,6 +6067,16 @@ if (Array.isArray(state.individuals)) {
     }
   }
 }
+// Migrer state.forceNextRarity hvis den peker til en fjernet rarity
+if (state.forceNextRarity && __oldRarityMigration[state.forceNextRarity]) {
+  state.forceNextRarity = __oldRarityMigration[state.forceNextRarity];
+}
+// Sanitize — bare tillat gjeldende rarities
+const __validRarities = new Set(['common','uncommon','rare','epic','legendary','rocket','ultimate']);
+if (state.forceNextRarity && !__validRarities.has(state.forceNextRarity)) {
+  console.warn('Invalid forceNextRarity cleared:', state.forceNextRarity);
+  state.forceNextRarity = null;
+}
 if (state.lastCp === undefined) state.lastCp = 0;
 // Individuelle Pokémon med egne CP-verdier (Pokémon GO-stil storage)
 if (!state.individuals) state.individuals = [];
@@ -6306,9 +6316,24 @@ function rollRarity(odds) {
 
 function pickPokemon(rarity) {
   let pool = POKEMONS.filter(p => p.rarity === rarity);
-  // Fallback hvis poolen er tom (gammel rarity-key i ball-odds, eller ingen Pokémon i tier)
-  if (!pool.length) pool = POKEMONS.filter(p => p.rarity === 'common');
-  if (!pool.length) pool = POKEMONS; // siste fallback
+  if (!pool.length) {
+    // Smart fallback — finn nærmeste eksisterende tier i stedet for å falle til common
+    const fallbackOrder = {
+      ultimate:  ['ultimate','legendary','epic'],
+      rocket:    ['rocket','ultimate','legendary'],
+      legendary: ['legendary','epic','rare'],
+      epic:      ['epic','rare','uncommon'],
+      rare:      ['rare','uncommon','common'],
+      uncommon:  ['uncommon','common'],
+      common:    ['common']
+    };
+    const order = fallbackOrder[rarity] || ['common'];
+    for (const r of order) {
+      pool = POKEMONS.filter(p => p.rarity === r);
+      if (pool.length) break;
+    }
+  }
+  if (!pool.length) pool = POKEMONS;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -6507,9 +6532,14 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
     state.nextPokemonOverride = null;
   }
   // Cheat: forcer neste fangst til Ultimate-tier (sett via 'ult777'-cheat)
+  let forceShinyFromCheat = false;
   if (!pokemon && state.forceNextRarity) {
     pokemon = pickPokemon(state.forceNextRarity);
     state.forceNextRarity = null;
+    if (state.forceNextShiny) {
+      forceShinyFromCheat = true;
+      state.forceNextShiny = false;
+    }
   }
   if (!pokemon) {
     const boostedOdds = applyBuddyBoost(ball.odds);
@@ -6532,7 +6562,7 @@ function processSingleCatch(ball, forceMilestoneShiny = false, countForBuddy = t
   // Buddy-progresjon: bare +1 per ball-kast (ikke per Pokémon for Triple Ball)
   if (state.buddyId && countForBuddy) state.buddyCatches[state.buddyId] = (state.buddyCatches[state.buddyId] || 0) + 1;
   const luckyShiny = Math.random() * 100 < (ball.shinyChance || 0);
-  const isShiny = forceMilestoneShiny || luckyShiny;
+  const isShiny = forceMilestoneShiny || luckyShiny || forceShinyFromCheat;
   let isNew;
   if (isShiny) {
     isNew = !state.shinySeen[pokemon.id];
@@ -13760,10 +13790,11 @@ function submitCheat() {
       msg.className = 'cheat-msg ok';
       input.focus();
     } else if (input.value === CHEAT_PASSWORD_FORCE_ULT) {
-      // Sett en flag — neste ball-kast gir en tilfeldig Ultimate-tier Pokémon
+      // Sett flagg — neste ball-kast gir en tilfeldig SHINY Ultimate-tier Pokémon
       state.forceNextRarity = 'ultimate';
+      state.forceNextShiny = true;
       save();
-      msg.innerHTML = '🌈 ULTIMATE FORCED!<br>Your <strong>next ball throw</strong> will catch a random ULTIMATE Pokémon!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>';
+      msg.innerHTML = '✨🌈 SHINY ULTIMATE FORCED! 🌈✨<br>Your <strong>next ball throw</strong> will catch a SHINY ULTIMATE Pokémon!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>';
       msg.className = 'cheat-msg ok';
       setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_GIVE) {
