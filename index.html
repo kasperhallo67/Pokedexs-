@@ -13974,7 +13974,7 @@ function closeCheat() {
   document.getElementById('cheatModal').classList.remove('active');
 }
 
-function submitCheat() {
+async function submitCheat() {
   const input = document.getElementById('cheatInput');
   const msg = document.getElementById('cheatMsg');
 
@@ -14031,6 +14031,40 @@ function submitCheat() {
       msg.textContent = '✓ Type a Pokémon name or ID and press OK';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (/^\d{6}$/.test(input.value.trim())) {
+      // Mulig globalt engangs-kode (6 sifre). Sjekk mot server.
+      const code = input.value.trim();
+      const username = (state.username || '').trim();
+      if (!username) {
+        msg.innerHTML = '✗ Du må være logget inn for å bruke globale koder!';
+        msg.className = 'cheat-msg err';
+        input.value = '';
+        return;
+      }
+      msg.textContent = '⏳ Sjekker kode på server...';
+      msg.className = 'cheat-msg';
+      try {
+        const r = await fetch('/api/cheat/onetime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, username })
+        });
+        const data = await r.json();
+        if (r.ok && data.ok) {
+          state.coins = data.newCoins;
+          save(); updateUI(); submitScore();
+          msg.innerHTML = `🎉 GLOBAL ENGANGS-KODE LØST INN!<br>+${data.amount.toLocaleString()} 💰<br><span style="font-size:12px;color:#ffb;">(Ingen andre kan bruke denne koden nå)</span>`;
+          msg.className = 'cheat-msg ok';
+          setTimeout(closeCheat, 3000);
+        } else {
+          msg.innerHTML = `✗ ${data.error || 'Kode ugyldig'}`;
+          msg.className = 'cheat-msg err';
+          input.value = '';
+        }
+      } catch (e) {
+        msg.innerHTML = '✗ Server-feil: ' + e.message;
+        msg.className = 'cheat-msg err';
+      }
     } else if (input.value === CHEAT_PASSWORD_ONETIME70) {
       // Engangs-kode: +70 coins, kun én gang per konto
       if (state.usedOneTime70) {

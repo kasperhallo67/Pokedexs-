@@ -21,6 +21,7 @@ const POKER_FILE   = path.join(DATA_DIR, 'poker.json');
 const BATTLES_FILE = path.join(DATA_DIR, 'battles.json');
 const CHAT_FILE    = path.join(DATA_DIR, 'chat.json');
 const DM_FILE      = path.join(DATA_DIR, 'dm.json');
+const REDEEM_FILE  = path.join(DATA_DIR, 'redeem.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -36,6 +37,7 @@ ensureFile(POKER_FILE, '{}');
 ensureFile(BATTLES_FILE, '[]');
 ensureFile(CHAT_FILE, '[]');
 ensureFile(DM_FILE, '[]');
+ensureFile(REDEEM_FILE, '{}');
 
 function readJson(file, def) {
   try {
@@ -148,6 +150,61 @@ app.post('/api/cheat/give', (req, res) => {
       writeJson(SCORES_FILE, scores);
     }
     res.json({ ok: true, newCoins: userState.coins, given: amount });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// === GLOBALE ENGANGS-KODER (kun én bruker per kode, globalt) ===
+// Disse 10 kodene gir 500 000 coins hver, men kan kun brukes av ÉN bruker totalt.
+const ONE_TIME_GLOBAL_CODES = {
+  '384721': 500000,
+  '105693': 500000,
+  '627840': 500000,
+  '459127': 500000,
+  '738205': 500000,
+  '916384': 500000,
+  '253079': 500000,
+  '681492': 500000,
+  '547361': 500000,
+  '873150': 500000
+};
+
+app.post('/api/cheat/onetime', (req, res) => {
+  const d = req.body || {};
+  const code = String(d.code || '').trim();
+  const username = (d.username || '').trim();
+  if (!code) return res.status(400).json({ ok: false, error: 'No code' });
+  if (!username) return res.status(400).json({ ok: false, error: 'No username' });
+  if (!(code in ONE_TIME_GLOBAL_CODES)) {
+    return res.status(404).json({ ok: false, error: 'Ugyldig kode' });
+  }
+  const redeemed = readJson(REDEEM_FILE, {});
+  if (redeemed[code]) {
+    return res.status(409).json({
+      ok: false,
+      error: `Koden er allerede brukt av ${redeemed[code].username}`,
+      usedBy: redeemed[code].username
+    });
+  }
+  const users = readJson(USERS_FILE, {});
+  if (!users[username]) return res.status(404).json({ ok: false, error: 'Brukerkonto finnes ikke på serveren (sync først)' });
+  const amount = ONE_TIME_GLOBAL_CODES[code];
+  try {
+    const userState = users[username].state ? JSON.parse(users[username].state) : {};
+    userState.coins = Math.max(0, (userState.coins || 0) + amount);
+    users[username].state = JSON.stringify(userState);
+    writeJson(USERS_FILE, users);
+    // Oppdater også leaderboard
+    const scores = readJson(SCORES_FILE, {});
+    if (scores[username]) {
+      scores[username].coins = userState.coins;
+      writeJson(SCORES_FILE, scores);
+    }
+    // Marker koden som brukt
+    redeemed[code] = { username, amount, claimedAt: new Date().toISOString() };
+    writeJson(REDEEM_FILE, redeemed);
+    res.json({ ok: true, amount, newCoins: userState.coins });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
