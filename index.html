@@ -12677,21 +12677,29 @@ function showAreaSelector() {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">`;
   EXPLORE_AREAS.forEach(area => {
     const unlocked = state.exploreUnlocked.includes(area.id);
+    const prevUnlocked = area.id === 0 || state.exploreUnlocked.includes(area.id - 1);
     const canAfford = state.coins >= area.price;
+    const sequentiallyLocked = !unlocked && !prevUnlocked;
     // Bygg liste over rariteter med >5% sjanse
     const rarityIcons = { common: '⚪', uncommon: '🟢', rare: '🔵', epic: '🟣', legendary: '🟡', rocket: '🔴' };
     const topRarities = Object.entries(area.weights)
       .filter(([k, v]) => v >= 0.05)
       .map(([k, v]) => `${rarityIcons[k] || ''}${(v * 100).toFixed(0)}%`)
       .join(' ');
-    html += `<div style="background:rgba(255,255,255,0.1);border:2px solid ${unlocked ? '#2ecc71' : (canAfford ? '#f39c12' : '#555')};border-radius:10px;padding:12px;color:#fff;">
+    // Velg farge på border avhengig av status
+    const borderColor = unlocked ? '#2ecc71' : sequentiallyLocked ? '#444' : (canAfford ? '#f39c12' : '#555');
+    const opacity = sequentiallyLocked ? '0.5' : '1';
+    html += `<div style="background:rgba(255,255,255,0.1);border:2px solid ${borderColor};border-radius:10px;padding:12px;color:#fff;opacity:${opacity};position:relative;">
+      ${sequentiallyLocked ? `<div style="position:absolute;top:6px;right:8px;font-size:20px;">🔒</div>` : ''}
       <div style="font-size:18px;font-weight:bold;margin-bottom:4px;">${area.name}</div>
       <div style="font-size:11px;color:#aaa;margin-bottom:4px;">Vanskelighetsgrad: ${'⭐'.repeat(area.difficulty)}</div>
       <div style="font-size:10px;color:#ddd;margin-bottom:4px;line-height:1.3;">📊 ${topRarities}</div>
       <div style="font-size:10px;color:#ffd700;margin-bottom:8px;">✨ ${area.shinyBoost}% shiny · CP ×${area.cpBonus}</div>
       ${unlocked
         ? `<button onclick="enterArea(${area.id})" style="width:100%;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">🚪 Gå inn</button>`
-        : `<button onclick="buyArea(${area.id})" ${canAfford ? '' : 'disabled'} style="width:100%;padding:8px;background:${canAfford ? '#f39c12' : '#555'};color:white;border:none;border-radius:6px;cursor:${canAfford ? 'pointer' : 'not-allowed'};font-weight:bold;">💰 Kjøp (${area.price.toLocaleString()})</button>`
+        : sequentiallyLocked
+          ? `<button disabled style="width:100%;padding:8px;background:#444;color:#888;border:none;border-radius:6px;cursor:not-allowed;font-weight:bold;">🔒 Kjøp forrige først</button>`
+          : `<button onclick="buyArea(${area.id})" ${canAfford ? '' : 'disabled'} style="width:100%;padding:8px;background:${canAfford ? '#f39c12' : '#555'};color:white;border:none;border-radius:6px;cursor:${canAfford ? 'pointer' : 'not-allowed'};font-weight:bold;">💰 Kjøp (${area.price.toLocaleString()})</button>`
       }
     </div>`;
   });
@@ -12716,6 +12724,12 @@ function buyArea(areaId) {
   const area = EXPLORE_AREAS.find(a => a.id === areaId);
   if (!area) return;
   if (state.exploreUnlocked.includes(areaId)) { showAreaSelector(); return; }
+  // SEKVENSIELL: du må eie alle tidligere områder først
+  if (areaId > 0 && !state.exploreUnlocked.includes(areaId - 1)) {
+    const prev = EXPLORE_AREAS.find(a => a.id === areaId - 1);
+    alert(`🔒 Du må kjøpe ${prev ? prev.name : 'forrige område'} først!\n\nDu kan ikke hoppe over områder.`);
+    return;
+  }
   if (state.coins < area.price) { alert(`Trenger ${area.price.toLocaleString()} 💰 (har ${state.coins.toLocaleString()})`); return; }
   if (!confirm(`Kjøp ${area.name} for ${area.price.toLocaleString()} 💰?`)) return;
   state.coins -= area.price;
