@@ -4050,8 +4050,7 @@
     <h2 class="modal-title">🔄 Trade with other players</h2>
     <div class="trade-tabs">
       <button class="trade-tab active" data-tab="inbox" onclick="switchTradeTab('inbox')">📬 Inbox <span id="inboxCount"></span></button>
-      <button class="trade-tab" data-tab="send" onclick="switchTradeTab('send')">📤 Send offer</button>
-      <button class="trade-tab" data-tab="individual" onclick="switchTradeTab('individual')">🎒 Trade Individuals</button>
+      <button class="trade-tab" data-tab="individual" onclick="switchTradeTab('individual')">🎒 Send Pokémon</button>
       <button class="trade-tab" data-tab="sent" onclick="switchTradeTab('sent')">📨 Sent</button>
     </div>
     <div id="tradeContent" style="margin-top:20px;"></div>
@@ -7871,10 +7870,11 @@ async function openTrade() {
 }
 
 function switchTradeTab(tab) {
+  // 'send' (species-trade) er fjernet — kun individuelle Pokémon fra "My Pokémon" kan byttes nå
+  if (tab === 'send') tab = 'individual';
   currentTradeTab = tab;
   document.querySelectorAll('.trade-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   if (tab === 'inbox') renderInbox();
-  else if (tab === 'send') renderSendForm();
   else if (tab === 'sent') renderSent();
   else if (tab === 'individual') renderIndividualTrade();
 }
