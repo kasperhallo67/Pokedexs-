@@ -199,19 +199,46 @@ app.post('/api/cheat/delete-user', (req, res) => {
     return res.status(403).json({ ok: false, error: 'Ugyldig kode' });
   }
   if (!target) return res.status(400).json({ ok: false, error: 'Ingen target' });
-  if (target === OWNER) return res.status(400).json({ ok: false, error: 'Kan ikke slette eier-kontoen' });
-  // Slett fra users.json
+  if (target.toLowerCase() === OWNER.toLowerCase()) return res.status(400).json({ ok: false, error: 'Kan ikke slette eier-kontoen' });
+  // Case-insensitive søk i både users.json og scores.json
   const users = readJson(USERS_FILE, {});
-  if (!users[target]) return res.status(404).json({ ok: false, error: 'Brukeren finnes ikke' });
-  delete users[target];
-  writeJson(USERS_FILE, users);
-  // Slett fra scores.json
   const scores = readJson(SCORES_FILE, {});
-  if (scores[target]) {
-    delete scores[target];
-    writeJson(SCORES_FILE, scores);
+  const targetLower = target.toLowerCase();
+  // Finn match i users (case-insensitive)
+  let actualUserKey = null;
+  for (const k of Object.keys(users)) {
+    if (k.toLowerCase() === targetLower) { actualUserKey = k; break; }
   }
-  res.json({ ok: true, deleted: target });
+  // Finn match i scores (case-insensitive) — kan eksistere uten konto
+  let actualScoreKey = null;
+  for (const k of Object.keys(scores)) {
+    if (k.toLowerCase() === targetLower) { actualScoreKey = k; break; }
+  }
+  if (!actualUserKey && !actualScoreKey) {
+    // List opp eksisterende brukere som hint
+    const sample = [...new Set([...Object.keys(users), ...Object.keys(scores)])].slice(0, 15).join(', ');
+    return res.status(404).json({
+      ok: false,
+      error: `Brukeren "${target}" finnes ikke. Sjekk store/små bokstaver. Eksisterende: ${sample}${Object.keys(users).length > 15 ? ' ...' : ''}`
+    });
+  }
+  // Slett fra begge filer
+  let deletedFrom = [];
+  if (actualUserKey) {
+    delete users[actualUserKey];
+    writeJson(USERS_FILE, users);
+    deletedFrom.push('users');
+  }
+  if (actualScoreKey) {
+    delete scores[actualScoreKey];
+    writeJson(SCORES_FILE, scores);
+    deletedFrom.push('scores');
+  }
+  res.json({
+    ok: true,
+    deleted: actualUserKey || actualScoreKey,
+    from: deletedFrom
+  });
 });
 
 // === DELTE ENGANGS-KODER (alle kan bruke, men hver bruker kun én gang per kode) ===
