@@ -9549,6 +9549,19 @@ const ACHIEVEMENTS = {
   // 🎒 STORAGE
   storage_50:  { name: 'Collector', desc: 'Have 50 Pokémon in storage', icon: '🎒', reward: 500, check: s => (s.individuals || []).length >= 50 },
   storage_200: { name: 'Hoarder', desc: 'Have 200 Pokémon in storage', icon: '📦', reward: 5000, check: s => (s.individuals || []).length >= 200 },
+
+  // 🗺️ EXPLORE MODE
+  explore_first:     { name: 'First Steps',      desc: 'Take your first step in Explore mode',          icon: '👣',  reward: 200,    check: s => (s.exploreStats?.steps || 0) >= 1 },
+  explore_steps_500: { name: 'Wanderer',         desc: 'Walk 500 steps in Explore mode',                icon: '🚶',  reward: 1000,   check: s => (s.exploreStats?.steps || 0) >= 500 },
+  explore_steps_5000:{ name: 'Marathon Runner',  desc: 'Walk 5,000 steps in Explore mode',              icon: '🏃‍♂️', reward: 10000,  check: s => (s.exploreStats?.steps || 0) >= 5000 },
+  explore_catch_1:   { name: 'Wild Hunter',      desc: 'Catch your first wild Pokémon in Explore',      icon: '🎯',  reward: 500,    check: s => (s.exploreStats?.wildCaught || 0) >= 1 },
+  explore_catch_25:  { name: 'Wild Trainer',     desc: 'Catch 25 wild Pokémon in Explore',              icon: '🌿',  reward: 5000,   check: s => (s.exploreStats?.wildCaught || 0) >= 25 },
+  explore_catch_100: { name: 'Wild Master',      desc: 'Catch 100 wild Pokémon in Explore',             icon: '🏹',  reward: 25000,  check: s => (s.exploreStats?.wildCaught || 0) >= 100 },
+  explore_shiny:     { name: 'Wild Sparkle',     desc: 'Catch a shiny in Explore mode',                 icon: '✨',  reward: 5000,   check: s => (s.exploreStats?.wildShinyCaught || 0) >= 1 },
+  explore_area_2:    { name: 'Explorer',         desc: 'Buy your second Explore area (Engene)',         icon: '🌾',  reward: 1000,   check: s => (s.exploreUnlocked || []).includes(1) },
+  explore_area_5:    { name: 'Volcano Conqueror',desc: 'Unlock the Volcano (area 5)',                   icon: '🌋',  reward: 25000,  check: s => (s.exploreUnlocked || []).includes(4) },
+  explore_area_10:   { name: 'Dream Walker',     desc: 'Unlock the Dream Dimension (area 10)',          icon: '✨',  reward: 500000, check: s => (s.exploreUnlocked || []).includes(9) },
+  explore_no_faint_10: { name: 'Tough Trainer', desc: 'Catch 10 wild without fainting once',           icon: '💪',  reward: 5000,   check: s => (s.exploreStats?.wildCaught || 0) >= 10 && (s.exploreStats?.faints || 0) === 0 },
   storage_max: { name: 'Storage Master', desc: 'Buy storage upgrade', icon: '🏦', reward: 2000, check: s => (s.storagePurchases || 0) >= 1 },
 
   // 🆚 PVP
@@ -12616,6 +12629,9 @@ let exploreEnemyAttackTimer = null; // timer for fiendens passive angrep
 
 // Init unlocked areas hvis ikke satt
 if (!Array.isArray(state.exploreUnlocked)) state.exploreUnlocked = [0];
+if (!state.exploreStats || typeof state.exploreStats !== 'object') {
+  state.exploreStats = { steps: 0, wildCaught: 0, wildShinyCaught: 0, faints: 0, fleeCount: 0, battlesWon: 0 };
+}
 
 // Seeded random — gjør at samme område alltid genererer samme kart
 function seededRandom(seed) {
@@ -12877,6 +12893,12 @@ function exploreLoop(ts) {
           explorePlayer.y = ny;
           explorePlayer.walkFrame = (explorePlayer.walkFrame + 1) % 4;
           exploreSteps++;
+          if (state.exploreStats) state.exploreStats.steps = (state.exploreStats.steps || 0) + 1;
+          // Hvert 50. steg: sjekk achievements + save
+          if (state.exploreStats && state.exploreStats.steps % 50 === 0) {
+            save();
+            checkAchievements();
+          }
           updateExploreStatus();
           const m = exploreCurrentMap || EXPLORE_MAP;
           if (m[ny][nx] === 1) {
@@ -13114,6 +13136,7 @@ function enemyAutoAttack() {
   updatePlayerBattleUI();
   if (exploreBattlePokemon.hp <= 0) {
     stopEnemyAutoAttack();
+    if (state.exploreStats) state.exploreStats.faints = (state.exploreStats.faints || 0) + 1;
     setTimeout(() => {
       document.getElementById('battleMsg').innerHTML = `💀 ${exploreBattlePokemon.name} besvimte!<br>Du flykter tilbake til kartet.`;
       setTimeout(() => {
@@ -13222,6 +13245,7 @@ function battleFlee() {
   if (Math.random() < 0.7) {
     setExploreLog('🏃 Du flyktet!');
     stopEnemyAutoAttack();
+    if (state.exploreStats) state.exploreStats.fleeCount = (state.exploreStats.fleeCount || 0) + 1;
     exploreBattle = null;
     document.getElementById('battleOverlay').style.display = 'none';
   } else {
@@ -13234,6 +13258,12 @@ function catchEncounteredPokemon() {
   stopEnemyAutoAttack();
   const b = exploreBattle;
   const pokemon = b.pokemon;
+  // Stats
+  if (state.exploreStats) {
+    state.exploreStats.wildCaught = (state.exploreStats.wildCaught || 0) + 1;
+    state.exploreStats.battlesWon = (state.exploreStats.battlesWon || 0) + 1;
+    if (b.isShiny) state.exploreStats.wildShinyCaught = (state.exploreStats.wildShinyCaught || 0) + 1;
+  }
   // Legg til som individ (hvis plass)
   if (state.individuals.length >= state.storageMax) {
     document.getElementById('battleMsg').innerHTML = '📦 Storage er full! Ingen plass til å fange.';
