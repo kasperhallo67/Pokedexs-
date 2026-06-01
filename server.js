@@ -141,7 +141,7 @@ app.post('/api/cheat/give', (req, res) => {
   if (sender !== OWNER) {
     return res.status(403).json({ ok: false, error: 'Only the owner can use this cheat' });
   }
-  if (code !== 'aL5sGift_q8e6') {
+  if (code !== '5694') {
     return res.status(403).json({ ok: false, error: 'Invalid cheat code' });
   }
   if (!target) return res.status(400).json({ ok: false, error: 'No target username' });
