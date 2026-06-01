@@ -157,7 +157,7 @@ app.post('/api/cheat/give', (req, res) => {
   const amount = parseInt(d.amount) || 0;
   // Ny owner-kode (de gamle ble lekket) + sjekk at avsender er eier
   const sender = (d.senderUsername || '').trim();
-  const OWNER = 'kasperhallo0';
+  const OWNER = 'Kasperhallo0';
   if (sender !== OWNER) {
     return res.status(403).json({ ok: false, error: 'Only the owner can use this cheat' });
   }
@@ -191,7 +191,7 @@ app.post('/api/cheat/delete-user', (req, res) => {
   const code = String(d.code || '');
   const target = (d.targetUsername || '').trim();
   const sender = (d.senderUsername || '').trim();
-  const OWNER = 'kasperhallo0';
+  const OWNER = 'Kasperhallo0';
   if (sender !== OWNER) {
     return res.status(403).json({ ok: false, error: 'Kun owner kan bruke denne koden' });
   }
