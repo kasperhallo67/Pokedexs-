@@ -165,8 +165,9 @@ app.post('/api/cheat/give', (req, res) => {
   }
 });
 
-// === GLOBALE ENGANGS-KODER (kun én bruker per kode, globalt) ===
-// Disse 10 kodene gir 500 000 coins hver, men kan kun brukes av ÉN bruker totalt.
+// === DELTE ENGANGS-KODER (alle kan bruke, men hver bruker kun én gang per kode) ===
+// Disse 10 kodene gir 500 000 coins hver. Alle brukere kan løse inn hver kode,
+// men kun ÉN gang per konto per kode.
 const ONE_TIME_GLOBAL_CODES = {
   '384721': 500000,
   '105693': 500000,
@@ -189,12 +190,22 @@ app.post('/api/cheat/onetime', (req, res) => {
   if (!(code in ONE_TIME_GLOBAL_CODES)) {
     return res.status(404).json({ ok: false, error: 'Ugyldig kode' });
   }
+  // Redeem-struktur: { code: { users: { username1: {...}, username2: {...} } } }
+  // Sjekk om DENNE brukeren allerede har brukt koden
   const redeemed = readJson(REDEEM_FILE, {});
-  if (redeemed[code]) {
+  if (!redeemed[code]) redeemed[code] = { users: {} };
+  // Backward-compat: hvis gammel struktur uten "users", konverter
+  if (!redeemed[code].users) {
+    if (redeemed[code].username) {
+      redeemed[code] = { users: { [redeemed[code].username]: { amount: redeemed[code].amount, claimedAt: redeemed[code].claimedAt } } };
+    } else {
+      redeemed[code] = { users: {} };
+    }
+  }
+  if (redeemed[code].users[username]) {
     return res.status(409).json({
       ok: false,
-      error: `Koden er allerede brukt av ${redeemed[code].username}`,
-      usedBy: redeemed[code].username
+      error: 'Du har allerede brukt denne koden! (Hver bruker kan kun bruke hver kode én gang)'
     });
   }
   const users = readJson(USERS_FILE, {});
@@ -211,8 +222,8 @@ app.post('/api/cheat/onetime', (req, res) => {
       scores[username].coins = userState.coins;
       writeJson(SCORES_FILE, scores);
     }
-    // Marker koden som brukt
-    redeemed[code] = { username, amount, claimedAt: new Date().toISOString() };
+    // Marker at DENNE brukeren har brukt koden (andre kan fortsatt bruke den)
+    redeemed[code].users[username] = { amount, claimedAt: new Date().toISOString() };
     writeJson(REDEEM_FILE, redeemed);
     res.json({ ok: true, amount, newCoins: userState.coins });
   } catch (e) {
