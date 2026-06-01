@@ -99,6 +99,11 @@ app.post('/api/score', (req, res) => {
   if (!username || username.length > 30) {
     return res.status(400).json({ ok: false, error: 'invalid username' });
   }
+  // BAN-SJEKK: hvis brukeren ble slettet på serveren, ikke godta scoren — returner banned-flag
+  const users = readJson(USERS_FILE, {});
+  if (!users[username]) {
+    return res.status(403).json({ ok: false, banned: true, error: 'Account has been permanently deleted' });
+  }
   const scores = readJson(SCORES_FILE, {});
   scores[username] = {
     totalCaught: parseInt(d.totalCaught) || 0,
@@ -545,6 +550,14 @@ app.post('/api/account/login', (req, res) => {
   if (!users[u]) return res.status(404).json({ ok: false, error: 'User not found' });
   if (users[u].password !== password) return res.status(401).json({ ok: false, error: 'Wrong password' });
   res.json({ ok: true, state: users[u].state });
+});
+
+// Sjekk om en konto fortsatt eksisterer (brukes til ban-deteksjon)
+app.get('/api/account/check', (req, res) => {
+  const u = (req.query.username || '').trim();
+  const users = readJson(USERS_FILE, {});
+  if (!users[u]) return res.json({ exists: false, banned: true });
+  res.json({ exists: true, banned: false });
 });
 
 app.post('/api/account/sync', (req, res) => {

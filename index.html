@@ -6077,6 +6077,8 @@ if (state.username) {
       localStorage.setItem('pokeAccounts', JSON.stringify(accts));
     }
   } catch {}
+  // Start ban-watcher hvis allerede logget inn ved oppstart
+  setTimeout(() => { if (typeof startBanWatcher === 'function') startBanWatcher(); }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
 for (const ind of state.individuals) {
@@ -7446,6 +7448,7 @@ async function loginToOther() {
     updateUI();
     document.getElementById('loginOverlay').classList.add('hidden');
     submitScore();
+    startBanWatcher();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }
@@ -7725,8 +7728,62 @@ function submitScore() {
           glasses: state.character.equipped.glasses
         } : null
       })
+    }).then(r => r.json()).then(d => {
+      if (d && d.banned) {
+        showBanScreen();
+      }
     }).catch(e => console.warn('Kunne ikke sende score:', e));
   }, 800);
+}
+
+// === BAN-DETEKSJON ===
+// Sjekk hvert 20. sekund om kontoen fortsatt eksisterer.
+// Hvis ikke: vis "du har blitt bannet"-skjerm og lås spillet.
+let _banCheckTimer = null;
+let _banScreenShown = false;
+function startBanWatcher() {
+  if (_banCheckTimer) clearInterval(_banCheckTimer);
+  _banCheckTimer = setInterval(checkBanStatus, 20000);
+  checkBanStatus();
+}
+async function checkBanStatus() {
+  if (!state.username || _banScreenShown) return;
+  try {
+    const r = await fetch('/api/account/check?username=' + encodeURIComponent(state.username));
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d && d.banned) showBanScreen();
+  } catch (e) { /* ignorer nettverksfeil */ }
+}
+function showBanScreen() {
+  if (_banScreenShown) return;
+  _banScreenShown = true;
+  if (_banCheckTimer) { clearInterval(_banCheckTimer); _banCheckTimer = null; }
+  // Wipe lokal state slik at de ikke kan bare laste om
+  try {
+    localStorage.removeItem('pokemonState');
+    localStorage.removeItem('pokemonState_' + state.username);
+  } catch {}
+  // Bygg full-skjerm overlay
+  let overlay = document.getElementById('banOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'banOverlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:monospace;color:#fff;padding:40px;text-align:center;';
+  overlay.innerHTML = `
+    <div style="font-size:80px;margin-bottom:10px;animation:banPulse 1.4s ease-in-out infinite;">🚫</div>
+    <div style="font-size:48px;font-weight:bold;color:#e74c3c;text-shadow:0 0 12px #e74c3c;letter-spacing:2px;margin-bottom:8px;">DU HAR BLITT BANNET</div>
+    <div style="font-size:24px;color:#ff6b6b;margin-bottom:30px;">PERMANENT</div>
+    <div style="font-size:16px;color:#aaa;max-width:600px;line-height:1.6;margin-bottom:30px;">
+      Kontoen din "<b style="color:#fff;">${(state.username || '').replace(/[<>&]/g, '')}</b>" er slettet permanent fra serveren av en administrator.
+      <br><br>
+      All Pokémon, alle coins og hele framgangen din er borte. Du kan ikke logge inn på denne kontoen igjen.
+    </div>
+    <button onclick="location.reload()" style="padding:14px 32px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;">Lukk</button>
+    <style>@keyframes banPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }</style>
+  `;
 }
 
 function openLeaderboard() {
