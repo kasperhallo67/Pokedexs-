@@ -634,6 +634,26 @@
   }
   .my-poke-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.4); }
   .my-poke-card.shiny { border-color: gold; box-shadow: 0 0 12px rgba(255,215,0,0.5); }
+  .my-poke-card.selected { border-color: #e74c3c; box-shadow: 0 0 14px rgba(231,76,60,0.85); transform: translateY(-2px); }
+  .my-poke-card.selectable { cursor: pointer; }
+  .my-poke-card .select-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    z-index: 5;
+  }
+  .my-poke-card.selected .select-badge { background: #e74c3c; border-color: #fff; }
   .my-poke-card img { width: 80px; height: 80px; image-rendering: pixelated; }
   .my-poke-card .name { font-size: 13px; font-weight: bold; color: #fff; margin-top: 4px; }
   .my-poke-card .cp { font-size: 16px; color: #7df; font-weight: bold; text-shadow: 0 0 4px #2af; margin: 2px 0; }
@@ -9624,12 +9644,85 @@ function showAddAccount() {
 let myPokemonSort = 'cp'; // 'cp', 'rarity', 'date', 'name'
 let myPokemonSearch = ''; // søketekst
 let myPokemonTypeFilter = ''; // filter etter type
+let multiSelectMode = false;          // Når true: klikk på kort = velg/avvelg
+let selectedUids = new Set();         // Valgte uids i multi-select
 function openMyPokemons() {
   document.getElementById('myPokemonsModal').classList.add('active');
   renderMyPokemons();
 }
 function closeMyPokemons() {
   document.getElementById('myPokemonsModal').classList.remove('active');
+  // Avslutt multi-select når modal lukkes
+  multiSelectMode = false;
+  selectedUids.clear();
+}
+function toggleMultiSelect() {
+  multiSelectMode = !multiSelectMode;
+  selectedUids.clear();
+  renderMyPokemons();
+}
+function toggleSelectIndividual(uid) {
+  if (!multiSelectMode) return;
+  if (state.buddyUid === uid) { alert('Kan ikke velge buddy-en din. Bytt buddy først.'); return; }
+  if (selectedUids.has(uid)) selectedUids.delete(uid);
+  else selectedUids.add(uid);
+  renderMyPokemonsGrid();
+  // Oppdater header-knapper også
+  const cntEl = document.getElementById('multiSelCount');
+  if (cntEl) cntEl.textContent = selectedUids.size;
+}
+function selectAllVisible() {
+  // Hent alle som vises i grid akkurat nå (etter sort + søk), unntatt buddy
+  const sorted = [...state.individuals];
+  if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
+  else if (myPokemonSort === 'rarity') {
+    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
+  }
+  else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
+  else if (myPokemonSort === 'name') sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const visible = sorted.filter(ind => {
+    if (myPokemonSearch && !ind.name.toLowerCase().includes(myPokemonSearch)) return false;
+    return true;
+  });
+  for (const ind of visible) {
+    if (ind.uid !== state.buddyUid) selectedUids.add(ind.uid);
+  }
+  renderMyPokemons();
+}
+function clearSelection() {
+  selectedUids.clear();
+  renderMyPokemons();
+}
+function sellSelected() {
+  if (selectedUids.size === 0) { alert('Ingen Pokémon valgt.'); return; }
+  const toSell = state.individuals.filter(i => selectedUids.has(i.uid) && i.uid !== state.buddyUid);
+  if (toSell.length === 0) { alert('Ingen gyldige Pokémon å selge.'); return; }
+  // Forhåndsregn total refund + candy
+  let totalRefund = 0;
+  const candyBySpecies = {};
+  for (const ind of toSell) {
+    const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
+    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+    candyBySpecies[ind.id] = (candyBySpecies[ind.id] || 0) + 1;
+  }
+  if (!confirm(`Selg ${toSell.length} valgte Pokémon?\n💰 +${totalRefund} coins\n🍬 +${toSell.length} candy totalt`)) return;
+  const soldUids = new Set(toSell.map(i => i.uid));
+  state.individuals = state.individuals.filter(i => !soldUids.has(i.uid));
+  state.coins += totalRefund;
+  if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+  const candyLines = [];
+  for (const [pokeIdStr, n] of Object.entries(candyBySpecies)) {
+    const pokeId = parseInt(pokeIdStr);
+    state.candy[pokeId] = (state.candy[pokeId] || 0) + n;
+    const poke = POKEMONS.find(p => p.id === pokeId);
+    candyLines.push(`${n}× ${poke ? poke.name : '#' + pokeId}`);
+  }
+  selectedUids.clear();
+  multiSelectMode = false;
+  alert(`Solgte ${toSell.length} Pokémon!\n💰 +${totalRefund} coins\n🍬 ${candyLines.join(', ')}`);
+  save(); updateUI();
+  renderMyPokemons();
 }
 function setMyPokeSort(sort) {
   myPokemonSort = sort;
@@ -9785,6 +9878,12 @@ function renderMyPokemons() {
       <div class="my-poke-storage-bar"><div class="my-poke-storage-fill ${fillClass}" style="width:${Math.min(100, pct)}%;"></div></div>
       <button class="refresh-btn" style="background:#27ae60;" onclick="buyStorage()">💰 Buy +50 slots (${cost})</button>
       <button class="refresh-btn" style="background:#e74c3c;" onclick="releaseAllWeak()">🗑️ Sell weak (by CP)</button>
+      <button class="refresh-btn" style="background:${multiSelectMode ? '#95a5a6' : '#8e44ad'};" onclick="toggleMultiSelect()">${multiSelectMode ? '✖ Avbryt valg' : '☑️ Velg flere'}</button>
+      ${multiSelectMode ? `
+        <button class="refresh-btn" style="background:#3498db;" onclick="selectAllVisible()">🔲 Velg alle (synlige)</button>
+        <button class="refresh-btn" style="background:#7f8c8d;" onclick="clearSelection()">🚫 Nullstill</button>
+        <button class="refresh-btn" style="background:#c0392b;font-weight:bold;" onclick="sellSelected()">💰 Selg valgte (<span id="multiSelCount">${selectedUids.size}</span>)</button>
+      ` : ''}
     </div>
     <div style="background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:12px;color:#fff;">
       💡 <strong>Sell a Bulbasaur</strong> → get <strong>1 Bulbasaur Candy 🍬</strong>. Each species has its own candy. <strong>3 candy = +10% CP</strong> upgrade for that specific Pokémon.
@@ -9833,8 +9932,12 @@ function renderMyPokemonsGrid() {
     const spriteUrl = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
     const type = ind.type || getPokeType(ind.id);
     const isBuddy = state.buddyUid === ind.uid;
+    const isSelected = selectedUids.has(ind.uid);
+    const cardClasses = `my-poke-card ${ind.isShiny ? 'shiny' : ''} ${multiSelectMode ? 'selectable' : ''} ${isSelected ? 'selected' : ''}`;
+    const onCardClick = multiSelectMode && !isBuddy ? `onclick="toggleSelectIndividual('${ind.uid}')"` : '';
     return `
-      <div class="my-poke-card ${ind.isShiny ? 'shiny' : ''}" ${isBuddy ? 'style="border-color:gold;box-shadow:0 0 15px gold;"' : ''}>
+      <div class="${cardClasses}" ${onCardClick} ${isBuddy && !multiSelectMode ? 'style="border-color:gold;box-shadow:0 0 15px gold;"' : ''}>
+        ${multiSelectMode && !isBuddy ? `<div class="select-badge">${isSelected ? '✓' : ''}</div>` : ''}
         ${ind.isShiny ? '<div class="my-poke-shiny-badge">✨</div>' : ''}
         ${isBuddy ? '<div style="position:absolute;top:4px;left:4px;background:gold;color:#333;padding:1px 5px;border-radius:6px;font-size:10px;font-weight:bold;">★ BUDDY</div>' : ''}
         <img src="${spriteUrl}" alt="${ind.name}" loading="lazy">
@@ -9845,14 +9948,16 @@ function renderMyPokemonsGrid() {
         <span class="rarity-tag rarity-${ind.rarity}" style="font-size:10px;">${RARITY_NAMES[ind.rarity]}</span>
         ${(ind.upgrades || 0) > 0 ? `<div style="font-size:10px;color:#9b59b6;font-weight:bold;">⬆️ Lvl ${ind.upgrades}</div>` : ''}
         ${ind.eventType ? `<div style="font-size:10px;color:#ff6ec4;">🎉 ${eventName(ind.eventType)}</div>` : ''}
-        ${(() => {
-          const { candy: cc, coins: cn } = upgradeCost(ind.upgrades || 0);
-          const have = (state.candy && state.candy[ind.id]) || 0;
-          const canUp = have >= cc && state.coins >= cn;
-          return `<button class="release-btn" style="background:${canUp ? '#9b59b6' : '#555'};" onclick="upgradeIndividual('${ind.uid}')" title="Cost: ${cc} ${ind.name} Candy + ${cn} coins">🍬${have}/${cc} 💰${cn}</button>`;
-        })()}
-        <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
-        <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
+        ${multiSelectMode ? '' : `
+          ${(() => {
+            const { candy: cc, coins: cn } = upgradeCost(ind.upgrades || 0);
+            const have = (state.candy && state.candy[ind.id]) || 0;
+            const canUp = have >= cc && state.coins >= cn;
+            return `<button class="release-btn" style="background:${canUp ? '#9b59b6' : '#555'};" onclick="upgradeIndividual('${ind.uid}')" title="Cost: ${cc} ${ind.name} Candy + ${cn} coins">🍬${have}/${cc} 💰${cn}</button>`;
+          })()}
+          <button class="release-btn" style="background:${isBuddy ? '#f39c12' : '#3498db'};" onclick="setIndividualAsBuddy('${ind.uid}')">${isBuddy ? '★ Active' : '⭐ Set buddy'}</button>
+          <button class="release-btn" onclick="releaseIndividual('${ind.uid}')" ${isBuddy ? 'disabled' : ''}>💰 Sell (+🍬)</button>
+        `}
       </div>
     `;
   }).join('');
