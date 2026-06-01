@@ -349,6 +349,103 @@
   .casino-result.win  { color: #2ecc71; text-shadow: 0 0 10px #2ecc71; }
   .casino-result.lose { color: #e74c3c; }
 
+  /* ROULETTE */
+  .roulette-wheel {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    margin: 10px auto;
+    border: 6px solid #5a3a1a;
+    box-shadow: 0 0 20px rgba(0,0,0,0.7), inset 0 0 15px rgba(0,0,0,0.5);
+    position: relative;
+    background: conic-gradient(
+      #2c3e50 0deg, #e74c3c 9.73deg, #2c3e50 19.46deg, #e74c3c 29.19deg,
+      #2c3e50 38.92deg, #e74c3c 48.65deg, #2c3e50 58.38deg, #e74c3c 68.11deg,
+      #2c3e50 77.84deg, #e74c3c 87.57deg, #2c3e50 97.30deg, #e74c3c 107.03deg,
+      #2c3e50 116.76deg, #e74c3c 126.49deg, #2c3e50 136.22deg, #e74c3c 145.95deg,
+      #2c3e50 155.68deg, #e74c3c 165.41deg, #2c3e50 175.14deg, #2ecc71 184.87deg,
+      #e74c3c 194.60deg, #2c3e50 204.33deg, #e74c3c 214.06deg, #2c3e50 223.79deg,
+      #e74c3c 233.52deg, #2c3e50 243.25deg, #e74c3c 252.98deg, #2c3e50 262.71deg,
+      #e74c3c 272.44deg, #2c3e50 282.17deg, #e74c3c 291.90deg, #2c3e50 301.63deg,
+      #e74c3c 311.36deg, #2c3e50 321.09deg, #e74c3c 330.82deg, #2c3e50 340.55deg,
+      #e74c3c 350.27deg, #2c3e50 360deg);
+    transition: transform 4s cubic-bezier(0.17, 0.67, 0.21, 0.99);
+  }
+  .roulette-pointer {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 22px solid gold;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    z-index: 3;
+  }
+  .roulette-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px; height: 60px;
+    background: radial-gradient(circle, #fff, #888);
+    border-radius: 50%;
+    border: 3px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 22px;
+    color: #333;
+    z-index: 2;
+  }
+  .roulette-bets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+  }
+  .roulette-bet-btn {
+    padding: 8px 4px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 2px solid #555;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.15s;
+  }
+  .roulette-bet-btn:hover { background: rgba(0,0,0,0.7); border-color: #888; }
+  .roulette-bet-btn.active { border-color: gold; box-shadow: 0 0 10px rgba(255,215,0,0.6); background: rgba(241,196,15,0.2); }
+  .roulette-bet-btn.red { background: rgba(231,76,60,0.5); }
+  .roulette-bet-btn.black { background: rgba(44,62,80,0.7); }
+  .roulette-bet-btn.green { background: rgba(46,204,113,0.5); }
+  .roulette-numbers {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 3px;
+    margin: 8px 0;
+  }
+  .roulette-num {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 11px;
+    color: #fff;
+    border: 2px solid transparent;
+    transition: all 0.1s;
+  }
+  .roulette-num.red { background: #e74c3c; }
+  .roulette-num.black { background: #2c3e50; }
+  .roulette-num.green { background: #2ecc71; grid-column: span 12; aspect-ratio: auto; padding: 4px 0; }
+  .roulette-num.active { border-color: gold; box-shadow: 0 0 8px gold; transform: scale(1.1); }
+  .roulette-num:hover { opacity: 0.85; }
+
   /* PLINKO */
   .plinko-board {
     position: relative;
@@ -3901,6 +3998,7 @@
       <button class="trade-tab" data-game="pvp" onclick="switchCasino('pvp')">🆚 PvP Battle</button>
       <button class="trade-tab" data-game="coinflip" onclick="switchCasino('coinflip')">🪙 Coin Flip</button>
       <button class="trade-tab" data-game="slots" onclick="switchCasino('slots')">🎰 Slots</button>
+      <button class="trade-tab" data-game="roulette" onclick="switchCasino('roulette')">🎡 Roulette</button>
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
@@ -9698,15 +9796,18 @@ function sellSelected() {
   if (selectedUids.size === 0) { alert('Ingen Pokémon valgt.'); return; }
   const toSell = state.individuals.filter(i => selectedUids.has(i.uid) && i.uid !== state.buddyUid);
   if (toSell.length === 0) { alert('Ingen gyldige Pokémon å selge.'); return; }
-  // Forhåndsregn total refund + candy
+  // Forhåndsregn total refund + candy (med shiny-bonus)
   let totalRefund = 0;
   const candyBySpecies = {};
+  let shinyCount = 0;
   for (const ind of toSell) {
     const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
-    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+    const shinyMult = ind.isShiny ? 5 : 1;
+    if (ind.isShiny) shinyCount++;
+    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5 * shinyMult));
     candyBySpecies[ind.id] = (candyBySpecies[ind.id] || 0) + 1;
   }
-  if (!confirm(`Selg ${toSell.length} valgte Pokémon?\n💰 +${totalRefund} coins\n🍬 +${toSell.length} candy totalt`)) return;
+  if (!confirm(`Selg ${toSell.length} valgte Pokémon${shinyCount ? ` (inkl. ${shinyCount} ✨ shinies)` : ''}?\n💰 +${totalRefund} coins\n🍬 +${toSell.length} candy totalt`)) return;
   const soldUids = new Set(toSell.map(i => i.uid));
   state.individuals = state.individuals.filter(i => !soldUids.has(i.uid));
   state.coins += totalRefund;
@@ -9765,8 +9866,9 @@ function releaseIndividual(uid) {
   if (state.buddyUid === uid) { alert('Cannot release your active buddy! Set a different buddy first.'); return; }
   // Slipp gir tilbake litt coins basert på CP + 1 candy 🍬
   const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
-  const refund = Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
-  if (!confirm(`Sell ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nYou get: ${refund} 💰 + 1 🍬 ${ind.name} Candy`)) return;
+  const shinyMult = ind.isShiny ? 5 : 1;
+  const refund = Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5 * shinyMult));
+  if (!confirm(`Sell ${ind.isShiny ? '✨ ' : ''}${ind.name} (CP ${ind.cp})?\nYou get: ${refund} 💰${ind.isShiny ? ' (5x SHINY-bonus!)' : ''} + 1 🍬 ${ind.name} Candy`)) return;
   state.individuals.splice(idx, 1);
   state.coins += refund;
   if (!state.candy || typeof state.candy !== 'object') state.candy = {};
@@ -9775,20 +9877,29 @@ function releaseIndividual(uid) {
   renderMyPokemons();
 }
 function releaseAllWeak() {
-  const threshold = parseInt(prompt('Sell all with CP under what? (e.g. 50). Skips shinies and buddy.', '50') || '0');
+  const threshold = parseInt(prompt('Selg alle med CP under hva? (f.eks. 50). Hopper over buddy.', '50') || '0');
   if (!threshold) return;
-  const toRelease = state.individuals.filter(i => i.cp < threshold && !i.isShiny && i.uid !== state.buddyUid);
-  if (toRelease.length === 0) { alert('No Pokémon under CP ' + threshold + '.'); return; }
-  if (!confirm(`Sell ${toRelease.length} Pokémon (all with CP < ${threshold})?\nYou get: coins + ${toRelease.length} 🍬 candy`)) return;
+  const includeShinies = confirm('Vil du også selge ✨ SHINIES under denne CP-en?\n\nOK = ja, selg shinies også\nCancel = nei, hopp over shinies');
+  const toRelease = state.individuals.filter(i =>
+    i.cp < threshold &&
+    i.uid !== state.buddyUid &&
+    (includeShinies || !i.isShiny)
+  );
+  if (toRelease.length === 0) { alert('Ingen Pokémon under CP ' + threshold + '.'); return; }
+  const shinyN = toRelease.filter(i => i.isShiny).length;
+  if (!confirm(`Selg ${toRelease.length} Pokémon (CP < ${threshold})${shinyN ? `, inkl. ${shinyN} ✨ shinies` : ''}?\nDu får: coins + ${toRelease.length} 🍬 candy`)) return;
   let totalRefund = 0;
   const candyBySpecies = {};
   for (const ind of toRelease) {
     const cpMult = cpPriceMultiplier(ind.cp, ind.rarity);
-    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5));
+    // Shinies gir 5x mer ved salg
+    const shinyMult = ind.isShiny ? 5 : 1;
+    totalRefund += Math.max(1, Math.round(SELL_PRICES[ind.rarity] * cpMult * 0.5 * shinyMult));
     candyBySpecies[ind.id] = (candyBySpecies[ind.id] || 0) + 1;
   }
   const releasedCount = toRelease.length;
-  state.individuals = state.individuals.filter(i => !(i.cp < threshold && !i.isShiny && i.uid !== state.buddyUid));
+  const releasedUids = new Set(toRelease.map(i => i.uid));
+  state.individuals = state.individuals.filter(i => !releasedUids.has(i.uid));
   state.coins += totalRefund;
   if (!state.candy || typeof state.candy !== 'object') state.candy = {};
   const candyLines = [];
@@ -10865,6 +10976,7 @@ function switchCasino(game) {
   else if (game === 'pvp') renderPvp();
   else if (game === 'coinflip') renderCoinflip();
   else if (game === 'slots') renderSlots();
+  else if (game === 'roulette') renderRoulette();
 }
 
 // ----- PLINKO -----
@@ -12235,6 +12347,211 @@ function slotsResolve(bet, results) {
     resultEl.className = 'casino-result lose';
     resultEl.innerHTML = `😔 ${results.join(' ')} — no match. Try again!`;
   }
+}
+
+// ----- ROULETTE -----
+// Europeisk rulett (single zero, tall 0-36)
+const ROULETTE_RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function rouletteColor(n) {
+  if (n === 0) return 'green';
+  return ROULETTE_RED.has(n) ? 'red' : 'black';
+}
+let rouletteBets = {};   // { type: amount }  — flere bets samtidig
+let rouletteRotation = 0; // gjeldende rotasjon (akkumulert)
+let rouletteSpinning = false;
+
+function renderRoulette() {
+  const c = document.getElementById('casinoContent');
+  rouletteBets = {};
+  rouletteSpinning = false;
+  c.innerHTML = `
+    <div class="casino-controls">
+      <label>Bet: <input id="rouletteBet" type="number" min="1" value="100"></label>
+      <button class="quick-bet" onclick="setBet('rouletteBet', 100)">100</button>
+      <button class="quick-bet" onclick="setBet('rouletteBet', 1000)">1k</button>
+      <button class="quick-bet" onclick="setBet('rouletteBet', 10000)">10k</button>
+      <button class="quick-bet" onclick="halfBet('rouletteBet')">½</button>
+      <button class="quick-bet" onclick="doubleBet('rouletteBet')">2x</button>
+    </div>
+    <div style="position:relative;width:240px;margin:0 auto;">
+      <div class="roulette-pointer"></div>
+      <div class="roulette-wheel" id="rouletteWheel"></div>
+      <div class="roulette-center" id="rouletteResultNum">?</div>
+    </div>
+    <div style="text-align:center;margin:8px 0;color:#fff;font-size:13px;">
+      Velg ett eller flere bets (samme innsats på hver), så klikk Spin.
+    </div>
+    <div class="roulette-bets">
+      <button class="roulette-bet-btn red" data-bet="red" onclick="toggleRouletteBet('red')">🔴 Red (×2)</button>
+      <button class="roulette-bet-btn black" data-bet="black" onclick="toggleRouletteBet('black')">⚫ Black (×2)</button>
+      <button class="roulette-bet-btn" data-bet="odd" onclick="toggleRouletteBet('odd')">Odd (×2)</button>
+      <button class="roulette-bet-btn" data-bet="even" onclick="toggleRouletteBet('even')">Even (×2)</button>
+      <button class="roulette-bet-btn" data-bet="low" onclick="toggleRouletteBet('low')">1-18 (×2)</button>
+      <button class="roulette-bet-btn" data-bet="high" onclick="toggleRouletteBet('high')">19-36 (×2)</button>
+      <button class="roulette-bet-btn" data-bet="dozen1" onclick="toggleRouletteBet('dozen1')">1-12 (×3)</button>
+      <button class="roulette-bet-btn" data-bet="dozen2" onclick="toggleRouletteBet('dozen2')">13-24 (×3)</button>
+      <button class="roulette-bet-btn" data-bet="dozen3" onclick="toggleRouletteBet('dozen3')">25-36 (×3)</button>
+      <button class="roulette-bet-btn green" data-bet="num_0" onclick="toggleRouletteBet('num_0')">🟢 0 (×36)</button>
+      <button class="roulette-bet-btn" data-bet="col1" onclick="toggleRouletteBet('col1')">Col 1 (×3)</button>
+      <button class="roulette-bet-btn" data-bet="col2" onclick="toggleRouletteBet('col2')">Col 2 (×3)</button>
+    </div>
+    <div style="color:#aaa;font-size:12px;text-align:center;margin-bottom:5px;">Eller velg et tall (×36):</div>
+    <div class="roulette-numbers" id="rouletteNumbers"></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+      <button class="casino-btn" id="rouletteSpinBtn" onclick="spinRoulette()" style="background:#e91e63;">🎡 SPIN!</button>
+      <button class="casino-btn" onclick="clearRouletteBets()" style="background:#7f8c8d;">🗑️ Clear bets</button>
+    </div>
+    <div id="rouletteBetsDisplay" style="color:#fff;font-size:13px;text-align:center;margin-top:8px;min-height:20px;"></div>
+    <div class="casino-result" id="rouletteResult"></div>
+  `;
+  buildRouletteNumbers();
+  renderRouletteBetsDisplay();
+}
+
+function buildRouletteNumbers() {
+  const wrap = document.getElementById('rouletteNumbers');
+  if (!wrap) return;
+  let html = `<div class="roulette-num green" data-num="0" onclick="toggleRouletteBet('num_0')">🟢 0</div>`;
+  for (let n = 1; n <= 36; n++) {
+    const col = rouletteColor(n);
+    html += `<div class="roulette-num ${col}" data-num="${n}" onclick="toggleRouletteBet('num_${n}')">${n}</div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function toggleRouletteBet(type) {
+  if (rouletteSpinning) return;
+  if (rouletteBets[type]) {
+    delete rouletteBets[type];
+  } else {
+    rouletteBets[type] = 1; // marker som aktiv; faktisk innsats settes ved spin
+  }
+  // Highlight knapper
+  document.querySelectorAll('.roulette-bet-btn').forEach(b => {
+    b.classList.toggle('active', !!rouletteBets[b.dataset.bet]);
+  });
+  document.querySelectorAll('.roulette-num').forEach(n => {
+    n.classList.toggle('active', !!rouletteBets['num_' + n.dataset.num]);
+  });
+  renderRouletteBetsDisplay();
+}
+
+function clearRouletteBets() {
+  if (rouletteSpinning) return;
+  rouletteBets = {};
+  document.querySelectorAll('.roulette-bet-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.roulette-num').forEach(n => n.classList.remove('active'));
+  renderRouletteBetsDisplay();
+}
+
+function renderRouletteBetsDisplay() {
+  const el = document.getElementById('rouletteBetsDisplay');
+  if (!el) return;
+  const keys = Object.keys(rouletteBets);
+  if (keys.length === 0) { el.textContent = 'Ingen bets enda. Velg minst én.'; return; }
+  el.textContent = `Aktive bets: ${keys.length}`;
+}
+
+function rouletteBetWins(type, n) {
+  if (type === 'red')   return rouletteColor(n) === 'red';
+  if (type === 'black') return rouletteColor(n) === 'black';
+  if (type === 'odd')   return n !== 0 && n % 2 === 1;
+  if (type === 'even')  return n !== 0 && n % 2 === 0;
+  if (type === 'low')   return n >= 1 && n <= 18;
+  if (type === 'high')  return n >= 19 && n <= 36;
+  if (type === 'dozen1') return n >= 1 && n <= 12;
+  if (type === 'dozen2') return n >= 13 && n <= 24;
+  if (type === 'dozen3') return n >= 25 && n <= 36;
+  if (type === 'col1')  return n !== 0 && n % 3 === 1;
+  if (type === 'col2')  return n !== 0 && n % 3 === 2;
+  if (type === 'col3')  return n !== 0 && n % 3 === 0;
+  if (type.startsWith('num_')) return parseInt(type.slice(4)) === n;
+  return false;
+}
+
+function rouletteBetPayout(type) {
+  if (['red','black','odd','even','low','high'].includes(type)) return 2; // 1:1 → får 2x innsats tilbake
+  if (['dozen1','dozen2','dozen3','col1','col2','col3'].includes(type)) return 3; // 2:1
+  if (type.startsWith('num_')) return 36; // 35:1
+  return 0;
+}
+
+function spinRoulette() {
+  if (rouletteSpinning) return;
+  const betInput = document.getElementById('rouletteBet');
+  const bet = parseInt(betInput.value);
+  const resultEl = document.getElementById('rouletteResult');
+  if (!bet || bet < 1) { resultEl.textContent = 'Skriv inn gyldig bet'; return; }
+  const activeBets = Object.keys(rouletteBets);
+  if (activeBets.length === 0) { resultEl.textContent = 'Velg minst én bet først!'; return; }
+  const totalCost = bet * activeBets.length;
+  if (state.coins < totalCost) {
+    resultEl.className = 'casino-result lose';
+    resultEl.textContent = `For lite coins! Trenger ${totalCost.toLocaleString()} (${activeBets.length} bets × ${bet})`;
+    return;
+  }
+  state.coins -= totalCost;
+  save(); updateUI();
+  resultEl.textContent = '';
+  rouletteSpinning = true;
+  document.getElementById('rouletteSpinBtn').disabled = true;
+
+  // Trekk tilfeldig vinner-tall
+  const winNum = Math.floor(Math.random() * 37); // 0..36
+
+  // Animer hjulet: roter til winNum lander på toppen
+  const wheel = document.getElementById('rouletteWheel');
+  const numEl = document.getElementById('rouletteResultNum');
+  const sliceDeg = 360 / 37;
+  // winnerOffset: hvor mange grader hjulet må rotere så at winNum havner på topp (under pointer)
+  // I conic-gradient ovenfor starter slice 0 på 0deg (toppen). Hver slice tar 360/37 = ~9.73deg.
+  // For å få winNum på topp må vi rotere -(winNum * sliceDeg).
+  const baseTarget = -winNum * sliceDeg;
+  // Legg på minst 6 hele rotasjoner for dramatikk
+  const spins = 6 + Math.floor(Math.random() * 3);
+  rouletteRotation = baseTarget - spins * 360;
+  wheel.style.transform = `rotate(${rouletteRotation}deg)`;
+
+  setTimeout(() => {
+    // Vis tall og resolver
+    const col = rouletteColor(winNum);
+    numEl.textContent = winNum;
+    numEl.style.background = col === 'red' ? '#e74c3c' : col === 'black' ? '#2c3e50' : '#2ecc71';
+    numEl.style.color = '#fff';
+    resolveRoulette(winNum, bet, activeBets);
+  }, 4100);
+}
+
+function resolveRoulette(winNum, bet, activeBets) {
+  const resultEl = document.getElementById('rouletteResult');
+  let totalWin = 0;
+  const wins = [];
+  const losses = [];
+  for (const type of activeBets) {
+    if (rouletteBetWins(type, winNum)) {
+      const payout = bet * rouletteBetPayout(type);
+      totalWin += payout;
+      wins.push(`${type} (+${payout.toLocaleString()})`);
+    } else {
+      losses.push(type);
+    }
+  }
+  state.coins += totalWin;
+  if (totalWin > (state.rouletteBestWin || 0)) state.rouletteBestWin = totalWin;
+  save(); updateUI(); submitScore(); checkAchievements();
+
+  const totalCost = bet * activeBets.length;
+  const net = totalWin - totalCost;
+  if (totalWin > 0) {
+    resultEl.className = 'casino-result win';
+    resultEl.innerHTML = `🎉 Tallet er <b>${winNum}</b> (${rouletteColor(winNum)})!<br>Vant ${totalWin.toLocaleString()} 💰 (netto ${net >= 0 ? '+' : ''}${net.toLocaleString()})`;
+  } else {
+    resultEl.className = 'casino-result lose';
+    resultEl.innerHTML = `😔 Tallet er <b>${winNum}</b> (${rouletteColor(winNum)}). Tapte ${totalCost.toLocaleString()} 💰`;
+  }
+  rouletteSpinning = false;
+  const spinBtn = document.getElementById('rouletteSpinBtn');
+  if (spinBtn) spinBtn.disabled = false;
 }
 
 // ----- COIN FLIP -----
