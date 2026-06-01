@@ -185,6 +185,35 @@ app.post('/api/cheat/give', (req, res) => {
   }
 });
 
+// === SLETT EN BRUKERKONTO (kun owner) ===
+app.post('/api/cheat/delete-user', (req, res) => {
+  const d = req.body || {};
+  const code = String(d.code || '');
+  const target = (d.targetUsername || '').trim();
+  const sender = (d.senderUsername || '').trim();
+  const OWNER = 'kasperhallo0';
+  if (sender !== OWNER) {
+    return res.status(403).json({ ok: false, error: 'Kun owner kan bruke denne koden' });
+  }
+  if (code !== '6741') {
+    return res.status(403).json({ ok: false, error: 'Ugyldig kode' });
+  }
+  if (!target) return res.status(400).json({ ok: false, error: 'Ingen target' });
+  if (target === OWNER) return res.status(400).json({ ok: false, error: 'Kan ikke slette eier-kontoen' });
+  // Slett fra users.json
+  const users = readJson(USERS_FILE, {});
+  if (!users[target]) return res.status(404).json({ ok: false, error: 'Brukeren finnes ikke' });
+  delete users[target];
+  writeJson(USERS_FILE, users);
+  // Slett fra scores.json
+  const scores = readJson(SCORES_FILE, {});
+  if (scores[target]) {
+    delete scores[target];
+    writeJson(SCORES_FILE, scores);
+  }
+  res.json({ ok: true, deleted: target });
+});
+
 // === DELTE ENGANGS-KODER (alle kan bruke, men hver bruker kun én gang per kode) ===
 // Disse 10 kodene gir 500 000 coins hver. Alle brukere kan løse inn hver kode,
 // men kun ÉN gang per konto per kode.

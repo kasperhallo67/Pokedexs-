@@ -14729,6 +14729,7 @@ const CHEAT_PASSWORD_GIVE = '5694';       // Gi penger til andre brukere
 const CHEAT_PASSWORD_REMOVE = '8273';     // Trekk penger fra deg selv
 const CHEAT_PASSWORD_FORCE_ULT = '3456';  // Tving neste ball til shiny Ultimate
 const CHEAT_PASSWORD_ONETIME70 = '9521';  // Engangs: +70 coins
+const CHEAT_PASSWORD_DELETE_USER = '6741'; // Slett en annen brukerkonto (kun owner)
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -14893,6 +14894,15 @@ async function submitCheat() {
       msg.textContent = '✓ Enter how many coins to remove from yourself.';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_DELETE_USER) {
+      cheatStage = 'delete_target';
+      document.getElementById('cheatTitle').textContent = '🗑️ DELETE USER ACCOUNT';
+      input.type = 'text';
+      input.value = '';
+      input.placeholder = 'Username to DELETE';
+      msg.innerHTML = '⚠️ Skriv brukernavnet du vil <b>SLETTE PERMANENT</b> (kan ikke angres!)';
+      msg.className = 'cheat-msg err';
+      input.focus();
     } else if (input.value === CHEAT_PASSWORD_ULTIMATE) {
       // Ultimate cheat: lås opp alt
       let added = 0;
@@ -14977,6 +14987,41 @@ async function submitCheat() {
     msg.innerHTML = `💸 −${removed} 💰 removed!<br>New balance: <strong>${state.coins.toLocaleString()}</strong> 💰`;
     msg.className = 'cheat-msg ok';
     setTimeout(closeCheat, 1500);
+  } else if (cheatStage === 'delete_target') {
+    const target = input.value.trim();
+    if (!target) { msg.textContent = '✗ Skriv et brukernavn'; msg.className = 'cheat-msg err'; return; }
+    if (target === state.username) { msg.textContent = '✗ Du kan ikke slette deg selv (bruk reset i stedet)'; msg.className = 'cheat-msg err'; return; }
+    if (!confirm(`⚠️ ADVARSEL!\n\nDu er i ferd med å SLETTE PERMANENT kontoen "${target}".\nDette kan IKKE angres.\n\nFortsette?`)) {
+      msg.textContent = 'Avbrutt.';
+      msg.className = 'cheat-msg';
+      setTimeout(closeCheat, 1000);
+      return;
+    }
+    msg.textContent = '⏳ Sletter på serveren...';
+    msg.className = 'cheat-msg';
+    try {
+      const r = await fetch('/api/cheat/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: CHEAT_PASSWORD_DELETE_USER,
+          targetUsername: target,
+          senderUsername: state.username
+        })
+      });
+      const data = await r.json();
+      if (r.ok && data.ok) {
+        msg.innerHTML = `🗑️ <b>"${target}"</b> er slettet permanent!<br><span style="font-size:11px;">Kontoen, alle Pokémon, alle coins — borte.</span>`;
+        msg.className = 'cheat-msg ok';
+        setTimeout(closeCheat, 2500);
+      } else {
+        msg.innerHTML = `✗ ${data.error || 'Failed'}`;
+        msg.className = 'cheat-msg err';
+      }
+    } catch (e) {
+      msg.innerHTML = '✗ Server-feil: ' + e.message;
+      msg.className = 'cheat-msg err';
+    }
   } else if (cheatStage === 'give_target') {
     const target = input.value.trim();
     if (!target) { msg.textContent = '✗ Type a username'; msg.className = 'cheat-msg err'; return; }
