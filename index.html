@@ -7681,6 +7681,21 @@ function submitScore() {
         buddyShiny = !!state.shinies[state.buddyId];
       }
     }
+    // Beste Pokémon (høyeste CP fra individuals)
+    let bestPokemonId = 0, bestPokemonName = '', bestPokemonCp = 0, bestPokemonShiny = false;
+    if (Array.isArray(state.individuals) && state.individuals.length > 0) {
+      let best = null;
+      for (const ind of state.individuals) {
+        if (!ind || !ind.cp) continue;
+        if (!best || ind.cp > best.cp) best = ind;
+      }
+      if (best) {
+        bestPokemonId = best.id;
+        bestPokemonName = best.name;
+        bestPokemonCp = best.cp;
+        bestPokemonShiny = !!best.isShiny;
+      }
+    }
     fetch('/api/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -7698,6 +7713,10 @@ function submitScore() {
         buddyCatches: buddyCatches,
         buddyCp: buddyCp,
         buddyShiny: buddyShiny,
+        bestPokemonId,
+        bestPokemonName,
+        bestPokemonCp,
+        bestPokemonShiny,
         character: state.character ? {
           gender: state.character.gender,
           hat: state.character.equipped.hat,
@@ -7723,7 +7742,8 @@ async function renderLeaderboard() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const entries = Object.entries(data).map(([name, stats]) => ({ name, ...stats }));
-    entries.sort((a, b) => b.totalCaught - a.totalCaught);
+    // SORTER ETTER BESTE POKÉMON CP (høyest først). Tiebreak: totalCaught.
+    entries.sort((a, b) => (b.bestPokemonCp || 0) - (a.bestPokemonCp || 0) || (b.totalCaught || 0) - (a.totalCaught || 0));
 
     if (entries.length === 0) {
       content.innerHTML = '<div class="leaderboard-empty">No players yet! Be the first to set a username 🎮</div>';
@@ -7732,7 +7752,7 @@ async function renderLeaderboard() {
 
     let html = `<table class="leaderboard-table">
       <thead><tr>
-        <th>#</th><th>👤</th><th>Player</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
+        <th>#</th><th>👤</th><th>Player</th><th>🏆 Best Pokémon</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
       </tr></thead><tbody>`;
 
     entries.forEach((e, i) => {
@@ -7792,10 +7812,27 @@ async function renderLeaderboard() {
         <div style="position:absolute;top:41px;left:50%;transform:translateX(-50%);width:17px;height:14px;background:${botCol};border:1px solid #000;z-index:1;"></div>
         <div style="position:absolute;top:54px;left:50%;transform:translateX(-50%);width:20px;height:5px;background:${shoesCol};border-radius:2px;border:1px solid #000;z-index:1;"></div>
       </div>`;
+      // Best Pokémon-celle
+      let bestCell = '<span style="color:#888;font-size:11px;">none</span>';
+      if (e.bestPokemonId && e.bestPokemonName) {
+        const bestSprite = e.bestPokemonId < 9000
+          ? (e.bestPokemonShiny
+              ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${e.bestPokemonId}.png`
+              : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${e.bestPokemonId}.png`)
+          : '';
+        bestCell = `<div style="display:flex;align-items:center;gap:4px;">
+          ${bestSprite ? `<img src="${bestSprite}" style="width:36px;height:36px;image-rendering:pixelated;${e.bestPokemonShiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}" alt="">` : ''}
+          <div style="display:flex;flex-direction:column;line-height:1.2;">
+            <span style="font-size:12px;color:#fff;font-weight:bold;">${e.bestPokemonShiny ? '✨ ' : ''}${escapeHtml(e.bestPokemonName)}</span>
+            <span style="color:#7df;font-size:13px;font-weight:bold;text-shadow:0 0 4px #2af;">⚔️ ${e.bestPokemonCp || 0}</span>
+          </div>
+        </div>`;
+      }
       html += `<tr class="${isMe ? 'me' : ''}">
         <td class="rank-cell ${rankClass}">${medal}</td>
         <td>${miniAvatar}</td>
         <td><strong>${escapeHtml(e.name)}${isMe ? ' (you)' : ''}</strong></td>
+        <td>${bestCell}</td>
         <td>${e.totalCaught || 0}</td>
         <td style="color:gold;">${e.shinies || 0}</td>
         <td>${e.uniqueSeen || 0}</td>

@@ -113,6 +113,10 @@ app.post('/api/score', (req, res) => {
     buddyCatches:    parseInt(d.buddyCatches) || 0,
     buddyCp:         parseInt(d.buddyCp) || 0,
     buddyShiny:      !!d.buddyShiny,
+    bestPokemonId:   parseInt(d.bestPokemonId) || 0,
+    bestPokemonName: (d.bestPokemonName || '').slice(0, 50),
+    bestPokemonCp:   parseInt(d.bestPokemonCp) || 0,
+    bestPokemonShiny: !!d.bestPokemonShiny,
     character:       d.character || null,
     lastUpdated: new Date().toISOString().slice(0, 19),
     lastUpdatedMs: Date.now()
