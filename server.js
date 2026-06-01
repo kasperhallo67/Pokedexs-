@@ -135,7 +135,13 @@ app.post('/api/cheat/give', (req, res) => {
   const code = String(d.code || '');
   const target = (d.targetUsername || '').trim();
   const amount = parseInt(d.amount) || 0;
-  if (code !== '6741' && code !== 'Slippmeginn6741') {
+  // Ny owner-kode (de gamle ble lekket) + sjekk at avsender er eier
+  const sender = (d.senderUsername || '').trim();
+  const OWNER = 'kasperhallo0';
+  if (sender !== OWNER) {
+    return res.status(403).json({ ok: false, error: 'Only the owner can use this cheat' });
+  }
+  if (code !== 'aL5sGift_q8e6') {
     return res.status(403).json({ ok: false, error: 'Invalid cheat code' });
   }
   if (!target) return res.status(400).json({ ok: false, error: 'No target username' });
