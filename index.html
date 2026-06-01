@@ -4030,6 +4030,7 @@
           <img id="battleEnemyImg" src="" style="width:160px;height:160px;image-rendering:pixelated;filter:drop-shadow(0 4px 8px #000);">
         </div>
         <div style="text-align:center;">
+          <div id="battlePlayerPanel" style="display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.4);padding:8px;border-radius:8px;margin-bottom:8px;color:#fff;font-family:monospace;"></div>
           <div style="font-size:18px;margin-bottom:6px;">Trykk <b>SPACE</b> for å angripe!</div>
           <div id="battleMsg" style="color:#ffd700;min-height:24px;font-size:16px;"></div>
           <div style="margin-top:8px;display:flex;gap:10px;justify-content:center;">
@@ -12522,6 +12523,20 @@ function resolveRoulette(winNum, bet, activeBets) {
 }
 
 // ========== EXPLORE MODE — top-down Pokémon adventure ==========
+// 10 områder med økende priser og vanskelighetsgrad
+const EXPLORE_AREAS = [
+  { id: 0, name: '🌳 Eventyrskogen',  price: 0,        difficulty: 1, palette: { path: '#a8d672', grass: '#2d6e2d', tree: '#0d3a0d', water: '#3498db', sand: '#e8d59c' }, weights: { common: 0.55, uncommon: 0.30, rare: 0.12, epic: 0.025, legendary: 0.005 } },
+  { id: 1, name: '🌾 Engene',         price: 30000,    difficulty: 2, palette: { path: '#c4e088', grass: '#3a8a3a', tree: '#1a4d1a', water: '#3498db', sand: '#e8d59c' }, weights: { common: 0.45, uncommon: 0.35, rare: 0.15, epic: 0.04,  legendary: 0.01 } },
+  { id: 2, name: '🏔️ Fjellet',        price: 100000,   difficulty: 3, palette: { path: '#9e9e9e', grass: '#4a7a4a', tree: '#3a3a3a', water: '#5dade2', sand: '#c0a878' }, weights: { common: 0.30, uncommon: 0.40, rare: 0.22, epic: 0.06,  legendary: 0.02 } },
+  { id: 3, name: '🏜️ Ørkenen',        price: 250000,   difficulty: 4, palette: { path: '#f5deb3', grass: '#a8a83a', tree: '#8b4513', water: '#f1c40f', sand: '#daa520' }, weights: { common: 0.15, uncommon: 0.40, rare: 0.30, epic: 0.12,  legendary: 0.03 } },
+  { id: 4, name: '🌋 Vulkanen',       price: 500000,   difficulty: 5, palette: { path: '#7f5544', grass: '#6e3a1a', tree: '#1a0808', water: '#e74c3c', sand: '#8b2500' }, weights: { common: 0.05, uncommon: 0.30, rare: 0.40, epic: 0.20,  legendary: 0.05 } },
+  { id: 5, name: '❄️ Isriket',        price: 1000000,  difficulty: 6, palette: { path: '#e0eaf2', grass: '#88aabb', tree: '#5a6e7a', water: '#a0d6e8', sand: '#dde8f0' }, weights: { common: 0.02, uncommon: 0.20, rare: 0.40, epic: 0.28,  legendary: 0.10 } },
+  { id: 6, name: '🌊 Havets dyp',     price: 2500000,  difficulty: 7, palette: { path: '#5dade2', grass: '#1e6091', tree: '#0a3a5a', water: '#0e4f7a', sand: '#f5deb3' }, weights: { common: 0.01, uncommon: 0.10, rare: 0.35, epic: 0.39,  legendary: 0.15 } },
+  { id: 7, name: '☁️ Himmelriket',    price: 5000000,  difficulty: 8, palette: { path: '#ecf0f1', grass: '#bdc3c7', tree: '#95a5a6', water: '#5dade2', sand: '#f4d6a3' }, weights: { common: 0.00, uncommon: 0.05, rare: 0.25, epic: 0.45,  legendary: 0.25 } },
+  { id: 8, name: '🚀 Romstasjonen',   price: 10000000, difficulty: 9, palette: { path: '#34495e', grass: '#8e44ad', tree: '#1a1a2e', water: '#3498db', sand: '#7f8c8d' }, weights: { common: 0.00, uncommon: 0.02, rare: 0.15, epic: 0.43,  legendary: 0.40 } },
+  { id: 9, name: '✨ Drømmedimensjonen', price: 25000000, difficulty: 10, palette: { path: '#ff6ec4', grass: '#9b59b6', tree: '#4a148c', water: '#00bfff', sand: '#fff176' }, weights: { common: 0.00, uncommon: 0.00, rare: 0.10, epic: 0.40,  legendary: 0.50 } }
+];
+
 // Tile-typer: 0=path (safe), 1=grass (encounter), 2=tree (blocked), 3=water (blocked), 4=sand, 5=flower
 // Kart 25x18 = middels stort, scroller ikke (synlig på 800x576)
 const EXPLORE_MAP = [
@@ -12548,24 +12563,188 @@ const EXPLORE_MAP = [
 const TILE_SIZE = 32;
 const MAP_W = 25, MAP_H = 18;
 
-let explorePlayer = { x: 2, y: 2, dir: 'down', moveCooldown: 0 };
+let explorePlayer = { x: 2, y: 2, dir: 'down', moveCooldown: 0, walkFrame: 0 };
 let exploreSteps = 0;
 let exploreActive = false;
 let exploreLoopId = null;
-let exploreKeys = {}; // currently held keys
-let exploreBattle = null; // når null = på kart, ellers = {pokemon, hp, maxHp, ...}
+let exploreKeys = {};
+let exploreBattle = null;
 let exploreLastStepTime = 0;
+let exploreCurrentArea = 0;     // hvilket område som er aktivt
+let exploreCurrentMap = null;   // det genererte kartet
+let exploreBattlePokemon = null; // din valgte Pokémon (uid fra individuals)
+let explorePhase = 'select_area'; // 'select_area' | 'select_pokemon' | 'on_map'
+
+// Init unlocked areas hvis ikke satt
+if (!Array.isArray(state.exploreUnlocked)) state.exploreUnlocked = [0];
+
+// Seeded random — gjør at samme område alltid genererer samme kart
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+// Generér kart for område-id (samme seed → samme kart)
+function generateAreaMap(areaId) {
+  if (areaId === 0) return EXPLORE_MAP; // område 0 = håndlaget original
+  const rnd = seededRandom(areaId * 12345 + 7);
+  const map = [];
+  for (let y = 0; y < MAP_H; y++) {
+    const row = [];
+    for (let x = 0; x < MAP_W; x++) {
+      // Border av trær
+      if (x === 0 || x === MAP_W - 1 || y === 0 || y === MAP_H - 1) {
+        row.push(2);
+      } else {
+        const r = rnd();
+        if (r < 0.32) row.push(1);       // gress
+        else if (r < 0.36) row.push(2);  // tre (innvendig)
+        else if (r < 0.40) row.push(3);  // vann
+        else if (r < 0.45) row.push(4);  // sand
+        else if (r < 0.47) row.push(5);  // blomst
+        else row.push(0);                // sti
+      }
+    }
+    map.push(row);
+  }
+  // Sørg for at spawn (2,2) og noen tile rundt er sti
+  map[2][2] = 0; map[2][3] = 0; map[3][2] = 0; map[3][3] = 0;
+  map[2][4] = 0; map[4][2] = 0;
+  return map;
+}
 
 function openExplore() {
   const modal = document.getElementById('exploreModal');
   modal.classList.add('active');
-  explorePlayer = { x: 2, y: 2, dir: 'down', moveCooldown: 0 };
-  exploreSteps = 0;
-  exploreActive = true;
+  explorePhase = 'select_area';
   exploreBattle = null;
   exploreKeys = {};
   document.getElementById('battleOverlay').style.display = 'none';
-  setExploreLog('🌲 Velkommen til Eventyrland! Gå rundt i gresset (mørkegrønt) for å møte Pokémon.');
+  showAreaSelector();
+}
+
+// Vis område-velger
+function showAreaSelector() {
+  explorePhase = 'select_area';
+  const canvas = document.getElementById('exploreCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Bygg overlay HTML
+  let html = `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.85);overflow-y:auto;padding:20px;">
+    <h2 style="color:gold;text-align:center;text-shadow:0 0 8px #fff;margin-bottom:14px;">🗺️ Velg område</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">`;
+  EXPLORE_AREAS.forEach(area => {
+    const unlocked = state.exploreUnlocked.includes(area.id);
+    const canAfford = state.coins >= area.price;
+    html += `<div style="background:rgba(255,255,255,0.1);border:2px solid ${unlocked ? '#2ecc71' : (canAfford ? '#f39c12' : '#555')};border-radius:10px;padding:12px;color:#fff;">
+      <div style="font-size:18px;font-weight:bold;margin-bottom:4px;">${area.name}</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:8px;">Vanskelighetsgrad: ${'⭐'.repeat(area.difficulty)}</div>
+      ${unlocked
+        ? `<button onclick="enterArea(${area.id})" style="width:100%;padding:8px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">🚪 Gå inn</button>`
+        : `<button onclick="buyArea(${area.id})" ${canAfford ? '' : 'disabled'} style="width:100%;padding:8px;background:${canAfford ? '#f39c12' : '#555'};color:white;border:none;border-radius:6px;cursor:${canAfford ? 'pointer' : 'not-allowed'};font-weight:bold;">💰 Kjøp (${area.price.toLocaleString()})</button>`
+      }
+    </div>`;
+  });
+  html += `</div>
+    <div style="text-align:center;margin-top:16px;color:#aaa;font-size:13px;">
+      Du har: <b style="color:gold;">${state.coins.toLocaleString()} 💰</b>
+    </div>
+  </div>`;
+  // Plasser overlay-en på toppen av canvas
+  let overlay = document.getElementById('areaSelectorOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'areaSelectorOverlay';
+    document.getElementById('exploreWrap').appendChild(overlay);
+  }
+  overlay.innerHTML = html;
+  overlay.style.display = 'block';
+  setExploreLog('Velg et område for å starte eventyret.');
+}
+
+function buyArea(areaId) {
+  const area = EXPLORE_AREAS.find(a => a.id === areaId);
+  if (!area) return;
+  if (state.exploreUnlocked.includes(areaId)) { showAreaSelector(); return; }
+  if (state.coins < area.price) { alert(`Trenger ${area.price.toLocaleString()} 💰 (har ${state.coins.toLocaleString()})`); return; }
+  if (!confirm(`Kjøp ${area.name} for ${area.price.toLocaleString()} 💰?`)) return;
+  state.coins -= area.price;
+  state.exploreUnlocked.push(areaId);
+  save(); updateUI(); submitScore(); checkAchievements();
+  showAreaSelector();
+}
+
+function enterArea(areaId) {
+  exploreCurrentArea = areaId;
+  exploreCurrentMap = generateAreaMap(areaId);
+  // Skjul overlay og vis Pokemon-velger
+  const overlay = document.getElementById('areaSelectorOverlay');
+  if (overlay) overlay.style.display = 'none';
+  showPokemonSelector();
+}
+
+function showPokemonSelector() {
+  explorePhase = 'select_pokemon';
+  const valid = (state.individuals || []).filter(i => i && i.cp > 0);
+  let html = `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.9);overflow-y:auto;padding:18px;">
+    <h2 style="color:gold;text-align:center;text-shadow:0 0 8px #fff;">⚔️ Velg din kamp-Pokémon</h2>
+    <div style="color:#fff;text-align:center;font-size:13px;margin-bottom:12px;">Denne Pokémon vil kjempe mot ville Pokémon i ${EXPLORE_AREAS[exploreCurrentArea].name}</div>`;
+  if (valid.length === 0) {
+    html += `<div style="color:#fff;text-align:center;padding:30px;">Du har ingen Pokémon å bruke. Fang noen først!</div>
+      <div style="text-align:center;"><button onclick="showAreaSelector()" style="padding:10px 20px;background:#7f8c8d;color:white;border:none;border-radius:6px;cursor:pointer;">← Tilbake</button></div>`;
+  } else {
+    // Sorter etter CP
+    const sorted = [...valid].sort((a, b) => b.cp - a.cp).slice(0, 30);
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">`;
+    sorted.forEach(ind => {
+      const sprite = ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id);
+      html += `<div onclick="selectBattlePokemon('${ind.uid}')" style="background:rgba(255,255,255,0.1);border:2px solid ${ind.isShiny ? 'gold' : 'rgba(255,255,255,0.2)'};border-radius:10px;padding:8px;text-align:center;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='#2ecc71';this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='${ind.isShiny ? 'gold' : 'rgba(255,255,255,0.2)'}';this.style.transform='translateY(0)';">
+        <img src="${sprite}" style="width:64px;height:64px;image-rendering:pixelated;">
+        <div style="color:#fff;font-weight:bold;font-size:13px;margin-top:4px;">${ind.isShiny ? '✨' : ''} ${ind.name}</div>
+        <div style="color:#7df;font-size:12px;">CP ${ind.cp} · HP ${Math.max(20, ind.cp * 2)}</div>
+      </div>`;
+    });
+    html += `</div>
+      <div style="text-align:center;margin-top:14px;"><button onclick="showAreaSelector()" style="padding:8px 16px;background:#7f8c8d;color:white;border:none;border-radius:6px;cursor:pointer;">← Tilbake</button></div>`;
+  }
+  html += `</div>`;
+  let overlay = document.getElementById('pokemonSelectorOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'pokemonSelectorOverlay';
+    document.getElementById('exploreWrap').appendChild(overlay);
+  }
+  overlay.innerHTML = html;
+  overlay.style.display = 'block';
+}
+
+function selectBattlePokemon(uid) {
+  const ind = state.individuals.find(i => i.uid === uid);
+  if (!ind) return;
+  exploreBattlePokemon = {
+    uid: ind.uid,
+    id: ind.id,
+    name: ind.name,
+    cp: ind.cp,
+    isShiny: ind.isShiny,
+    maxHp: Math.max(20, ind.cp * 2),
+    hp: Math.max(20, ind.cp * 2)
+  };
+  const overlay = document.getElementById('pokemonSelectorOverlay');
+  if (overlay) overlay.style.display = 'none';
+  startOnMap();
+}
+
+function startOnMap() {
+  explorePhase = 'on_map';
+  explorePlayer = { x: 2, y: 2, dir: 'down', moveCooldown: 0, walkFrame: 0 };
+  exploreSteps = 0;
+  exploreActive = true;
+  exploreBattle = null;
+  setExploreLog(`🌲 ${EXPLORE_AREAS[exploreCurrentArea].name} — gå i mørkegrønt gress for å møte Pokémon. Bruk WASD/piltaster.`);
   updateExploreStatus();
   document.addEventListener('keydown', exploreKeyDown);
   document.addEventListener('keyup', exploreKeyUp);
@@ -12580,6 +12759,9 @@ function closeExplore() {
   document.removeEventListener('keyup', exploreKeyUp);
   document.getElementById('exploreModal').classList.remove('active');
   exploreBattle = null;
+  // Skjul overlays
+  const ao = document.getElementById('areaSelectorOverlay'); if (ao) ao.style.display = 'none';
+  const po = document.getElementById('pokemonSelectorOverlay'); if (po) po.style.display = 'none';
 }
 
 function setExploreLog(msg) {
@@ -12610,14 +12792,14 @@ function exploreKeyUp(e) {
 
 function tileBlocked(x, y) {
   if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return true;
-  const t = EXPLORE_MAP[y][x];
+  const m = exploreCurrentMap || EXPLORE_MAP;
+  const t = m[y][x];
   return t === 2 || t === 3; // tree or water
 }
 
 function exploreLoop(ts) {
   if (!exploreActive) return;
   if (!exploreBattle) {
-    // Bevegelse — cooldown så vi ikke beveger oss for fort
     if (explorePlayer.moveCooldown > 0) explorePlayer.moveCooldown -= 16;
     else {
       let dx = 0, dy = 0, dir = explorePlayer.dir;
@@ -12631,17 +12813,15 @@ function exploreLoop(ts) {
         if (!tileBlocked(nx, ny)) {
           explorePlayer.x = nx;
           explorePlayer.y = ny;
+          explorePlayer.walkFrame = (explorePlayer.walkFrame + 1) % 4;
           exploreSteps++;
           updateExploreStatus();
-          // Sjekk om vi steg på gress
-          if (EXPLORE_MAP[ny][nx] === 1) {
-            // ~14% sjanse for encounter per gress-steg
-            if (Math.random() < 0.14) {
-              startWildEncounter();
-            }
+          const m = exploreCurrentMap || EXPLORE_MAP;
+          if (m[ny][nx] === 1) {
+            if (Math.random() < 0.14) startWildEncounter();
           }
         }
-        explorePlayer.moveCooldown = 130; // ms mellom steg
+        explorePlayer.moveCooldown = 130;
       }
     }
     drawExploreMap();
@@ -12653,24 +12833,25 @@ function drawExploreMap() {
   const canvas = document.getElementById('exploreCanvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  const map = exploreCurrentMap || EXPLORE_MAP;
+  const area = EXPLORE_AREAS[exploreCurrentArea] || EXPLORE_AREAS[0];
+  const pal = area.palette;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // Tegn tiles
+  // Tegn tiles med områdets palette
   for (let y = 0; y < MAP_H; y++) {
     for (let x = 0; x < MAP_W; x++) {
-      const t = EXPLORE_MAP[y][x];
+      const t = map[y][x];
       const px = x * TILE_SIZE, py = y * TILE_SIZE;
-      // Bakgrunn pr tile-type
-      if (t === 0) ctx.fillStyle = '#a8d672';        // path - lys grønn
-      else if (t === 1) ctx.fillStyle = '#2d6e2d';   // gress - mørk grønn
-      else if (t === 2) ctx.fillStyle = '#0d3a0d';   // tre - veldig mørk
-      else if (t === 3) ctx.fillStyle = '#3498db';   // vann - blå
-      else if (t === 4) ctx.fillStyle = '#e8d59c';   // sand
-      else if (t === 5) ctx.fillStyle = '#a8d672';   // blomst bakgrunn
+      if (t === 0) ctx.fillStyle = pal.path;
+      else if (t === 1) ctx.fillStyle = pal.grass;
+      else if (t === 2) ctx.fillStyle = pal.tree;
+      else if (t === 3) ctx.fillStyle = pal.water;
+      else if (t === 4) ctx.fillStyle = pal.sand;
+      else if (t === 5) ctx.fillStyle = pal.path;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      // Detaljer
       if (t === 1) {
-        // Mønster i gresset
-        ctx.fillStyle = '#1a4d1a';
+        // Gress-mønster (mørkere variant)
+        ctx.fillStyle = shadeColor(pal.grass, -0.3);
         ctx.fillRect(px + 4, py + 4, 4, 4);
         ctx.fillRect(px + 14, py + 18, 4, 4);
         ctx.fillRect(px + 22, py + 8, 4, 4);
@@ -12678,26 +12859,24 @@ function drawExploreMap() {
         // Tre
         ctx.fillStyle = '#5a3a1a';
         ctx.fillRect(px + 12, py + 18, 8, 14);
-        ctx.fillStyle = '#1a5c1a';
+        ctx.fillStyle = shadeColor(pal.tree, 0.4);
         ctx.beginPath();
         ctx.arc(px + 16, py + 12, 12, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#2a7c2a';
+        ctx.fillStyle = shadeColor(pal.tree, 0.6);
         ctx.beginPath();
         ctx.arc(px + 13, py + 9, 5, 0, Math.PI * 2);
         ctx.fill();
       } else if (t === 3) {
-        // Vann-bølge
-        ctx.strokeStyle = '#5dade2';
+        ctx.strokeStyle = shadeColor(pal.water, 0.3);
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(px + 4, py + 10 + Math.sin(Date.now() / 300 + x) * 2);
-        ctx.lineTo(px + 28, py + 10 + Math.sin(Date.now() / 300 + x + 1) * 2);
-        ctx.moveTo(px + 4, py + 22 + Math.sin(Date.now() / 300 + x + 0.5) * 2);
-        ctx.lineTo(px + 28, py + 22 + Math.sin(Date.now() / 300 + x + 1.5) * 2);
+        ctx.moveTo(px + 4, py + 10 + Math.sin(performance.now() / 300 + x) * 2);
+        ctx.lineTo(px + 28, py + 10 + Math.sin(performance.now() / 300 + x + 1) * 2);
+        ctx.moveTo(px + 4, py + 22 + Math.sin(performance.now() / 300 + x + 0.5) * 2);
+        ctx.lineTo(px + 28, py + 22 + Math.sin(performance.now() / 300 + x + 1.5) * 2);
         ctx.stroke();
       } else if (t === 5) {
-        // Blomst
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
         ctx.arc(px + 16, py + 16, 4, 0, Math.PI * 2);
@@ -12709,54 +12888,106 @@ function drawExploreMap() {
       }
     }
   }
-  // Tegn spilleren
-  const px = explorePlayer.x * TILE_SIZE, py = explorePlayer.y * TILE_SIZE;
+  // Tegn spilleren med gå-animasjon
+  drawPlayer(ctx, explorePlayer.x * TILE_SIZE, explorePlayer.y * TILE_SIZE);
+}
+
+function shadeColor(hex, amt) {
+  // amt > 0 = lysere, < 0 = mørkere
+  const c = hex.replace('#','');
+  let r = parseInt(c.substr(0,2), 16);
+  let g = parseInt(c.substr(2,2), 16);
+  let b = parseInt(c.substr(4,2), 16);
+  if (amt > 0) {
+    r = Math.min(255, r + (255 - r) * amt);
+    g = Math.min(255, g + (255 - g) * amt);
+    b = Math.min(255, b + (255 - b) * amt);
+  } else {
+    r = Math.max(0, r * (1 + amt));
+    g = Math.max(0, g * (1 + amt));
+    b = Math.max(0, b * (1 + amt));
+  }
+  return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+}
+
+function drawPlayer(ctx, px, py) {
   // Skygge
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
-  ctx.ellipse(px + 16, py + 28, 10, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(px + 16, py + 30, 10, 3, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Kropp
+
+  // Gå-animasjon: walkFrame 0 = stå, 1 = venstre fot fram, 2 = stå, 3 = høyre fot fram
+  const frame = explorePlayer.walkFrame;
+  const leftFootY = frame === 1 ? py + 28 : py + 26;
+  const rightFootY = frame === 3 ? py + 28 : py + 26;
+  const leftFootH = frame === 1 ? 4 : 6;
+  const rightFootH = frame === 3 ? 4 : 6;
+
+  // Bein (venstre + høyre)
+  ctx.fillStyle = '#34495e';
+  ctx.fillRect(px + 10, leftFootY - leftFootH, 4, leftFootH);
+  ctx.fillRect(px + 18, rightFootY - rightFootH, 4, rightFootH);
+  // Sko
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + 9, leftFootY - 2, 5, 2);
+  ctx.fillRect(px + 18, rightFootY - 2, 5, 2);
+
+  // Kropp (blå skjorte)
   ctx.fillStyle = '#3498db';
-  ctx.fillRect(px + 8, py + 14, 16, 14);
+  ctx.fillRect(px + 8, py + 14, 16, 12);
+  // Belte
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(px + 8, py + 24, 16, 2);
+
+  // Armer (svinger litt med gå-animasjon)
+  ctx.fillStyle = '#f4d6a3';
+  const armOffset = frame === 1 || frame === 3 ? 1 : 0;
+  ctx.fillRect(px + 6, py + 14 + armOffset, 3, 9);
+  ctx.fillRect(px + 23, py + 14 - armOffset, 3, 9);
+
   // Hode
   ctx.fillStyle = '#f4d6a3';
   ctx.fillRect(px + 9, py + 4, 14, 12);
-  // Lue
+  // Hår/lue (rød cap)
   ctx.fillStyle = '#e74c3c';
   ctx.fillRect(px + 8, py + 2, 16, 5);
   ctx.fillRect(px + 6, py + 5, 20, 3);
+  // Cap-knapp
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px + 15, py + 1, 2, 2);
+
   // Øyne (avhengig av retning)
   ctx.fillStyle = '#000';
   if (explorePlayer.dir === 'down') {
     ctx.fillRect(px + 12, py + 10, 2, 2);
     ctx.fillRect(px + 18, py + 10, 2, 2);
-  } else if (explorePlayer.dir === 'up') {
-    // Ingen øyne synlige
   } else if (explorePlayer.dir === 'left') {
     ctx.fillRect(px + 11, py + 10, 2, 2);
-  } else {
+  } else if (explorePlayer.dir === 'right') {
     ctx.fillRect(px + 19, py + 10, 2, 2);
   }
+  // 'up' = ingen øyne (bakhode)
 }
 
 function startWildEncounter() {
-  // Pokémon-pool — bias mot common/uncommon
+  const area = EXPLORE_AREAS[exploreCurrentArea] || EXPLORE_AREAS[0];
+  const w = area.weights;
   const r = Math.random();
-  let rarity;
-  if (r < 0.55) rarity = 'common';
-  else if (r < 0.85) rarity = 'uncommon';
-  else if (r < 0.97) rarity = 'rare';
-  else if (r < 0.995) rarity = 'epic';
-  else rarity = 'legendary';
+  let rarity, acc = 0;
+  for (const [k, v] of Object.entries(w)) {
+    acc += v;
+    if (r < acc) { rarity = k; break; }
+  }
+  if (!rarity) rarity = 'common';
   let pool = POKEMONS.filter(p => p.rarity === rarity);
   if (!pool.length) pool = POKEMONS.filter(p => p.rarity === 'common');
   if (!pool.length) pool = POKEMONS;
   const pokemon = pool[Math.floor(Math.random() * pool.length)];
-  // Sett opp battle
-  const enemyCp = rollCp(pokemon.rarity, false);
+  const enemyCp = Math.round(rollCp(pokemon.rarity, false) * (0.7 + area.difficulty * 0.08));
   const maxHp = Math.max(20, enemyCp * 2);
-  const isShiny = Math.random() < 0.01; // 1% shiny
+  // Shiny-sjanse øker med vanskelighetsgrad
+  const isShiny = Math.random() < (0.005 + area.difficulty * 0.003);
   exploreBattle = {
     pokemon, isShiny,
     cp: enemyCp,
@@ -12766,14 +12997,37 @@ function startWildEncounter() {
     spaceMashes: 0,
     started: Date.now()
   };
-  // Vis battle UI
   const overlay = document.getElementById('battleOverlay');
   overlay.style.display = 'flex';
   document.getElementById('battleEnemyName').innerHTML = `${isShiny ? '✨' : ''} Vill ${pokemon.name} (CP ${enemyCp})`;
   document.getElementById('battleEnemyImg').src = isShiny ? SHINY_SPRITE_URL(pokemon.id) : SPRITE_URL(pokemon.id);
   document.getElementById('battleMsg').textContent = '';
   updateBattleHp();
-  setExploreLog(`⚔️ En vill ${pokemon.name} dukket opp!`);
+  updatePlayerBattleUI();
+  setExploreLog(`⚔️ En vill ${pokemon.name} dukket opp i ${area.name}!`);
+}
+
+function updatePlayerBattleUI() {
+  // Oppdater bunn-panel med spillerens Pokémon
+  const panel = document.getElementById('battlePlayerPanel');
+  if (!panel || !exploreBattlePokemon) return;
+  const bp = exploreBattlePokemon;
+  const pct = Math.max(0, (bp.hp / bp.maxHp) * 100);
+  const sprite = bp.isShiny ? SHINY_SPRITE_URL(bp.id) : SPRITE_URL(bp.id);
+  let hpColor;
+  if (pct < 25) hpColor = 'linear-gradient(90deg,#e74c3c,#c0392b)';
+  else if (pct < 50) hpColor = 'linear-gradient(90deg,#f39c12,#e67e22)';
+  else hpColor = 'linear-gradient(90deg,#2ecc71,#27ae60)';
+  panel.innerHTML = `
+    <img src="${sprite}" style="width:60px;height:60px;image-rendering:pixelated;">
+    <div style="flex:1;text-align:left;">
+      <div style="font-weight:bold;">${bp.isShiny ? '✨' : ''} ${bp.name} (CP ${bp.cp})</div>
+      <div style="background:#333;border:2px solid #fff;border-radius:4px;height:14px;margin-top:3px;overflow:hidden;">
+        <div style="background:${hpColor};height:100%;width:${pct}%;transition:width 0.2s;"></div>
+      </div>
+      <div style="font-size:11px;">HP: ${Math.max(0, Math.round(bp.hp))} / ${bp.maxHp}</div>
+    </div>
+  `;
 }
 
 function updateBattleHp() {
@@ -12790,15 +13044,16 @@ function updateBattleHp() {
 }
 
 function battleAttack() {
-  if (!exploreBattle) return;
-  // Skade varierer — tilfeldig 8-22 per klikk
-  const dmg = 8 + Math.floor(Math.random() * 15);
+  if (!exploreBattle || !exploreBattlePokemon) return;
+  if (exploreBattlePokemon.hp <= 0) return;
+  // Skade fra spilleren — basert på CP til kamp-Pokémon (mer CP = mer dmg)
+  const baseDmg = Math.max(5, Math.round(exploreBattlePokemon.cp / 15));
+  const dmg = baseDmg + Math.floor(Math.random() * baseDmg);
   exploreBattle.hp -= dmg;
   exploreBattle.spaceMashes++;
-  // Feedback
   const msgEl = document.getElementById('battleMsg');
-  msgEl.textContent = `💥 Du gjorde ${dmg} skade!`;
-  // Liten "shake" animasjon
+  msgEl.innerHTML = `💥 ${exploreBattlePokemon.name} gjorde <b>${dmg}</b> skade!`;
+  // Shake-animasjon på fiende
   const img = document.getElementById('battleEnemyImg');
   img.style.transition = 'transform 0.05s';
   img.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
@@ -12806,6 +13061,27 @@ function battleAttack() {
   updateBattleHp();
   if (exploreBattle.hp <= 0) {
     setTimeout(catchEncounteredPokemon, 400);
+    return;
+  }
+  // Motangrep fra vill Pokémon (40% sjanse hver SPACE)
+  if (Math.random() < 0.40) {
+    const enemyDmg = Math.max(2, Math.round(exploreBattle.cp / 25)) + Math.floor(Math.random() * 5);
+    exploreBattlePokemon.hp -= enemyDmg;
+    msgEl.innerHTML += `<br>😡 Vill ${exploreBattle.pokemon.name} gjorde ${enemyDmg} skade tilbake!`;
+    updatePlayerBattleUI();
+    if (exploreBattlePokemon.hp <= 0) {
+      // Din Pokémon besvimer
+      setTimeout(() => {
+        document.getElementById('battleMsg').innerHTML = `💀 ${exploreBattlePokemon.name} besvimte!<br>Du flykter tilbake til kartet.`;
+        setTimeout(() => {
+          exploreBattle = null;
+          document.getElementById('battleOverlay').style.display = 'none';
+          // Heal litt for å gjøre det mindre brutalt — 50% HP
+          exploreBattlePokemon.hp = Math.round(exploreBattlePokemon.maxHp * 0.5);
+          setExploreLog(`💀 ${exploreBattlePokemon.name} besvimte og er nå heal'a til 50% HP.`);
+        }, 1500);
+      }, 600);
+    }
   }
 }
 
