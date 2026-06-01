@@ -5522,22 +5522,6 @@ const BALLS = {
     multiCatch: 3,
     desc: '3 Pokémon per ball, but mostly Common'
   },
-  galaxy: {
-    name: 'Galaxy Ball',
-    icon: '🌌',
-    price: 100000,
-    odds: { common: 0, uncommon: 0, rare: 10, epic: 25, legendary: 45, rocket: 15, ultimate: 5 },
-    shinyChance: 50,
-    desc: '🌌 50% shiny · 5% ULT · 15% Rocket'
-  },
-  storm: {
-    name: 'Storm Ball',
-    icon: '🌪️',
-    price: 5000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 10, legendary: 50, rocket: 25, ultimate: 15 },
-    shinyChance: 75,
-    desc: '🌪️ 75% shiny · 15% ULT · 25% Rocket'
-  },
   veteran: {
     name: 'Veteran Ball',
     icon: '🏆',
@@ -5565,23 +5549,6 @@ const BALLS = {
     shinyChance: 0.02,
     desc: 'Collector: bias toward Decent + Special tiers'
   },
-  phoenix: {
-    name: 'Phoenix Ball',
-    icon: '🔥',
-    price: 250000,
-    odds: { common: 0, uncommon: 0, rare: 5, epic: 22, legendary: 47, rocket: 18, ultimate: 8 },
-    shinyChance: 60,
-    desc: '🔥 60% shiny · 8% ULT · 18% Rocket'
-  },
-  void: {
-    name: 'Void Ball',
-    icon: '🕳️',
-    price: 25000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 5, legendary: 50, rocket: 25, ultimate: 20 },
-    shinyChance: 85,
-    multiCatch: 2,
-    desc: '🕳️ 85% shiny · 20% ULT · 2x catch'
-  },
   net: {
     name: 'Net Ball',
     icon: '🕸️',
@@ -5589,14 +5556,6 @@ const BALLS = {
     odds: { uncommon: 80, rare: 20 },
     shinyChance: 0.04,
     desc: 'Uncommon + Special hunter'
-  },
-  frost: {
-    name: 'Frost Ball',
-    icon: '❄️',
-    price: 500000,
-    odds: { common: 0, uncommon: 0, rare: 3, epic: 20, legendary: 50, rocket: 17, ultimate: 10 },
-    shinyChance: 65,
-    desc: '❄️ 65% shiny · 10% ULT · 17% Rocket'
   },
   super: {
     name: 'Super Ball',
@@ -5606,23 +5565,6 @@ const BALLS = {
     shinyChance: 0.05,
     desc: 'Mid-tier specialist (Rare + Hyper)'
   },
-  crystal: {
-    name: 'Crystal Ball',
-    icon: '🔮',
-    price: 1000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 18, legendary: 50, rocket: 20, ultimate: 12 },
-    shinyChance: 70,
-    desc: '🔮 70% shiny · 12% ULT · 20% Rocket'
-  },
-  eternal: {
-    name: 'Eternal Ball',
-    icon: '♾️',
-    price: 50000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 45, rocket: 30, ultimate: 25 },
-    shinyChance: 95,
-    multiCatch: 2,
-    desc: '♾️ 95% shiny · 25% ULT · 30% Rocket · 2x catch'
-  },
   heal: {
     name: 'Heal Ball',
     icon: '💖',
@@ -5630,14 +5572,6 @@ const BALLS = {
     odds: { rare: 35, epic: 60, legendary: 5 },
     shinyChance: 0.08,
     desc: 'Epic/Mega healer'
-  },
-  lava: {
-    name: 'Lava Ball',
-    icon: '🌋',
-    price: 2500000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 13, legendary: 50, rocket: 22, ultimate: 15 },
-    shinyChance: 72,
-    desc: '🌋 72% shiny · 15% ULT · 22% Rocket'
   },
   dusk: {
     name: 'Dusk Ball',
@@ -5654,14 +5588,6 @@ const BALLS = {
     odds: { rare: 20, epic: 60, legendary: 18, ultimate: 2 },
     shinyChance: 8,
     desc: '8% shiny — pure shiny specialist!'
-  },
-  aurora: {
-    name: 'Aurora Ball',
-    icon: '🌠',
-    price: 10000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 8, legendary: 50, rocket: 25, ultimate: 17 },
-    shinyChance: 80,
-    desc: '🌠 80% shiny · 17% ULT · 25% Rocket'
   },
   master: {
     name: 'Master Ball',
@@ -5689,15 +5615,6 @@ const BALLS = {
     shinyChance: 45,
     desc: '💀 AI · 45% shiny · 10% Team Rocket'
   },
-  cosmic: {
-    name: 'Cosmic Ball',
-    icon: '💫',
-    price: 100000000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 30, rocket: 35, ultimate: 35 },
-    shinyChance: 100,
-    multiCatch: 3,
-    desc: '💫 100% SHINY · 35% ULT · 35% Rocket · 3x catch'
-  }
 };
 
 // ========== STATE ==========
@@ -6163,6 +6080,18 @@ if (!state.individualsMigrated && state.individuals.length === 0 && state.caught
 // Sørg for at alle baller finnes i inventory (for gamle saves)
 for (const key of Object.keys(BALLS)) {
   if (state.inventory[key] === undefined) state.inventory[key] = key === 'free' ? 999 : 0;
+}
+// Rydd bort fjernede baller (galaxy, storm, phoenix, void, frost, crystal, eternal, lava, aurora, cosmic)
+const REMOVED_BALLS = ['galaxy','storm','phoenix','void','frost','crystal','eternal','lava','aurora','cosmic'];
+let _removedBallTotal = 0;
+for (const rb of REMOVED_BALLS) {
+  if (state.inventory[rb]) { _removedBallTotal += state.inventory[rb]; delete state.inventory[rb]; }
+}
+// Hvis brukeren hadde valgt en fjernet ball, bytt tilbake til 'free'
+if (state.selectedBall && !BALLS[state.selectedBall]) state.selectedBall = 'free';
+// Refund som godtgjørelse for fjernede baller (litt coins per ball mistet)
+if (_removedBallTotal > 0) {
+  state.coins = (state.coins || 0) + _removedBallTotal * 1000;
 }
 
 let currentFilter = 'all';
