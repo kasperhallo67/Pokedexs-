@@ -12612,6 +12612,7 @@ let exploreCurrentArea = 0;     // hvilket område som er aktivt
 let exploreCurrentMap = null;   // det genererte kartet
 let exploreBattlePokemon = null; // din valgte Pokémon (uid fra individuals)
 let explorePhase = 'select_area'; // 'select_area' | 'select_pokemon' | 'on_map'
+let exploreEnemyAttackTimer = null; // timer for fiendens passive angrep
 
 // Init unlocked areas hvis ikke satt
 if (!Array.isArray(state.exploreUnlocked)) state.exploreUnlocked = [0];
@@ -12800,6 +12801,7 @@ function startOnMap() {
 
 function closeExplore() {
   exploreActive = false;
+  stopEnemyAutoAttack();
   if (exploreLoopId) { cancelAnimationFrame(exploreLoopId); exploreLoopId = null; }
   document.removeEventListener('keydown', exploreKeyDown);
   document.removeEventListener('keyup', exploreKeyUp);
@@ -13052,6 +13054,62 @@ function startWildEncounter() {
   updateBattleHp();
   updatePlayerBattleUI();
   setExploreLog(`⚔️ En vill ${pokemon.name} dukket opp i ${area.name}!`);
+
+  // START PASSIV AUTO-ATTACK: fiende-Pokémon angriper deg automatisk hvert sekund
+  stopEnemyAutoAttack();
+  // Intervall avhenger av vanskelighetsgrad — høyere område = raskere angrep
+  const intervalMs = Math.max(550, 1400 - area.difficulty * 80);
+  exploreEnemyAttackTimer = setInterval(enemyAutoAttack, intervalMs);
+}
+
+function stopEnemyAutoAttack() {
+  if (exploreEnemyAttackTimer) {
+    clearInterval(exploreEnemyAttackTimer);
+    exploreEnemyAttackTimer = null;
+  }
+}
+
+function enemyAutoAttack() {
+  if (!exploreBattle || !exploreBattlePokemon) { stopEnemyAutoAttack(); return; }
+  if (exploreBattle.hp <= 0 || exploreBattlePokemon.hp <= 0) { stopEnemyAutoAttack(); return; }
+  const area = EXPLORE_AREAS[exploreCurrentArea] || EXPLORE_AREAS[0];
+  // Passiv skade — litt mindre enn motangrepet for å gi spilleren en sjanse
+  const baseDmg = Math.max(2, Math.round(exploreBattle.cp / 30));
+  const dmg = baseDmg + Math.floor(Math.random() * 4) + Math.round(area.difficulty * 0.8);
+  exploreBattlePokemon.hp -= dmg;
+  const msgEl = document.getElementById('battleMsg');
+  if (msgEl) msgEl.innerHTML = `🔥 Vill ${exploreBattle.pokemon.name} angriper passivt: <b>${dmg}</b> skade!`;
+  // Shake player panel + rød tint
+  const playerPanel = document.getElementById('battlePlayerPanel');
+  if (playerPanel) {
+    playerPanel.style.transition = 'transform 0.05s';
+    playerPanel.style.transform = `translate(${(Math.random()-0.5)*8}px, ${(Math.random()-0.5)*6}px)`;
+    playerPanel.style.background = 'rgba(231,76,60,0.5)';
+    setTimeout(() => {
+      playerPanel.style.transform = 'translate(0,0)';
+      playerPanel.style.background = 'rgba(0,0,0,0.4)';
+    }, 100);
+  }
+  // Fiende-sprite "vugger" litt (angrepsbevegelse)
+  const enemyImg = document.getElementById('battleEnemyImg');
+  if (enemyImg) {
+    enemyImg.style.transition = 'transform 0.15s';
+    enemyImg.style.transform = 'translate(0, 10px) scale(1.05)';
+    setTimeout(() => { enemyImg.style.transform = 'translate(0, 0) scale(1)'; }, 180);
+  }
+  updatePlayerBattleUI();
+  if (exploreBattlePokemon.hp <= 0) {
+    stopEnemyAutoAttack();
+    setTimeout(() => {
+      document.getElementById('battleMsg').innerHTML = `💀 ${exploreBattlePokemon.name} besvimte!<br>Du flykter tilbake til kartet.`;
+      setTimeout(() => {
+        exploreBattle = null;
+        document.getElementById('battleOverlay').style.display = 'none';
+        exploreBattlePokemon.hp = Math.round(exploreBattlePokemon.maxHp * 0.5);
+        setExploreLog(`💀 ${exploreBattlePokemon.name} besvimte og er nå heal'a til 50% HP.`);
+      }, 1500);
+    }, 400);
+  }
 }
 
 function updatePlayerBattleUI() {
@@ -13149,6 +13207,7 @@ function battleFlee() {
   // 70% sjanse for å flykte
   if (Math.random() < 0.7) {
     setExploreLog('🏃 Du flyktet!');
+    stopEnemyAutoAttack();
     exploreBattle = null;
     document.getElementById('battleOverlay').style.display = 'none';
   } else {
@@ -13158,6 +13217,7 @@ function battleFlee() {
 
 function catchEncounteredPokemon() {
   if (!exploreBattle) return;
+  stopEnemyAutoAttack();
   const b = exploreBattle;
   const pokemon = b.pokemon;
   // Legg til som individ (hvis plass)
