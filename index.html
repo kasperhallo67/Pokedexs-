@@ -3802,7 +3802,8 @@
     <span class="user-icon">👤</span>
     <span id="usernameDisplay">Set username</span>
   </div>
-  <button class="logout-btn" onclick="openAccountSwitcher()" title="Switch account on this device" style="right:55px;background:#9b59b6;">👥</button>
+  <!-- Account switcher fjernet: kun én bruker per enhet -->
+  <button class="logout-btn" onclick="openAccountSwitcher()" title="Switch account on this device" style="right:55px;background:#9b59b6;display:none;">👥</button>
   <button class="logout-btn" onclick="logout()" title="Log out">🚪</button>
 </div>
 
@@ -5891,6 +5892,23 @@ let state = JSON.parse(localStorage.getItem('pokeGame')) || {
 if (state.username === undefined) state.username = '';
 if (state.password === undefined) state.password = '';
 if (state.buddyId === undefined) state.buddyId = null;
+
+// === DEVICE-ID: én bruker per enhet ===
+// Generer en unik ID for denne enheten som lagres permanent i localStorage.
+// Brukes til å begrense én konto per enhet på serveren.
+function getDeviceId() {
+  let id = localStorage.getItem('pokedex_device_id');
+  if (!id) {
+    // Generer en unik ID — bruk crypto hvis tilgjengelig, ellers fallback
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      id = crypto.randomUUID();
+    } else {
+      id = 'd_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    }
+    localStorage.setItem('pokedex_device_id', id);
+  }
+  return id;
+}
 // Migrer eldre lagringer
 if (!state.seen) {
   state.seen = {};
@@ -7305,12 +7323,13 @@ function showLogin() {
       try { return JSON.parse(localStorage.getItem('pokeAccounts') || '{}'); }
       catch { return {}; }
     })();
-    const accountNames = Object.keys(accounts);
+    // KUN ÉN BRUKER PER ENHET: vis bare 1 lagret konto (den nyeste/aktive)
+    const accountNames = Object.keys(accounts).slice(0, 1);
     let savedAccountsHtml = '';
     if (accountNames.length > 0) {
       savedAccountsHtml = `
         <div style="margin-bottom:16px;">
-          <h3 style="margin:0 0 8px 0;color:#fff;">👥 Saved accounts on this device — click to play:</h3>
+          <h3 style="margin:0 0 8px 0;color:#fff;">👤 Din konto på denne enheten:</h3>
           ${accountNames.map(name => {
             let info = { coins: 0, totalCatches: 0 };
             try {
@@ -7508,7 +7527,7 @@ async function createAccount() {
     const res = await fetch('/api/account/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password: pw })
+      body: JSON.stringify({ username, password: pw, deviceId: getDeviceId() })
     });
     const data = await res.json();
     if (!data.ok) {

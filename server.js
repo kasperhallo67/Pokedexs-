@@ -23,6 +23,7 @@ const CHAT_FILE    = path.join(DATA_DIR, 'chat.json');
 const DM_FILE      = path.join(DATA_DIR, 'dm.json');
 const REDEEM_FILE  = path.join(DATA_DIR, 'redeem.json');
 const BANNED_FILE  = path.join(DATA_DIR, 'banned.json');
+const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -40,6 +41,7 @@ ensureFile(CHAT_FILE, '[]');
 ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
+ensureFile(DEVICES_FILE, '{}');
 
 function readJson(file, def) {
   try {
@@ -533,9 +535,10 @@ app.post('/api/trade/ind/respond', (req, res) => {
 
 // === ACCOUNTS ===
 app.post('/api/account/create', (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, deviceId } = req.body || {};
   const u = (username || '').trim();
   const p = password || '';
+  const dev = (deviceId || '').trim();
   if (!u || u.length > 30 || p.length < 3) {
     return res.status(400).json({ ok: false, error: 'Invalid username or password' });
   }
@@ -543,12 +546,28 @@ app.post('/api/account/create', (req, res) => {
   if (censorText(u) !== u) {
     return res.status(400).json({ ok: false, error: 'Username contains banned words' });
   }
+  // ÉN BRUKER PER ENHET: sjekk om denne enheten allerede har en konto
+  if (dev) {
+    const devices = readJson(DEVICES_FILE, {});
+    if (devices[dev] && devices[dev] !== u) {
+      return res.status(403).json({
+        ok: false,
+        error: `Denne enheten har allerede en konto ("${devices[dev]}"). Kun én konto per enhet er tillatt.`
+      });
+    }
+  }
   const users = readJson(USERS_FILE, {});
   if (users[u]) {
     return res.status(409).json({ ok: false, error: 'Username already exists' });
   }
   users[u] = { password: p, state: null };
   writeJson(USERS_FILE, users);
+  // Lås enheten til denne brukeren
+  if (dev) {
+    const devices = readJson(DEVICES_FILE, {});
+    devices[dev] = u;
+    writeJson(DEVICES_FILE, devices);
+  }
   res.json({ ok: true });
 });
 
