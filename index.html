@@ -13255,6 +13255,7 @@ function updateBattleHp() {
 
 function battleAttack() {
   if (!exploreBattle || !exploreBattlePokemon) return;
+  if (exploreBattle.captured || exploreBattle.fled || exploreBattle.hp <= 0) return; // beskytt mot SPACE-spam
   if (exploreBattlePokemon.hp <= 0) return;
   // Skade fra spilleren — basert på CP til kamp-Pokémon (mer CP = mer dmg)
   const baseDmg = Math.max(5, Math.round(exploreBattlePokemon.cp / 15));
@@ -13270,6 +13271,8 @@ function battleAttack() {
   setTimeout(() => { img.style.transform = 'translate(0,0)'; }, 80);
   updateBattleHp();
   if (exploreBattle.hp <= 0) {
+    exploreBattle.captured = true; // lås mot videre angrep
+    stopEnemyAutoAttack();
     setTimeout(catchEncounteredPokemon, 400);
     return;
   }
@@ -13309,8 +13312,10 @@ function battleAttack() {
 
 function battleFlee() {
   if (!exploreBattle) return;
+  if (exploreBattle.captured || exploreBattle.fled) return;
   // 70% sjanse for å flykte
   if (Math.random() < 0.7) {
+    exploreBattle.fled = true;
     setExploreLog('🏃 Du flyktet!');
     stopEnemyAutoAttack();
     if (state.exploreStats) state.exploreStats.fleeCount = (state.exploreStats.fleeCount || 0) + 1;
@@ -13323,6 +13328,8 @@ function battleFlee() {
 
 function catchEncounteredPokemon() {
   if (!exploreBattle) return;
+  if (exploreBattle.catchProcessed) return; // sikret mot dobbelt-kall
+  exploreBattle.catchProcessed = true;
   stopEnemyAutoAttack();
   const b = exploreBattle;
   const pokemon = b.pokemon;
