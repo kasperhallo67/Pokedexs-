@@ -3796,6 +3796,7 @@
     <button class="menu-btn" onclick="openTrade()" style="background:#2ecc71;position:relative;">🔄 Trade<span id="tradeBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:red;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;text-align:center;">0</span></button>
     <button class="menu-btn" onclick="openCasino()" style="background:#e91e63;">🎰 Casino</button>
     <button class="menu-btn" onclick="openExplore()" style="background:#16a085;">🗺️ Explore</button>
+    <button class="menu-btn" id="quizBtn" onclick="openQuiz()" style="background:#e67e22;position:relative;">❓ Daglig Quiz<span id="quizBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:red;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;text-align:center;">!</span></button>
     <button class="menu-btn" onclick="openAchievements()" style="background:linear-gradient(135deg,#ffd700,#ff8c00);color:#333;">🏆 Achievements</button>
   </div>
   <div class="user-box" onclick="changeUsername()" title="Click to change username">
@@ -4004,6 +4005,17 @@
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
+  </div>
+</div>
+
+<!-- DAGLIG QUIZ -->
+<div class="modal" id="quizModal">
+  <div class="modal-content" style="max-width:500px;">
+    <button class="close-btn" onclick="closeModal('quiz')">×</button>
+    <h2 class="modal-title">❓ Daglig Quiz</h2>
+    <div id="quizContent" style="text-align:center;padding:10px;color:#fff;">
+      Loading...
+    </div>
   </div>
 </div>
 
@@ -6095,8 +6107,11 @@ if (state.username) {
       localStorage.setItem('pokeAccounts', JSON.stringify(accts));
     }
   } catch {}
-  // Start ban-watcher hvis allerede logget inn ved oppstart
-  setTimeout(() => { if (typeof startBanWatcher === 'function') startBanWatcher(); }, 1500);
+  // Start ban-watcher + quiz-polling hvis allerede logget inn ved oppstart
+  setTimeout(() => {
+    if (typeof startBanWatcher === 'function') startBanWatcher();
+    if (typeof startQuizPolling === 'function') startQuizPolling();
+  }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
 for (const ind of state.individuals) {
@@ -7468,6 +7483,7 @@ async function loginToOther() {
     document.getElementById('loginOverlay').classList.add('hidden');
     submitScore();
     startBanWatcher();
+    startQuizPolling();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }
@@ -7803,6 +7819,152 @@ function showBanScreen() {
     <button onclick="location.reload()" style="padding:14px 32px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;">Lukk</button>
     <style>@keyframes banPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }</style>
   `;
+}
+
+// === DAGLIG QUIZ ===
+let quizCheckTimer = null;
+let lastQuizState = null;
+
+async function openQuiz() {
+  document.getElementById('quizModal').classList.add('active');
+  renderQuiz();
+}
+
+async function renderQuiz() {
+  const content = document.getElementById('quizContent');
+  content.innerHTML = '⏳ Laster...';
+  try {
+    const r = await fetch('/api/quiz/today');
+    const d = await r.json();
+    if (!d.available) {
+      if (d.reason === 'too_early') {
+        content.innerHTML = `
+          <div style="font-size:60px;margin:20px 0;">⏰</div>
+          <div style="font-size:18px;color:#ffb;margin-bottom:8px;">${d.message}</div>
+          <div style="font-size:13px;color:#aaa;">Dag ${d.day || '?'} av quiz-serien åpner kl 09:00 norsk tid.</div>
+        `;
+      } else if (d.reason === 'claimed') {
+        content.innerHTML = `
+          <div style="font-size:60px;margin:20px 0;">🏆</div>
+          <div style="font-size:18px;color:#fff;margin-bottom:8px;">Dagens quiz er allerede vunnet!</div>
+          <div style="font-size:14px;color:#ffd700;margin-bottom:10px;">
+            Vinner: <b>${d.claimedBy.replace(/[<>&]/g, '')}</b>
+          </div>
+          <div style="font-size:13px;color:#aaa;background:rgba(255,255,255,0.05);padding:10px;border-radius:6px;margin-top:10px;">
+            <div style="font-size:11px;color:#888;margin-bottom:4px;">Dagens spørsmål var:</div>
+            <i>"${d.question}"</i>
+            <div style="margin-top:6px;color:#7df;">🎁 Premie: ${d.prizeText}</div>
+          </div>
+          <div style="font-size:12px;color:#aaa;margin-top:14px;">Kom tilbake i morgen for et nytt spørsmål!</div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div style="font-size:60px;margin:20px 0;">🎯</div>
+          <div style="font-size:16px;color:#aaa;">${d.message || 'Ingen quiz akkurat nå.'}</div>
+        `;
+      }
+      lastQuizState = 'inactive';
+      return;
+    }
+    // Aktiv quiz!
+    content.innerHTML = `
+      <div style="font-size:60px;margin:10px 0;">❓</div>
+      <div style="font-size:13px;color:#ffd700;margin-bottom:4px;">DAG ${d.day} — Først ute vinner!</div>
+      <div style="background:rgba(0,0,0,0.4);padding:14px;border-radius:10px;margin:10px 0;">
+        <div style="font-size:18px;color:#fff;margin-bottom:6px;font-weight:bold;">${d.question}</div>
+        <div style="font-size:13px;color:#7dffac;">🎁 Premie: ${d.prizeText}</div>
+      </div>
+      <input id="quizAnswerInput" type="text" placeholder="Skriv svar her..." style="width:90%;padding:10px;font-size:16px;background:#222;color:white;border:2px solid #555;border-radius:6px;margin:8px 0;" onkeydown="if(event.key==='Enter') submitQuizAnswer()">
+      <div id="quizMsg" style="min-height:20px;font-size:14px;margin:6px 0;"></div>
+      <button onclick="submitQuizAnswer()" style="padding:10px 24px;background:#27ae60;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;">💡 Send svar</button>
+    `;
+    setTimeout(() => { const i = document.getElementById('quizAnswerInput'); if (i) i.focus(); }, 50);
+    lastQuizState = 'available';
+  } catch (e) {
+    content.innerHTML = '<div style="color:#e74c3c;">Kunne ikke laste quiz: ' + e.message + '</div>';
+  }
+}
+
+async function submitQuizAnswer() {
+  const inp = document.getElementById('quizAnswerInput');
+  const msgEl = document.getElementById('quizMsg');
+  if (!inp || !state.username) {
+    if (msgEl) { msgEl.textContent = '✗ Du må være logget inn'; msgEl.style.color = '#e74c3c'; }
+    return;
+  }
+  const answer = (inp.value || '').trim();
+  if (!answer) { msgEl.textContent = '✗ Skriv et svar først'; msgEl.style.color = '#e74c3c'; return; }
+  msgEl.textContent = '⏳ Sender...';
+  msgEl.style.color = '#aaa';
+  try {
+    const r = await fetch('/api/quiz/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.username, answer })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok && d.correct) {
+      msgEl.innerHTML = `🎉 RIKTIG! Du vant <b>${d.prizeText}</b>!`;
+      msgEl.style.color = '#2ecc71';
+      // Trigg re-sync slik at klient får oppdatert state med ny Pokémon/coins
+      setTimeout(async () => {
+        try {
+          await fetch('/api/account/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: state.username, password: state.password, state: null })
+          });
+          // Last inn state på nytt fra server
+          const lr = await fetch('/api/account/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: state.username, password: state.password })
+          });
+          const ld = await lr.json();
+          if (ld.ok && ld.state) {
+            const serverState = JSON.parse(ld.state);
+            Object.assign(state, serverState);
+            save(); updateUI();
+          }
+        } catch {}
+        setTimeout(renderQuiz, 1000);
+      }, 1500);
+    } else if (d.correct === false) {
+      msgEl.textContent = '✗ Feil svar! Prøv igjen.';
+      msgEl.style.color = '#e74c3c';
+      inp.value = '';
+      inp.focus();
+    } else {
+      msgEl.textContent = '✗ ' + (d.error || 'Feil');
+      msgEl.style.color = '#e74c3c';
+    }
+  } catch (e) {
+    msgEl.textContent = '✗ Server-feil: ' + e.message;
+    msgEl.style.color = '#e74c3c';
+  }
+}
+
+async function checkQuizAvailable() {
+  try {
+    const r = await fetch('/api/quiz/today');
+    const d = await r.json();
+    const badge = document.getElementById('quizBadge');
+    if (badge) {
+      if (d.available) {
+        badge.style.display = 'block';
+        badge.textContent = '!';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch { /* ignorer */ }
+}
+
+// Sjekk hvert 60 sek om en quiz er åpen
+function startQuizPolling() {
+  if (quizCheckTimer) clearInterval(quizCheckTimer);
+  checkQuizAvailable();
+  quizCheckTimer = setInterval(checkQuizAvailable, 60000);
 }
 
 function openLeaderboard() {

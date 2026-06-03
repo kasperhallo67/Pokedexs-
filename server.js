@@ -24,6 +24,7 @@ const DM_FILE      = path.join(DATA_DIR, 'dm.json');
 const REDEEM_FILE  = path.join(DATA_DIR, 'redeem.json');
 const BANNED_FILE  = path.join(DATA_DIR, 'banned.json');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
+const QUIZ_FILE    = path.join(DATA_DIR, 'quiz.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -42,6 +43,7 @@ ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
 ensureFile(DEVICES_FILE, '{}');
+ensureFile(QUIZ_FILE, '{}');
 
 function readJson(file, def) {
   try {
@@ -1060,6 +1062,152 @@ app.get('/api/pvp/list', (req, res) => {
       bet: b.bet || 0
     }));
   res.json({ rooms });
+});
+
+// === DAGLIG QUIZ — første som svarer riktig får premien ===
+const DAILY_QUIZ = [
+  {
+    day: 1,
+    question: 'Hva er hovedstaden i USA?',
+    answers: ['washington', 'washington dc', 'washington d.c.', 'washington d c'],
+    prize: { type: 'pokemon', pokemonId: 6, pokemonName: 'Charizard', rarity: 'epic', cp: 8000, isShiny: false },
+    prizeText: 'En Charizard med CP 8000!'
+  },
+  {
+    day: 2,
+    question: 'Hvem er toppscorer for Norges fotballandslag?',
+    answers: ['haaland', 'erling haaland', 'erling braut haaland'],
+    prize: { type: 'pokemon', pokemonId: 25, pokemonName: 'Pikachu', rarity: 'rare', cp: 8500, isShiny: true },
+    prizeText: 'En ✨ SHINY Pikachu med CP 8500!'
+  },
+  {
+    day: 3,
+    question: 'Hvem var den første presidenten i USA?',
+    answers: ['washington', 'george washington', 'g washington'],
+    prize: { type: 'coins', amount: 2000000 },
+    prizeText: '2 000 000 💰 coins!'
+  }
+];
+
+// Norway local hour
+function getNorwayHour() {
+  const h = new Date().toLocaleString('en-US', { timeZone: 'Europe/Oslo', hour: 'numeric', hour12: false });
+  return parseInt(h);
+}
+
+// Hvilken dag er det? Basert på startdato lagret ved første call.
+function getCurrentQuizDay() {
+  let q = readJson(QUIZ_FILE, {});
+  if (!q.startDate) {
+    // Sett startdato til i dag (Norway timezone)
+    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+    q.startDate = today;
+    q.claims = {};
+    writeJson(QUIZ_FILE, q);
+  }
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+  const start = new Date(q.startDate + 'T00:00:00');
+  const now = new Date(today + 'T00:00:00');
+  const diffDays = Math.floor((now - start) / 86400000);
+  return diffDays + 1; // dag 1 = startdato
+}
+
+app.get('/api/quiz/today', (req, res) => {
+  const day = getCurrentQuizDay();
+  const quiz = DAILY_QUIZ.find(q => q.day === day);
+  if (!quiz) {
+    return res.json({ available: false, reason: 'finished', message: 'Ingen flere quiz-spørsmål — kom tilbake senere!' });
+  }
+  const norwayHour = getNorwayHour();
+  if (norwayHour < 9) {
+    return res.json({ available: false, reason: 'too_early', message: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` , day });
+  }
+  const state = readJson(QUIZ_FILE, {});
+  state.claims = state.claims || {};
+  if (state.claims[day]) {
+    return res.json({
+      available: false,
+      reason: 'claimed',
+      day,
+      claimedBy: state.claims[day].username,
+      claimedAt: state.claims[day].claimedAt,
+      prizeText: quiz.prizeText,
+      question: quiz.question,
+      message: `Allerede vunnet av ${state.claims[day].username}`
+    });
+  }
+  // Aktiv — send spørsmål (men IKKE svaret!)
+  res.json({
+    available: true,
+    day,
+    question: quiz.question,
+    prizeText: quiz.prizeText
+  });
+});
+
+app.post('/api/quiz/answer', (req, res) => {
+  const { username, answer } = req.body || {};
+  const u = (username || '').trim();
+  const a = (answer || '').trim().toLowerCase();
+  if (!u || !a) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const norwayHour = getNorwayHour();
+  if (norwayHour < 9) return res.status(403).json({ ok: false, error: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` });
+  const day = getCurrentQuizDay();
+  const quiz = DAILY_QUIZ.find(q => q.day === day);
+  if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen aktiv quiz' });
+  const state = readJson(QUIZ_FILE, {});
+  state.claims = state.claims || {};
+  if (state.claims[day]) {
+    return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.claims[day].username}` });
+  }
+  // Sjekk svar (case-insensitive)
+  const correct = quiz.answers.some(ans => ans.toLowerCase() === a);
+  if (!correct) {
+    return res.json({ ok: false, correct: false, message: 'Feil svar! Prøv igjen.' });
+  }
+  // RIKTIG! Marker som vunnet og gi premie
+  const users = readJson(USERS_FILE, {});
+  if (!users[u]) return res.status(404).json({ ok: false, error: 'Brukerkonto ikke på serveren (sync først)' });
+  try {
+    const userState = users[u].state ? JSON.parse(users[u].state) : {};
+    if (quiz.prize.type === 'coins') {
+      userState.coins = (userState.coins || 0) + quiz.prize.amount;
+    } else if (quiz.prize.type === 'pokemon') {
+      const p = quiz.prize;
+      if (!Array.isArray(userState.individuals)) userState.individuals = [];
+      if (!userState.caught) userState.caught = {};
+      if (!userState.seen) userState.seen = {};
+      if (!userState.shinies) userState.shinies = {};
+      if (!userState.shinySeen) userState.shinySeen = {};
+      const uid = 'quiz_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      userState.individuals.push({
+        uid,
+        id: p.pokemonId,
+        name: p.pokemonName,
+        rarity: p.rarity,
+        cp: p.cp,
+        isShiny: !!p.isShiny,
+        caughtAt: Date.now(),
+        eventType: null,
+        upgrades: 0
+      });
+      userState.caught[p.pokemonId] = (userState.caught[p.pokemonId] || 0) + 1;
+      userState.seen[p.pokemonId] = true;
+      if (p.isShiny) {
+        userState.shinies[p.pokemonId] = (userState.shinies[p.pokemonId] || 0) + 1;
+        userState.shinySeen[p.pokemonId] = true;
+      }
+      userState.totalCatches = (userState.totalCatches || 0) + 1;
+    }
+    users[u].state = JSON.stringify(userState);
+    writeJson(USERS_FILE, users);
+    // Marker som vunnet
+    state.claims[day] = { username: u, claimedAt: new Date().toISOString() };
+    writeJson(QUIZ_FILE, state);
+    res.json({ ok: true, correct: true, prizeText: quiz.prizeText, day });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // === Health check ===
