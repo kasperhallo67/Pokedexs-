@@ -22,6 +22,7 @@ const BATTLES_FILE = path.join(DATA_DIR, 'battles.json');
 const CHAT_FILE    = path.join(DATA_DIR, 'chat.json');
 const DM_FILE      = path.join(DATA_DIR, 'dm.json');
 const REDEEM_FILE  = path.join(DATA_DIR, 'redeem.json');
+const BANNED_FILE  = path.join(DATA_DIR, 'banned.json');
 
 function ensureFile(file, defaultContent) {
   try {
@@ -38,6 +39,7 @@ ensureFile(BATTLES_FILE, '[]');
 ensureFile(CHAT_FILE, '[]');
 ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
+ensureFile(BANNED_FILE, '[]');
 
 function readJson(file, def) {
   try {
@@ -99,9 +101,9 @@ app.post('/api/score', (req, res) => {
   if (!username || username.length > 30) {
     return res.status(400).json({ ok: false, error: 'invalid username' });
   }
-  // BAN-SJEKK: hvis brukeren ble slettet på serveren, ikke godta scoren — returner banned-flag
-  const users = readJson(USERS_FILE, {});
-  if (!users[username]) {
+  // BAN-SJEKK: kun blokker hvis brukernavnet er på den eksplisitte ban-listen
+  const banned = readJson(BANNED_FILE, []);
+  if (Array.isArray(banned) && banned.some(b => String(b).toLowerCase() === username.toLowerCase())) {
     return res.status(403).json({ ok: false, banned: true, error: 'Account has been permanently deleted' });
   }
   const scores = readJson(SCORES_FILE, {});
@@ -239,9 +241,16 @@ app.post('/api/cheat/delete-user', (req, res) => {
     writeJson(SCORES_FILE, scores);
     deletedFrom.push('scores');
   }
+  // Legg til på den permanente ban-listen så de ikke kan logge inn igjen
+  const banned = readJson(BANNED_FILE, []);
+  const bannedName = actualUserKey || actualScoreKey || target;
+  if (Array.isArray(banned) && !banned.some(b => String(b).toLowerCase() === bannedName.toLowerCase())) {
+    banned.push(bannedName);
+    writeJson(BANNED_FILE, banned);
+  }
   res.json({
     ok: true,
-    deleted: actualUserKey || actualScoreKey,
+    deleted: bannedName,
     from: deletedFrom
   });
 });
@@ -546,18 +555,24 @@ app.post('/api/account/create', (req, res) => {
 app.post('/api/account/login', (req, res) => {
   const { username, password } = req.body || {};
   const u = (username || '').trim();
+  // Ban-sjekk
+  const banned = readJson(BANNED_FILE, []);
+  if (Array.isArray(banned) && banned.some(b => String(b).toLowerCase() === u.toLowerCase())) {
+    return res.status(403).json({ ok: false, banned: true, error: 'Account has been permanently banned' });
+  }
   const users = readJson(USERS_FILE, {});
   if (!users[u]) return res.status(404).json({ ok: false, error: 'User not found' });
   if (users[u].password !== password) return res.status(401).json({ ok: false, error: 'Wrong password' });
   res.json({ ok: true, state: users[u].state });
 });
 
-// Sjekk om en konto fortsatt eksisterer (brukes til ban-deteksjon)
+// Sjekk om en konto er BANNET (eksplisitt slettet av owner) — IKKE bare manglende konto
 app.get('/api/account/check', (req, res) => {
   const u = (req.query.username || '').trim();
-  const users = readJson(USERS_FILE, {});
-  if (!users[u]) return res.json({ exists: false, banned: true });
-  res.json({ exists: true, banned: false });
+  if (!u) return res.json({ banned: false });
+  const banned = readJson(BANNED_FILE, []);
+  const isBanned = Array.isArray(banned) && banned.some(b => String(b).toLowerCase() === u.toLowerCase());
+  res.json({ banned: isBanned });
 });
 
 app.post('/api/account/sync', (req, res) => {
