@@ -1112,14 +1112,21 @@ function getCurrentQuizDay() {
   return diffDays + 1; // dag 1 = startdato
 }
 
+const QUIZ_OWNER_BYPASS = 'kasper_owner_2026';
+const QUIZ_OWNER_USERNAME = 'Kasperhallo0';
+
 app.get('/api/quiz/today', (req, res) => {
   const day = getCurrentQuizDay();
   const quiz = DAILY_QUIZ.find(q => q.day === day);
   if (!quiz) {
     return res.json({ available: false, reason: 'finished', message: 'Ingen flere quiz-spørsmål — kom tilbake senere!' });
   }
+  // Owner-bypass: tillat test før kl 09:00 for Kasperhallo0
+  const bypassUser = (req.query.username || '').trim();
+  const bypassKey = (req.query.bypass || '').trim();
+  const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;
   const norwayHour = getNorwayHour();
-  if (norwayHour < 9) {
+  if (norwayHour < 9 && !isOwnerBypass) {
     return res.json({ available: false, reason: 'too_early', message: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` , day });
   }
   const state = readJson(QUIZ_FILE, {});
@@ -1146,12 +1153,13 @@ app.get('/api/quiz/today', (req, res) => {
 });
 
 app.post('/api/quiz/answer', (req, res) => {
-  const { username, answer } = req.body || {};
+  const { username, answer, bypass } = req.body || {};
   const u = (username || '').trim();
   const a = (answer || '').trim().toLowerCase();
   if (!u || !a) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const isOwnerBypass = bypass === QUIZ_OWNER_BYPASS && u === QUIZ_OWNER_USERNAME;
   const norwayHour = getNorwayHour();
-  if (norwayHour < 9) return res.status(403).json({ ok: false, error: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` });
+  if (norwayHour < 9 && !isOwnerBypass) return res.status(403).json({ ok: false, error: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` });
   const day = getCurrentQuizDay();
   const quiz = DAILY_QUIZ.find(q => q.day === day);
   if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen aktiv quiz' });

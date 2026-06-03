@@ -7834,7 +7834,10 @@ async function renderQuiz() {
   const content = document.getElementById('quizContent');
   content.innerHTML = '⏳ Laster...';
   try {
-    const r = await fetch('/api/quiz/today');
+    const bypassQS = (window.quizTestMode && state.username === CHEAT_OWNER_USERNAME)
+      ? `?bypass=${encodeURIComponent(QUIZ_OWNER_BYPASS)}&username=${encodeURIComponent(state.username)}`
+      : '';
+    const r = await fetch('/api/quiz/today' + bypassQS);
     const d = await r.json();
     if (!d.available) {
       if (d.reason === 'too_early') {
@@ -7897,10 +7900,15 @@ async function submitQuizAnswer() {
   msgEl.textContent = '⏳ Sender...';
   msgEl.style.color = '#aaa';
   try {
+    const isOwnerTest = !!(window.quizTestMode && state.username === CHEAT_OWNER_USERNAME);
     const r = await fetch('/api/quiz/answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: state.username, answer })
+      body: JSON.stringify({
+        username: state.username,
+        answer,
+        bypass: isOwnerTest ? QUIZ_OWNER_BYPASS : undefined
+      })
     });
     const d = await r.json();
     if (r.ok && d.ok && d.correct) {
@@ -14975,6 +14983,9 @@ const CHEAT_PASSWORD_REMOVE = '8273';     // Trekk penger fra deg selv
 const CHEAT_PASSWORD_FORCE_ULT = '3456';  // Tving neste ball til shiny Ultimate
 const CHEAT_PASSWORD_ONETIME70 = '9521';  // Engangs: +70 coins
 const CHEAT_PASSWORD_DELETE_USER = '6741'; // Slett en annen brukerkonto (kun owner)
+const CHEAT_PASSWORD_TEST = 'test1';        // Test-kode for owner: gir 1M coins + reload (ubegrenset bruk)
+const CHEAT_PASSWORD_TEST_QUIZ = '8888';    // Test-kode for owner: åpne quizen NÅ (uavhengig av kl 09)
+const QUIZ_OWNER_BYPASS = 'kasper_owner_2026'; // Secret som sendes med bypass-requests
 let cheatStage = 'password'; // 'password', 'amount', eller 'pick_pokemon'
 
 function openCheat() {
@@ -15139,6 +15150,24 @@ async function submitCheat() {
       msg.textContent = '✓ Enter how many coins to remove from yourself.';
       msg.className = 'cheat-msg ok';
       input.focus();
+    } else if (input.value === CHEAT_PASSWORD_TEST_QUIZ) {
+      // Test-kode for quiz — åpne quizen umiddelbart selv om kl < 09:00
+      window.quizTestMode = true;
+      msg.innerHTML = '🧪 <b>QUIZ TEST-MODUS</b><br>Åpner quizen nå (uten tidsbegrensning)';
+      msg.className = 'cheat-msg ok';
+      setTimeout(() => { closeCheat(); openQuiz(); }, 1200);
+    } else if (input.value === CHEAT_PASSWORD_TEST) {
+      // Test-kode: gir 1M coins + 50 candy på Pikachu + 99 av alle baller
+      state.coins = (state.coins || 0) + 1000000;
+      if (!state.candy || typeof state.candy !== 'object') state.candy = {};
+      state.candy[25] = (state.candy[25] || 0) + 50; // Pikachu candy
+      for (const key of Object.keys(BALLS)) {
+        if (key !== 'free') state.inventory[key] = Math.max(state.inventory[key] || 0, 99);
+      }
+      save(); updateUI(); submitScore();
+      msg.innerHTML = '🧪 <b>TEST-KODE AKTIVERT</b><br>+1 000 000 💰<br>+50 🍬 Pikachu-candy<br>+99 av alle baller<br><span style="font-size:11px;color:#aaa;">(Kan brukes igjen)</span>';
+      msg.className = 'cheat-msg ok';
+      setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_DELETE_USER) {
       cheatStage = 'delete_target';
       document.getElementById('cheatTitle').textContent = '🗑️ DELETE USER ACCOUNT';
