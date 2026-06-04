@@ -3939,7 +3939,6 @@
       <button class="filter-btn" onclick="setFilter('epic')">Epic</button>
       <button class="filter-btn" onclick="setFilter('legendary')">Legendary</button>
       <button class="filter-btn" onclick="setFilter('rocket')" style="background:linear-gradient(135deg,#2c0000,#8b0000);color:#ff5555;font-weight:900;border:1px solid #ff0000;text-shadow:0 0 4px #ff0000;">💀 Team Rocket</button>
-      <button class="filter-btn" onclick="setFilter('ultimate')" style="background:linear-gradient(90deg,#ff0040,#ffd700,#7873f5);background-size:200% 100%;color:white;font-weight:900;animation:rainbowShift 3s linear infinite;">🌈 ULTIMATE</button>
     </div>
     <div class="pokedex-grid" id="pokedexGrid"></div>
   </div>
@@ -5386,8 +5385,7 @@ const RARITY_NAMES = {
   rare: 'Rare',
   epic: 'Epic',
   legendary: 'Legendary',
-  rocket: '💀 Team Rocket',
-  ultimate: 'ULTIMATE'
+  rocket: '💀 Team Rocket'
 };
 const SELL_PRICES = {
   common: 5,
@@ -5395,8 +5393,7 @@ const SELL_PRICES = {
   rare: 100,
   epic: 400,
   legendary: 1500,
-  rocket: 3500,
-  ultimate: 33000   // CP-scaling gir 7000-100000 per fangst
+  rocket: 3500
 };
 
 // CP-områder per rarity (Pokémon GO-stil — hver fangst får tilfeldig CP i området)
@@ -5406,8 +5403,7 @@ const CP_RANGES = {
   rare:      { min: 50,   max: 350  },
   epic:      { min: 150,  max: 1500 },
   legendary: { min: 500,  max: 5000 },
-  rocket:    { min: 1500, max: 7500 },
-  ultimate:  { min: 2000, max: 10000 }
+  rocket:    { min: 1500, max: 7500 }
 };
 
 // CP-boost basert på pris på utstyr (klær + bakgrunn)
@@ -5577,12 +5573,12 @@ const BALLS = {
     name: 'Veteran Ball',
     icon: '🏆',
     price: 0,
-    odds: { common: 0, uncommon: 0, rare: 12, epic: 35, legendary: 40, rocket: 10, ultimate: 3 },
+    odds: { common: 0, uncommon: 0, rare: 12, epic: 38, legendary: 40, rocket: 10 },
     shinyChance: 2,
     unlockPlaytimeMs: 3600000,
     useCooldownMs: 3600000,
     activeOnly: true,
-    desc: '⏰ FREE · 1h ACTIVE cooldown · 3% ULTIMATE · 10% Rocket'
+    desc: '⏰ FREE · 1h ACTIVE cooldown · 10% Rocket · 40% Legendary'
   },
   poke: {
     name: 'Poké Ball',
@@ -5636,7 +5632,7 @@ const BALLS = {
     name: 'Luxury Ball',
     icon: '💎',
     price: 1200,
-    odds: { rare: 20, epic: 60, legendary: 18, ultimate: 2 },
+    odds: { rare: 20, epic: 62, legendary: 18 },
     shinyChance: 8,
     desc: '8% shiny — pure shiny specialist!'
   },
@@ -5644,7 +5640,7 @@ const BALLS = {
     name: 'Master Ball',
     icon: '👑',
     price: 1500,
-    odds: { legendary: 55, rocket: 22, ultimate: 23 },
+    odds: { legendary: 78, rocket: 22 },
     shinyChance: 1,
     desc: 'TOP tier guaranteed (Champion+ focus)'
   },
@@ -5974,23 +5970,52 @@ const __oldRarityMigration = {
   mega: 'epic',
   champion: 'legendary',
   shadowking: 'rocket',
-  mythic: 'ultimate',
-  godultimate: 'ultimate',
-  eternal: 'ultimate'
+  mythic: 'legendary',
+  godultimate: 'legendary',
+  eternal: 'legendary',
+  ultimate: 'legendary'   // ultimate er FJERNET — alle ultimate → legendary
 };
 if (Array.isArray(state.individuals)) {
+  // ULTIMATE ER FJERNET FRA SPILLET: SLETT alle individer med ultimate-rarity (eller gammel-mappet ultimate)
+  state.individuals = state.individuals.filter(ind => {
+    if (!ind) return false;
+    if (ind.rarity === 'ultimate') return false;
+    if (ind.rarity === 'godultimate') return false;
+    if (ind.rarity === 'mythic') return false;
+    if (ind.rarity === 'eternal') return false;
+    return true;
+  });
+  // Migrer GAMLE rarities til gjeldende (men ikke ultimate-varianter — de er slettet)
   for (const ind of state.individuals) {
-    if (ind && __oldRarityMigration[ind.rarity]) {
+    if (ind && __oldRarityMigration[ind.rarity] && ind.rarity !== 'ultimate') {
       ind.rarity = __oldRarityMigration[ind.rarity];
     }
   }
+}
+// Hvis buddy var en ultimate Pokémon → fjern buddy-referansen
+if (state.buddyUid && Array.isArray(state.individuals) && !state.individuals.some(i => i.uid === state.buddyUid)) {
+  state.buddyUid = null;
+  state.buddyId = null;
+}
+// Ultimate-spesifikke IDs (Trippel T m.fl.) — fjern fra caught/seen
+const __removedUltimateIds = [9002]; // Trippel T og andre custom ultimates
+for (const id of __removedUltimateIds) {
+  if (state.caught) delete state.caught[id];
+  if (state.seen) delete state.seen[id];
+  if (state.shinies) delete state.shinies[id];
+  if (state.shinySeen) delete state.shinySeen[id];
+  if (state.bestCp) delete state.bestCp[id];
+}
+// Fjern ultimate-ball-keys fra inventory hvis de finnes (defensiv)
+if (state.inventory) {
+  delete state.inventory.ultimate; // hvis noen hadde en "ultimate" ball-key
 }
 // Migrer state.forceNextRarity hvis den peker til en fjernet rarity
 if (state.forceNextRarity && __oldRarityMigration[state.forceNextRarity]) {
   state.forceNextRarity = __oldRarityMigration[state.forceNextRarity];
 }
 // Sanitize — bare tillat gjeldende rarities
-const __validRarities = new Set(['common','uncommon','rare','epic','legendary','rocket','ultimate']);
+const __validRarities = new Set(['common','uncommon','rare','epic','legendary','rocket']);
 if (state.forceNextRarity && !__validRarities.has(state.forceNextRarity)) {
   console.warn('Invalid forceNextRarity cleared:', state.forceNextRarity);
   state.forceNextRarity = null;
@@ -6254,8 +6279,7 @@ function pickPokemon(rarity) {
   if (!pool.length) {
     // Smart fallback — finn nærmeste eksisterende tier i stedet for å falle til common
     const fallbackOrder = {
-      ultimate:  ['ultimate','legendary','epic'],
-      rocket:    ['rocket','ultimate','legendary'],
+      rocket:    ['rocket','legendary','epic'],
       legendary: ['legendary','epic','rare'],
       epic:      ['epic','rare','uncommon'],
       rare:      ['rare','uncommon','common'],
@@ -9828,7 +9852,6 @@ const ACHIEVEMENTS = {
   first_event: { name: 'Party Time', desc: 'Catch first event Pokémon', icon: '🎉', reward: 500, check: s => Object.keys(s.eventsSeen || {}).length >= 1 },
   events_10:   { name: 'Costume Collector', desc: '10 event variants', icon: '🎭', reward: 3000, check: s => Object.keys(s.eventsSeen || {}).length >= 10 },
   // SPECIAL
-  ultimate:    { name: 'Ultimate Catcher', desc: 'Catch the ULTIMATE Pokémon', icon: '🪵', reward: 50000, check: s => s.seen && s.seen[9002] },
   duo:         { name: 'Duo Trainer', desc: 'Catch Zito & Mickey', icon: '👥', reward: 5000, check: s => s.seen && s.seen[9001] },
   // ROCKET
   rocket_win_1: { name: 'Math Whiz', desc: 'Defeat Team Rocket once', icon: '🧮', reward: 300, check: s => (s.rocketWins || 0) >= 1 },
@@ -10136,7 +10159,7 @@ function selectAllVisible() {
   const sorted = [...state.individuals];
   if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
   else if (myPokemonSort === 'rarity') {
-    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    const order = { rocket: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
     sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
   }
   else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
@@ -10391,7 +10414,7 @@ function renderMyPokemonsGrid() {
   const sorted = [...state.individuals];
   if (myPokemonSort === 'cp') sorted.sort((a, b) => b.cp - a.cp);
   else if (myPokemonSort === 'rarity') {
-    const order = { ultimate: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+    const order = { rocket: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
     sorted.sort((a, b) => (order[b.rarity] || 0) - (order[a.rarity] || 0) || b.cp - a.cp);
   }
   else if (myPokemonSort === 'date') sorted.sort((a, b) => (b.caughtAt || 0) - (a.caughtAt || 0));
@@ -11769,7 +11792,7 @@ const BOT_DIFFICULTIES = [
   { name: '👑 Champion',       rarity: 'legendary', mashRate: 9.5 },
   { name: '🌟 Mythical',       rarity: 'legendary', mashRate: 11.0 },
   { name: '👹 Legend Bot',     rarity: 'legendary', mashRate: 12.5 },
-  { name: '💀 Hyper Boss',     rarity: 'ultimate',  mashRate: 14.0 },
+  { name: '💀 Hyper Boss',     rarity: 'rocket',    mashRate: 14.0 },
   { name: '🎯 Custom CP',      custom: true,        mashRate: 8.0 }
 ];
 // Spilleren angriper hardere enn boten i AI-battles
@@ -11925,7 +11948,7 @@ function startBattle() {
     botCp = Math.max(1, Math.min(50000, parseInt(input) || 1000));
     // Velg en passende rarity basert på CP
     let chosenRarity = 'common';
-    if (botCp >= 5000) chosenRarity = 'ultimate';
+    if (botCp >= 5000) chosenRarity = 'rocket';
     else if (botCp >= 2000) chosenRarity = 'legendary';
     else if (botCp >= 500) chosenRarity = 'epic';
     else if (botCp >= 200) chosenRarity = 'rare';
@@ -15272,15 +15295,14 @@ async function submitCheat() {
       msg.className = 'cheat-msg ok';
       setTimeout(closeCheat, 2200);
     } else if (input.value === CHEAT_PASSWORD_FORCE_ULT) {
-      // ID-basert: velg tilfeldig fra kjente Ultimate-IDs (funker selv med gammel cache)
-      const ultimateIds = [9002, 150, 151, 144, 145, 146, 243, 244, 245, 249, 250, 251,
-                            380, 381, 384, 643, 644, 646, 647, 649, 716, 717, 718, 720,
-                            791, 792, 800, 801, 802, 888, 889, 890, 1007, 1008];
-      const pickedId = ultimateIds[Math.floor(Math.random() * ultimateIds.length)];
+      // Ultimate er fjernet — gi en shiny legendary i stedet
+      const legendaryIds = [150, 151, 144, 145, 146, 243, 244, 245, 249, 250, 251,
+                            380, 381, 384, 643, 644, 646, 647, 649];
+      const pickedId = legendaryIds[Math.floor(Math.random() * legendaryIds.length)];
       state.nextPokemonOverride = pickedId;
       state.forceNextShiny = true;
       save();
-      msg.innerHTML = `✨🌈 SHINY ULTIMATE FORCED! 🌈✨<br>Your <strong>next ball</strong> will catch <strong>SHINY #${pickedId}</strong>!<br><span style="font-size:12px;color:#ffb;">(Works only once — re-enter for another)</span>`;
+      msg.innerHTML = `✨ SHINY LEGENDARY FORCED!<br>Your <strong>next ball</strong> will catch <strong>SHINY #${pickedId}</strong>!<br><span style="font-size:12px;color:#ffb;">(Ultimate er fjernet — du får legendary i stedet)</span>`;
       msg.className = 'cheat-msg ok';
       setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_GIVE) {
