@@ -6136,6 +6136,7 @@ if (state.username) {
   setTimeout(() => {
     if (typeof startBanWatcher === 'function') startBanWatcher();
     if (typeof startQuizPolling === 'function') startQuizPolling();
+    if (typeof maybeEstimatePastPlaytime === 'function') maybeEstimatePastPlaytime();
     if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
   }, 1500);
 }
@@ -7509,6 +7510,7 @@ async function loginToOther() {
     submitScore();
     startBanWatcher();
     startQuizPolling();
+    maybeEstimatePastPlaytime();
     startPlaytimeTracker();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
@@ -7725,6 +7727,33 @@ let scoreSubmitTimer = null;
 // Inkrementer playtime hvert 10 sek mens siden er synlig og bruker er logget inn
 let _playtimeTimer = null;
 let _playtimeLastTick = Date.now();
+
+// RETROAKTIV ESTIMERING: hvis bruker har catches men ingen playtime → estimere fra historikk
+// Kjøres én gang per konto
+function maybeEstimatePastPlaytime() {
+  if (state.playtimeEstimated) return; // allerede gjort
+  if (!state.username) return;
+  const catches = state.totalCatches || 0;
+  if (catches === 0 && (state.playtimeMs || 0) === 0) return;
+  // Allerede har playtime? Behold den, bare merk som estimert (gjør ikke noe)
+  if ((state.playtimeMs || 0) > 0) { state.playtimeEstimated = true; save(); return; }
+  // Estimering: 25 sek per fangst + 1 min per unik shiny + 30s per områdekjøp
+  const shinies = Object.keys(state.shinySeen || {}).length;
+  const explored = Array.isArray(state.exploreUnlocked) ? state.exploreUnlocked.length : 0;
+  const explSteps = state.exploreStats?.steps || 0;
+  let estimated = catches * 25000;
+  estimated += shinies * 60000;
+  estimated += explored * 30000;
+  estimated += explSteps * 1500; // 1.5s per Explore-steg
+  // Maks 30 dager retroaktiv (2.6 milliarder ms) for å unngå urimelige tall
+  const maxRetro = 30 * 24 * 3600 * 1000;
+  if (estimated > maxRetro) estimated = maxRetro;
+  state.playtimeMs = estimated;
+  state.playtimeEstimated = true;
+  save();
+  console.log(`Retroactive playtime estimated: ${formatPlaytime(estimated)} (${catches} catches, ${shinies} shinies, ${explored} areas, ${explSteps} steps)`);
+}
+
 function startPlaytimeTracker() {
   if (_playtimeTimer) clearInterval(_playtimeTimer);
   _playtimeLastTick = Date.now();
