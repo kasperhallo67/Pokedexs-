@@ -15063,17 +15063,34 @@ function renderOnlineTexas() {
     html += '</div>';
 
     if (r.phase === 'discard') {
-      // Ready signal for advancing round (one card at a time)
       const allDiscards = {};
       if (r.discards) for (const k in r.discards) allDiscards[k] = r.discards[k] || [];
       const mySubmitted = !!allDiscards[state.username];
       const readyCount = Object.keys(allDiscards).length;
       const totalPlayers = r.players.length;
       const nextLabel = currentRound >= 5 ? 'Reveal showdown' : 'Reveal next card';
-      if (!mySubmitted) {
+      const iAmFolded = Array.isArray(r.folded) && r.folded.includes(state.username);
+      const myContribution = r.contributions && r.contributions[state.username] ? r.contributions[state.username] : 0;
+      // Vis folded status
+      if (iAmFolded) {
+        html += `<div class="poker-info" style="color:#e74c3c;">🏳️ Du har foldet. Venter på at runden skal bli ferdig...</div>`;
+      } else if (!mySubmitted) {
         html += `<div class="poker-info">
           <p>${currentRound === 0 ? 'See your hole cards. Click to start revealing community cards.' : currentRound >= 5 ? 'All 5 community cards visible. Click to go to showdown.' : 'Want to see the next community card?'}</p>
-          <button class="casino-btn" onclick="advanceOnlineTexas()" style="background:#27ae60;width:100%;">▶️ ${nextLabel}</button>
+          ${myContribution > 0 ? `<div style="font-size:12px;color:#bbb;margin-bottom:8px;">Din innsats denne runden: <b>${myContribution}💰</b></div>` : ''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <button class="casino-btn" onclick="onlineTexasFold()" style="background:#e74c3c;flex:1;">🏳️ Fold</button>
+            <button class="casino-btn" onclick="onlineTexasCheck()" style="background:#3498db;flex:1;">✓ Pass / Check</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+            <label style="color:#fff;font-size:13px;">💰 Raise:</label>
+            <input id="onlineTxRaiseAmount" type="number" min="10" value="${r.bet}" style="width:80px;padding:6px;background:#222;color:white;border:1px solid #555;border-radius:4px;">
+            <button class="quick-bet" onclick="document.getElementById('onlineTxRaiseAmount').value=${r.bet}">${r.bet}</button>
+            <button class="quick-bet" onclick="document.getElementById('onlineTxRaiseAmount').value=${r.bet*2}">${r.bet*2}</button>
+            <button class="quick-bet" onclick="document.getElementById('onlineTxRaiseAmount').value=${r.bet*5}">${r.bet*5}</button>
+            <button class="casino-btn" onclick="onlineTexasRaise()" style="background:#27ae60;">⬆️ Raise</button>
+          </div>
+          <button class="casino-btn" onclick="advanceOnlineTexas()" style="background:#f39c12;width:100%;">▶️ ${nextLabel}</button>
         </div>`;
       } else {
         html += `<div class="poker-info" style="color:gold;">⏳ Waiting for other players (${readyCount}/${totalPlayers})...</div>`;
@@ -15121,6 +15138,47 @@ async function advanceOnlineTexas() {
       body: JSON.stringify({ code: onlineTexasRoom.code, username: state.username })
     });
     pollTexasRoom();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function onlineTexasFold() {
+  if (!onlineTexasRoom) return;
+  if (!confirm('🏳️ Fold? Du gir opp denne runden og taper din innsats.')) return;
+  try {
+    await fetch('/api/poker/fold', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: onlineTexasRoom.code, username: state.username })
+    });
+    pollTexasRoom();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function onlineTexasCheck() {
+  // "Pass / Check" = ingen ekstra innsats, bare gå videre i runden
+  return advanceOnlineTexas();
+}
+
+async function onlineTexasRaise() {
+  if (!onlineTexasRoom) return;
+  const inp = document.getElementById('onlineTxRaiseAmount');
+  const amount = parseInt(inp ? inp.value : 0);
+  if (!amount || amount < 10) { alert('Raise må være minst 10'); return; }
+  if (state.coins < amount) { alert(`Trenger ${amount} coins (har ${state.coins})`); return; }
+  if (!confirm(`💰 Raise ${amount} coins? Coins trekkes fra kontoen din.`)) return;
+  try {
+    const r = await fetch('/api/poker/raise', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: onlineTexasRoom.code, username: state.username, amount })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      // Server trakk allerede coins fra brukerens state — sync lokal coins
+      state.coins -= amount;
+      save(); updateUI();
+      pollTexasRoom();
+    } else {
+      alert('✗ ' + (d.error || 'Could not raise'));
+    }
   } catch (e) { alert('Error: ' + e.message); }
 }
 

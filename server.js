@@ -847,6 +847,67 @@ app.post('/api/poker/advance', (req, res) => {
   res.json({ ok: true, room });
 });
 
+// Spiller folder seg ut av runden
+app.post('/api/poker/fold', (req, res) => {
+  const { code, username } = req.body || {};
+  const c = (code || '').trim().toUpperCase();
+  const rooms = readJson(POKER_FILE, {});
+  const room = rooms[c];
+  if (!room) return res.status(404).json({ ok: false, error: 'Room not found' });
+  if (!room.folded) room.folded = [];
+  if (!room.folded.includes(username)) room.folded.push(username);
+  // Sjekk om kun én spiller igjen — vinner pot
+  const remaining = room.players.filter(p => !room.folded.includes(p));
+  if (remaining.length === 1) {
+    room.winner = remaining[0];
+    room.phase = 'showdown';
+    // Gi pot til vinner
+    if (!room.potAwarded && room.winner) {
+      try {
+        const users = readJson(USERS_FILE, {});
+        if (users[room.winner]) {
+          const st = JSON.parse(users[room.winner].state || '{}');
+          st.coins = (st.coins || 0) + (room.pot || 0);
+          users[room.winner].state = JSON.stringify(st);
+          writeJson(USERS_FILE, users);
+        }
+      } catch {}
+      room.potAwarded = true;
+    }
+  }
+  writeJson(POKER_FILE, rooms);
+  res.json({ ok: true, room });
+});
+
+// Spiller raiser potten (legger til mer coins)
+app.post('/api/poker/raise', (req, res) => {
+  const { code, username, amount } = req.body || {};
+  const c = (code || '').trim().toUpperCase();
+  const amt = Math.max(10, parseInt(amount) || 0);
+  const rooms = readJson(POKER_FILE, {});
+  const room = rooms[c];
+  if (!room) return res.status(404).json({ ok: false, error: 'Room not found' });
+  if (!room.folded) room.folded = [];
+  if (room.folded.includes(username)) return res.status(400).json({ ok: false, error: 'You folded' });
+  // Trekk coins fra brukerens server-state
+  try {
+    const users = readJson(USERS_FILE, {});
+    if (!users[username]) return res.status(404).json({ ok: false, error: 'Account not on server' });
+    const st = JSON.parse(users[username].state || '{}');
+    if ((st.coins || 0) < amt) return res.status(400).json({ ok: false, error: `Trenger ${amt} coins (har ${st.coins || 0})` });
+    st.coins -= amt;
+    users[username].state = JSON.stringify(st);
+    writeJson(USERS_FILE, users);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+  room.pot = (room.pot || 0) + amt;
+  if (!room.contributions) room.contributions = {};
+  room.contributions[username] = (room.contributions[username] || 0) + amt;
+  writeJson(POKER_FILE, rooms);
+  res.json({ ok: true, room });
+});
+
 app.post('/api/poker/leave', (req, res) => {
   const { code, username } = req.body || {};
   const c = (code || '').trim().toUpperCase();
