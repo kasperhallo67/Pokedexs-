@@ -1149,31 +1149,79 @@ function getNorwayTime() {
   return { date, hour: h || 0, minute: m || 0 };
 }
 
-// 11:50-quizen — samme spørsmål hver dag, første som svarer det dagsen vinner
-const NOON_QUIZ = {
-  question: 'Hva er 1000 × 1000?',
-  answers: ['1000000', '1 000 000', '1.000.000', '1,000,000', '1000 000', 'en million', 'én million', '1 million', '1million', 'million'],
-  prize: { type: 'coins', amount: 1000000 },
-  prizeText: '1 000 000 💰 coins!',
-  openHour: 11,
-  openMinute: 50
-};
+// 11:50-quizen — NYTT spørsmål hver dag, vindu 2 minutter, vinner får redemption-kode
+const NOON_QUIZ_SERIES = [
+  { day: 1,  question: 'Hva er 1000 × 1000?',                            answers: ['1000000','1 000 000','1.000.000','1,000,000','million','en million','én million','1 million'], prize: { type: 'coins', amount: 1000000 },                            prizeText: '1 000 000 💰' },
+  { day: 2,  question: 'Hvor mange ben har en edderkopp?',                answers: ['8','åtte','atte','eight'],                                                                  prize: { type: 'coins', amount: 1500000 },                            prizeText: '1 500 000 💰' },
+  { day: 3,  question: 'Hva er den største planeten i solsystemet?',      answers: ['jupiter'],                                                                                  prize: { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9000, rarity: 'legendary', isShiny: false }, prizeText: 'Mewtwo CP 9000' },
+  { day: 4,  question: 'Hvilket dyr blir kalt kongen av jungelen?',       answers: ['løve','love','loven','løven','lion'],                                                       prize: { type: 'coins', amount: 800000 },                             prizeText: '800 000 💰' },
+  { day: 5,  question: 'Hvor mange minutter er det i en time?',           answers: ['60','seksti','sixty'],                                                                       prize: { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9500, rarity: 'epic', isShiny: true },        prizeText: '✨ Shiny Charizard CP 9500' },
+  { day: 6,  question: 'Hva heter den lengste elven i verden?',           answers: ['nilen','nile','nil','river nile'],                                                          prize: { type: 'coins', amount: 1200000 },                            prizeText: '1 200 000 💰' },
+  { day: 7,  question: 'Hva er kvadratroten av 144?',                     answers: ['12','tolv','twelve'],                                                                       prize: { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 9000, rarity: 'legendary', isShiny: false },     prizeText: 'Mew CP 9000' },
+  { day: 8,  question: 'Hva heter hovedstaden i Frankrike?',              answers: ['paris'],                                                                                    prize: { type: 'coins', amount: 1500000 },                            prizeText: '1 500 000 💰' },
+  { day: 9,  question: 'Hvor mange farger er det i en regnbue?',          answers: ['7','syv','sju','seven'],                                                                    prize: { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9800, rarity: 'legendary', isShiny: true }, prizeText: '✨ Shiny Rayquaza CP 9800' },
+  { day: 10, question: 'Hva er det største havet i verden?',              answers: ['stillehavet','stilla havet','stille havet','pacific','pacific ocean','stillehav'],         prize: { type: 'coins', amount: 3000000 },                            prizeText: '3 000 000 💰' }
+];
+
+const NOON_OPEN_HOUR = 11;
+const NOON_OPEN_MINUTE = 50;
+const NOON_WINDOW_MINUTES = 2; // 2-min vindu: 11:50:00 → 11:51:59 inkluderer minutt 50 og 51
+
+function getNoonDay() {
+  // Bruker samme start-dato som morning quiz
+  let q = readJson(QUIZ_FILE, {});
+  if (!q.startDate) {
+    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+    q.startDate = today;
+    q.claims = {};
+    writeJson(QUIZ_FILE, q);
+  }
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+  const start = new Date(q.startDate + 'T00:00:00');
+  const now = new Date(today + 'T00:00:00');
+  const diff = Math.floor((now - start) / 86400000);
+  return diff + 1; // dag 1 = startdato
+}
 
 function isNoonOpen(t) {
-  return (t.hour > NOON_QUIZ.openHour) || (t.hour === NOON_QUIZ.openHour && t.minute >= NOON_QUIZ.openMinute);
+  // Åpent fra 11:50:00 til (11:50 + NOON_WINDOW_MINUTES):00
+  const startMin = NOON_OPEN_HOUR * 60 + NOON_OPEN_MINUTE;
+  const endMin = startMin + NOON_WINDOW_MINUTES;
+  const nowMin = t.hour * 60 + t.minute;
+  return nowMin >= startMin && nowMin < endMin;
+}
+
+function isBeforeNoon(t) {
+  return (t.hour * 60 + t.minute) < (NOON_OPEN_HOUR * 60 + NOON_OPEN_MINUTE);
+}
+
+function generateRedeemCode() {
+  // 8 tegn alfanumerisk uppercase
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // unngå forvirrende 0/O/1/I
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
 }
 
 app.get('/api/quiz/noon', (req, res) => {
   const t = getNorwayTime();
-  // Owner-bypass
   const bypassUser = (req.query.username || '').trim();
   const bypassKey = (req.query.bypass || '').trim();
   const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;
+  const day = getNoonDay();
+  const quiz = NOON_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) {
+    return res.json({ available: false, reason: 'finished', message: 'Ingen flere 11:50-quizer i serien — kom tilbake senere!' });
+  }
   if (!isNoonOpen(t) && !isOwnerBypass) {
+    const beforeNoon = isBeforeNoon(t);
     return res.json({
       available: false,
-      reason: 'too_early',
-      message: `11:50-quizen åpner kl 11:50 (nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')})`
+      reason: beforeNoon ? 'too_early' : 'window_closed',
+      message: beforeNoon
+        ? `11:50-quizen åpner kl 11:50 (kun ${NOON_WINDOW_MINUTES} min vindu!) — nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`
+        : `11:50-quizen lukket kl 11:${String(NOON_OPEN_MINUTE + NOON_WINDOW_MINUTES).padStart(2,'0')} — kom tilbake i morgen!`,
+      day
     });
   }
   const state = readJson(QUIZ_FILE, {});
@@ -1185,15 +1233,18 @@ app.get('/api/quiz/noon', (req, res) => {
       reason: 'claimed',
       claimedBy: state.noonClaims[todayKey].username,
       claimedAt: state.noonClaims[todayKey].claimedAt,
-      question: NOON_QUIZ.question,
-      prizeText: NOON_QUIZ.prizeText,
+      question: quiz.question,
+      prizeText: quiz.prizeText,
+      day,
       message: `Allerede vunnet av ${state.noonClaims[todayKey].username} i dag`
     });
   }
   res.json({
     available: true,
-    question: NOON_QUIZ.question,
-    prizeText: NOON_QUIZ.prizeText
+    day,
+    question: quiz.question,
+    prizeText: quiz.prizeText,
+    windowMinutes: NOON_WINDOW_MINUTES
   });
 });
 
@@ -1205,35 +1256,89 @@ app.post('/api/quiz/noon/answer', (req, res) => {
   const isOwnerBypass = bypass === QUIZ_OWNER_BYPASS && u === QUIZ_OWNER_USERNAME;
   const t = getNorwayTime();
   if (!isNoonOpen(t) && !isOwnerBypass) {
-    return res.status(403).json({ ok: false, error: `11:50-quizen åpner kl 11:50 (nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')})` });
+    return res.status(403).json({ ok: false, error: `Vinduet er lukket (åpent 11:50 - 11:${String(NOON_OPEN_MINUTE + NOON_WINDOW_MINUTES).padStart(2,'0')})` });
   }
+  const day = getNoonDay();
+  const quiz = NOON_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen 11:50-quiz i dag' });
   const state = readJson(QUIZ_FILE, {});
   state.noonClaims = state.noonClaims || {};
+  state.noonRedeemCodes = state.noonRedeemCodes || {};
   const todayKey = t.date;
   if (state.noonClaims[todayKey]) {
     return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.noonClaims[todayKey].username}` });
   }
-  const correct = NOON_QUIZ.answers.some(ans => ans.toLowerCase() === a);
+  const correct = quiz.answers.some(ans => ans.toLowerCase() === a);
   if (!correct) {
     return res.json({ ok: false, correct: false, message: 'Feil svar! Prøv igjen.' });
   }
-  // Riktig — gi premie
+  // RIKTIG! Generer redemption-kode, IKKE gi premien enda
+  const code = generateRedeemCode();
+  state.noonRedeemCodes[code] = {
+    username: u,
+    prize: quiz.prize,
+    prizeText: quiz.prizeText,
+    issuedAt: new Date().toISOString(),
+    redeemed: false,
+    expiresAt: Date.now() + 24 * 3600 * 1000 // gyldig i 24 timer
+  };
+  state.noonClaims[todayKey] = { username: u, claimedAt: new Date().toISOString(), code };
+  writeJson(QUIZ_FILE, state);
+  res.json({ ok: true, correct: true, redeemCode: code, prizeText: quiz.prizeText });
+});
+
+// Innløs redemption-kode (kun den som vant kan bruke koden)
+app.post('/api/quiz/noon/redeem', (req, res) => {
+  const { username, code } = req.body || {};
+  const u = (username || '').trim();
+  const c = (code || '').trim().toUpperCase();
+  if (!u || !c) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const state = readJson(QUIZ_FILE, {});
+  state.noonRedeemCodes = state.noonRedeemCodes || {};
+  const entry = state.noonRedeemCodes[c];
+  if (!entry) return res.status(404).json({ ok: false, error: 'Ugyldig kode' });
+  if (entry.username.toLowerCase() !== u.toLowerCase()) {
+    return res.status(403).json({ ok: false, error: 'Denne koden er ikke din' });
+  }
+  if (entry.redeemed) return res.status(409).json({ ok: false, error: 'Koden er allerede løst inn' });
+  if (entry.expiresAt && Date.now() > entry.expiresAt) {
+    return res.status(410).json({ ok: false, error: 'Koden er utløpt (24 t etter utstedelse)' });
+  }
+  // Gi premien
   const users = readJson(USERS_FILE, {});
   if (!users[u]) return res.status(404).json({ ok: false, error: 'Brukerkonto ikke på serveren (sync først)' });
   try {
     const userState = users[u].state ? JSON.parse(users[u].state) : {};
-    userState.coins = (userState.coins || 0) + NOON_QUIZ.prize.amount;
+    if (entry.prize.type === 'coins') {
+      userState.coins = (userState.coins || 0) + entry.prize.amount;
+      const scores = readJson(SCORES_FILE, {});
+      if (scores[u]) { scores[u].coins = userState.coins; writeJson(SCORES_FILE, scores); }
+    } else if (entry.prize.type === 'pokemon') {
+      const p = entry.prize;
+      if (!Array.isArray(userState.individuals)) userState.individuals = [];
+      if (!userState.caught) userState.caught = {};
+      if (!userState.seen) userState.seen = {};
+      if (!userState.shinies) userState.shinies = {};
+      if (!userState.shinySeen) userState.shinySeen = {};
+      const uid = 'noon_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      userState.individuals.push({
+        uid, id: p.pokemonId, name: p.name, rarity: p.rarity || 'epic',
+        cp: p.cp, isShiny: !!p.isShiny, caughtAt: Date.now(), eventType: null, upgrades: 0
+      });
+      userState.caught[p.pokemonId] = (userState.caught[p.pokemonId] || 0) + 1;
+      userState.seen[p.pokemonId] = true;
+      if (p.isShiny) {
+        userState.shinies[p.pokemonId] = (userState.shinies[p.pokemonId] || 0) + 1;
+        userState.shinySeen[p.pokemonId] = true;
+      }
+      userState.totalCatches = (userState.totalCatches || 0) + 1;
+    }
     users[u].state = JSON.stringify(userState);
     writeJson(USERS_FILE, users);
-    // Leaderboard
-    const scores = readJson(SCORES_FILE, {});
-    if (scores[u]) {
-      scores[u].coins = userState.coins;
-      writeJson(SCORES_FILE, scores);
-    }
-    state.noonClaims[todayKey] = { username: u, claimedAt: new Date().toISOString() };
+    entry.redeemed = true;
+    entry.redeemedAt = new Date().toISOString();
     writeJson(QUIZ_FILE, state);
-    res.json({ ok: true, correct: true, prizeText: NOON_QUIZ.prizeText });
+    res.json({ ok: true, prize: entry.prize, prizeText: entry.prizeText });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
