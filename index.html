@@ -15092,9 +15092,27 @@ async function submitCheat() {
         });
         const data = await r.json();
         if (r.ok && data.ok) {
-          state.coins = data.newCoins;
+          // Hvis det var coins: oppdater lokalt
+          if (data.prize && data.prize.type === 'coins' && data.newCoins != null) {
+            state.coins = data.newCoins;
+          }
+          // Hvis Pokémon: re-sync state fra server så individet vises lokalt
+          if (data.prize && data.prize.type === 'pokemon') {
+            try {
+              const lr = await fetch('/api/account/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: state.username, password: state.password })
+              });
+              const ld = await lr.json();
+              if (ld.ok && ld.state) {
+                const srv = JSON.parse(ld.state);
+                Object.assign(state, srv);
+              }
+            } catch {}
+          }
           save(); updateUI(); submitScore();
-          msg.innerHTML = `🎉 GLOBAL ENGANGS-KODE LØST INN!<br>+${data.amount.toLocaleString()} 💰<br><span style="font-size:12px;color:#ffb;">(Ingen andre kan bruke denne koden nå)</span>`;
+          msg.innerHTML = `🎉 ENGANGS-KODE LØST INN!<br>${data.prizeText || ('+' + (data.amount || 0).toLocaleString() + ' 💰')}<br><span style="font-size:12px;color:#ffb;">(Du kan ikke bruke denne koden igjen)</span>`;
           msg.className = 'cheat-msg ok';
           setTimeout(closeCheat, 3000);
         } else {

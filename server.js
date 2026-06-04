@@ -260,19 +260,21 @@ app.post('/api/cheat/delete-user', (req, res) => {
 });
 
 // === DELTE ENGANGS-KODER (alle kan bruke, men hver bruker kun én gang per kode) ===
-// Disse 10 kodene gir 500 000 coins hver. Alle brukere kan løse inn hver kode,
-// men kun ÉN gang per konto per kode.
+// Hver bruker kan løse inn hver kode én gang. Premien kan være coins eller Pokémon.
 const ONE_TIME_GLOBAL_CODES = {
-  '384721': 500000,
-  '105693': 500000,
-  '627840': 500000,
-  '459127': 500000,
-  '738205': 500000,
-  '916384': 500000,
-  '253079': 500000,
-  '681492': 500000,
-  '547361': 500000,
-  '873150': 500000
+  '384721': { type: 'coins', amount: 500000 },
+  '105693': { type: 'coins', amount: 500000 },
+  '627840': { type: 'coins', amount: 500000 },
+  '459127': { type: 'coins', amount: 500000 },
+  '738205': { type: 'coins', amount: 500000 },
+  '916384': { type: 'coins', amount: 500000 },
+  '253079': { type: 'coins', amount: 500000 },
+  '681492': { type: 'coins', amount: 500000 },
+  '547361': { type: 'coins', amount: 500000 },
+  '873150': { type: 'coins', amount: 500000 },
+  // Charizard CP 8000 koder
+  '429173': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false },
+  '651284': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
@@ -304,22 +306,55 @@ app.post('/api/cheat/onetime', (req, res) => {
   }
   const users = readJson(USERS_FILE, {});
   if (!users[username]) return res.status(404).json({ ok: false, error: 'Brukerkonto finnes ikke på serveren (sync først)' });
-  const amount = ONE_TIME_GLOBAL_CODES[code];
+  const prize = ONE_TIME_GLOBAL_CODES[code];
+  // Backward-compat: hvis prize er et tall (gammel struktur), konverter til { type: 'coins', amount }
+  const prizeObj = typeof prize === 'number' ? { type: 'coins', amount: prize } : prize;
   try {
     const userState = users[username].state ? JSON.parse(users[username].state) : {};
-    userState.coins = Math.max(0, (userState.coins || 0) + amount);
+    let prizeText = '';
+    if (prizeObj.type === 'coins') {
+      userState.coins = Math.max(0, (userState.coins || 0) + prizeObj.amount);
+      prizeText = `+${prizeObj.amount.toLocaleString()} 💰`;
+      // Oppdater leaderboard
+      const scores = readJson(SCORES_FILE, {});
+      if (scores[username]) {
+        scores[username].coins = userState.coins;
+        writeJson(SCORES_FILE, scores);
+      }
+    } else if (prizeObj.type === 'pokemon') {
+      // Legg til Pokémon i individuals
+      if (!Array.isArray(userState.individuals)) userState.individuals = [];
+      if (!userState.caught) userState.caught = {};
+      if (!userState.seen) userState.seen = {};
+      if (!userState.shinies) userState.shinies = {};
+      if (!userState.shinySeen) userState.shinySeen = {};
+      const uid = 'redeem_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      userState.individuals.push({
+        uid,
+        id: prizeObj.pokemonId,
+        name: prizeObj.name,
+        rarity: prizeObj.rarity || 'epic',
+        cp: prizeObj.cp,
+        isShiny: !!prizeObj.isShiny,
+        caughtAt: Date.now(),
+        eventType: null,
+        upgrades: 0
+      });
+      userState.caught[prizeObj.pokemonId] = (userState.caught[prizeObj.pokemonId] || 0) + 1;
+      userState.seen[prizeObj.pokemonId] = true;
+      if (prizeObj.isShiny) {
+        userState.shinies[prizeObj.pokemonId] = (userState.shinies[prizeObj.pokemonId] || 0) + 1;
+        userState.shinySeen[prizeObj.pokemonId] = true;
+      }
+      userState.totalCatches = (userState.totalCatches || 0) + 1;
+      prizeText = `${prizeObj.isShiny ? '✨ ' : ''}${prizeObj.name} CP ${prizeObj.cp}`;
+    }
     users[username].state = JSON.stringify(userState);
     writeJson(USERS_FILE, users);
-    // Oppdater også leaderboard
-    const scores = readJson(SCORES_FILE, {});
-    if (scores[username]) {
-      scores[username].coins = userState.coins;
-      writeJson(SCORES_FILE, scores);
-    }
-    // Marker at DENNE brukeren har brukt koden (andre kan fortsatt bruke den)
-    redeemed[code].users[username] = { amount, claimedAt: new Date().toISOString() };
+    // Marker at DENNE brukeren har brukt koden
+    redeemed[code].users[username] = { prize: prizeObj, claimedAt: new Date().toISOString() };
     writeJson(REDEEM_FILE, redeemed);
-    res.json({ ok: true, amount, newCoins: userState.coins });
+    res.json({ ok: true, prize: prizeObj, prizeText, amount: prizeObj.amount || null, newCoins: userState.coins });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
