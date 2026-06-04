@@ -1109,30 +1109,22 @@ app.get('/api/pvp/list', (req, res) => {
   res.json({ rooms });
 });
 
-// === DAGLIG QUIZ — første som svarer riktig får premien ===
-const DAILY_QUIZ = [
-  {
-    day: 1,
-    question: 'Hva er hovedstaden i USA?',
-    answers: ['washington', 'washington dc', 'washington d.c.', 'washington d c'],
-    prize: { type: 'pokemon', pokemonId: 6, pokemonName: 'Charizard', rarity: 'epic', cp: 8000, isShiny: false },
-    prizeText: 'En Charizard med CP 8000!'
-  },
-  {
-    day: 2,
-    question: 'Hvem er toppscorer for Norges fotballandslag?',
-    answers: ['haaland', 'erling haaland', 'erling braut haaland'],
-    prize: { type: 'pokemon', pokemonId: 25, pokemonName: 'Pikachu', rarity: 'rare', cp: 8500, isShiny: true },
-    prizeText: 'En ✨ SHINY Pikachu med CP 8500!'
-  },
-  {
-    day: 3,
-    question: 'Hvem var den første presidenten i USA?',
-    answers: ['washington', 'george washington', 'g washington'],
-    prize: { type: 'coins', amount: 2000000 },
-    prizeText: '2 000 000 💰 coins!'
-  }
+// === MORGEN-QUIZ (09:00) — 2 min vindu, 10 dager, redemption-kode-flyt ===
+const MORNING_QUIZ_SERIES = [
+  { day: 1,  question: 'Hva er hovedstaden i USA?',                       answers: ['washington','washington dc','washington d.c.','washington d c'],         prize: { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false },     prizeText: 'Charizard CP 8000' },
+  { day: 2,  question: 'Hvem er toppscorer for Norges fotballandslag?',   answers: ['haaland','erling haaland','erling braut haaland'],                       prize: { type: 'pokemon', pokemonId: 25, name: 'Pikachu', cp: 8500, rarity: 'rare', isShiny: true },       prizeText: '✨ Shiny Pikachu CP 8500' },
+  { day: 3,  question: 'Hvem var den første presidenten i USA?',          answers: ['washington','george washington','g washington'],                         prize: { type: 'coins', amount: 2000000 },                                                                 prizeText: '2 000 000 💰' },
+  { day: 4,  question: 'Hva heter den dypeste innsjøen i Norge?',         answers: ['hornindalsvatnet','hornindalsvatn','hornindal'],                          prize: { type: 'coins', amount: 1000000 },                                                                 prizeText: '1 000 000 💰' },
+  { day: 5,  question: 'Hva er 50 × 50?',                                 answers: ['2500','2 500','to tusen fem hundre'],                                    prize: { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9200, rarity: 'legendary', isShiny: false },  prizeText: 'Mewtwo CP 9200' },
+  { day: 6,  question: 'Hva heter det største landet i verden (areal)?',  answers: ['russland','russia'],                                                     prize: { type: 'coins', amount: 1500000 },                                                                 prizeText: '1 500 000 💰' },
+  { day: 7,  question: 'Hvor mange tenner har et voksent menneske?',      answers: ['32','tretti to','trettito','thirty two','thirtytwo'],                    prize: { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 9000, rarity: 'legendary', isShiny: true },     prizeText: '✨ Shiny Mew CP 9000' },
+  { day: 8,  question: 'Hva heter den høyeste fjelltoppen i verden?',     answers: ['mount everest','everest','mt everest','sagarmatha'],                     prize: { type: 'coins', amount: 1800000 },                                                                 prizeText: '1 800 000 💰' },
+  { day: 9,  question: 'Hvilket land vant fotball-VM 2022?',              answers: ['argentina'],                                                              prize: { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9500, rarity: 'legendary', isShiny: false },   prizeText: 'Lugia CP 9500' },
+  { day: 10, question: 'Hvor mange kontinenter er det i verden?',         answers: ['7','syv','sju','seven'],                                                  prize: { type: 'coins', amount: 5000000 },                                                                 prizeText: '5 000 000 💰' }
 ];
+const MORNING_OPEN_HOUR = 9;
+const MORNING_OPEN_MINUTE = 0;
+const MORNING_WINDOW_MINUTES = 2;
 
 // Norway local hour
 function getNorwayHour() {
@@ -1364,42 +1356,71 @@ function getCurrentQuizDay() {
 const QUIZ_OWNER_BYPASS = 'kasper_owner_2026';
 const QUIZ_OWNER_USERNAME = 'Kasperhallo0';
 
-app.get('/api/quiz/today', (req, res) => {
-  // Morgen-quizen er fjernet — returner alltid "ingen quiz"
-  return res.json({ available: false, reason: 'finished', message: 'Morgen-quizen er fjernet. Bruk 11:50-quizen!' });
-  // (gammel kode under er deaktivert)
-  const day = getCurrentQuizDay();
-  const quiz = DAILY_QUIZ.find(q => q.day === day);
-  if (!quiz) {
-    return res.json({ available: false, reason: 'finished', message: 'Ingen flere quiz-spørsmål — kom tilbake senere!' });
+// Morgen-quiz hjelpere
+function getMorningDay() {
+  let q = readJson(QUIZ_FILE, {});
+  if (!q.morningStartDate) {
+    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+    q.morningStartDate = today;
+    writeJson(QUIZ_FILE, q);
   }
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+  const start = new Date(q.morningStartDate + 'T00:00:00');
+  const now = new Date(today + 'T00:00:00');
+  return Math.floor((now - start) / 86400000) + 1;
+}
+function isMorningOpen(t) {
+  const startMin = MORNING_OPEN_HOUR * 60 + MORNING_OPEN_MINUTE;
+  const endMin = startMin + MORNING_WINDOW_MINUTES;
+  const nowMin = t.hour * 60 + t.minute;
+  return nowMin >= startMin && nowMin < endMin;
+}
+function isBeforeMorning(t) {
+  return (t.hour * 60 + t.minute) < (MORNING_OPEN_HOUR * 60 + MORNING_OPEN_MINUTE);
+}
+
+app.get('/api/quiz/today', (req, res) => {
+  const t = getNorwayTime();
   const bypassUser = (req.query.username || '').trim();
   const bypassKey = (req.query.bypass || '').trim();
   const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;
-  const norwayHour = getNorwayHour();
-  if (norwayHour < 9 && !isOwnerBypass) {
-    return res.json({ available: false, reason: 'too_early', message: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` , day });
+  const day = getMorningDay();
+  const quiz = MORNING_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) {
+    return res.json({ available: false, reason: 'finished', message: 'Ingen flere morgen-quizer i serien — kom tilbake senere!' });
+  }
+  if (!isMorningOpen(t) && !isOwnerBypass) {
+    const beforeMorn = isBeforeMorning(t);
+    return res.json({
+      available: false,
+      reason: beforeMorn ? 'too_early' : 'window_closed',
+      message: beforeMorn
+        ? `Morgen-quizen åpner kl 09:00 (kun ${MORNING_WINDOW_MINUTES} min vindu!) — nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`
+        : `Morgen-quizen lukket kl 09:${String(MORNING_OPEN_MINUTE + MORNING_WINDOW_MINUTES).padStart(2,'0')} — kom tilbake i morgen!`,
+      day
+    });
   }
   const state = readJson(QUIZ_FILE, {});
-  state.claims = state.claims || {};
-  if (state.claims[day]) {
+  state.morningClaims = state.morningClaims || {};
+  const todayKey = t.date;
+  if (state.morningClaims[todayKey]) {
     return res.json({
       available: false,
       reason: 'claimed',
-      day,
-      claimedBy: state.claims[day].username,
-      claimedAt: state.claims[day].claimedAt,
-      prizeText: quiz.prizeText,
+      claimedBy: state.morningClaims[todayKey].username,
+      claimedAt: state.morningClaims[todayKey].claimedAt,
       question: quiz.question,
-      message: `Allerede vunnet av ${state.claims[day].username}`
+      prizeText: quiz.prizeText,
+      day,
+      message: `Allerede vunnet av ${state.morningClaims[todayKey].username} i dag`
     });
   }
-  // Aktiv — send spørsmål (men IKKE svaret!)
   res.json({
     available: true,
     day,
     question: quiz.question,
-    prizeText: quiz.prizeText
+    prizeText: quiz.prizeText,
+    windowMinutes: MORNING_WINDOW_MINUTES
   });
 });
 
@@ -1409,24 +1430,51 @@ app.post('/api/quiz/answer', (req, res) => {
   const a = (answer || '').trim().toLowerCase();
   if (!u || !a) return res.status(400).json({ ok: false, error: 'Missing fields' });
   const isOwnerBypass = bypass === QUIZ_OWNER_BYPASS && u === QUIZ_OWNER_USERNAME;
-  const norwayHour = getNorwayHour();
-  if (norwayHour < 9 && !isOwnerBypass) return res.status(403).json({ ok: false, error: `Quizen åpner kl 09:00 (nå: ${norwayHour}:00)` });
-  const day = getCurrentQuizDay();
-  const quiz = DAILY_QUIZ.find(q => q.day === day);
-  if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen aktiv quiz' });
-  const state = readJson(QUIZ_FILE, {});
-  state.claims = state.claims || {};
-  if (state.claims[day]) {
-    return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.claims[day].username}` });
+  const t = getNorwayTime();
+  if (!isMorningOpen(t) && !isOwnerBypass) {
+    return res.status(403).json({ ok: false, error: `Vinduet er lukket (åpent 09:00 - 09:${String(MORNING_OPEN_MINUTE + MORNING_WINDOW_MINUTES).padStart(2,'0')})` });
   }
-  // Sjekk svar (case-insensitive)
+  const day = getMorningDay();
+  const quiz = MORNING_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen morgen-quiz i dag' });
+  const state = readJson(QUIZ_FILE, {});
+  state.morningClaims = state.morningClaims || {};
+  // Bruk SAMME redemption-pool som noon-quiz
+  state.noonRedeemCodes = state.noonRedeemCodes || {};
+  const todayKey = t.date;
+  if (state.morningClaims[todayKey]) {
+    return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.morningClaims[todayKey].username}` });
+  }
   const correct = quiz.answers.some(ans => ans.toLowerCase() === a);
   if (!correct) {
     return res.json({ ok: false, correct: false, message: 'Feil svar! Prøv igjen.' });
   }
-  // RIKTIG! Marker som vunnet og gi premie
+  // RIKTIG! Generer redemption-kode
+  const code = generateRedeemCode();
+  state.noonRedeemCodes[code] = {
+    username: u,
+    prize: quiz.prize,
+    prizeText: quiz.prizeText,
+    issuedAt: new Date().toISOString(),
+    redeemed: false,
+    expiresAt: Date.now() + 24 * 3600 * 1000,
+    source: 'morning'
+  };
+  state.morningClaims[todayKey] = { username: u, claimedAt: new Date().toISOString(), code };
+  writeJson(QUIZ_FILE, state);
+  res.json({ ok: true, correct: true, redeemCode: code, prizeText: quiz.prizeText });
+});
+
+// === GAMMEL ENDEPUNKT (deaktivert - holdt for å unngå 404 hvis noen kaller den) ===
+app.post('/api/quiz/answer-legacy-disabled', (req, res) => {
+  return res.status(410).json({ ok: false, error: 'Deprecated' });
+});
+// Den gamle koden under er bevart for kompatibilitet men er ikke i bruk:
+function _oldQuizAnswerCode() {
+  if (false) {
+  const u = '', a = '', day = 0, quiz = {};
   const users = readJson(USERS_FILE, {});
-  if (!users[u]) return res.status(404).json({ ok: false, error: 'Brukerkonto ikke på serveren (sync først)' });
+  if (!users[u]) return;
   try {
     const userState = users[u].state ? JSON.parse(users[u].state) : {};
     if (quiz.prize.type === 'coins') {
@@ -1438,36 +1486,17 @@ app.post('/api/quiz/answer', (req, res) => {
       if (!userState.seen) userState.seen = {};
       if (!userState.shinies) userState.shinies = {};
       if (!userState.shinySeen) userState.shinySeen = {};
-      const uid = 'quiz_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      const uid = 'quiz_' + Math.floor(Math.random() * 100000);
       userState.individuals.push({
-        uid,
-        id: p.pokemonId,
-        name: p.pokemonName,
-        rarity: p.rarity,
-        cp: p.cp,
-        isShiny: !!p.isShiny,
-        caughtAt: Date.now(),
-        eventType: null,
-        upgrades: 0
+        uid, id: p.pokemonId, name: p.pokemonName, rarity: p.rarity,
+        cp: p.cp, isShiny: !!p.isShiny, caughtAt: Date.now(), eventType: null, upgrades: 0
       });
-      userState.caught[p.pokemonId] = (userState.caught[p.pokemonId] || 0) + 1;
-      userState.seen[p.pokemonId] = true;
-      if (p.isShiny) {
-        userState.shinies[p.pokemonId] = (userState.shinies[p.pokemonId] || 0) + 1;
-        userState.shinySeen[p.pokemonId] = true;
-      }
-      userState.totalCatches = (userState.totalCatches || 0) + 1;
     }
     users[u].state = JSON.stringify(userState);
     writeJson(USERS_FILE, users);
-    // Marker som vunnet
-    state.claims[day] = { username: u, claimedAt: new Date().toISOString() };
-    writeJson(QUIZ_FILE, state);
-    res.json({ ok: true, correct: true, prizeText: quiz.prizeText, day });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+  } catch (e) {}
   }
-});
+}
 
 // === Health check ===
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
