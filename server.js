@@ -1365,12 +1365,14 @@ const QUIZ_OWNER_BYPASS = 'kasper_owner_2026';
 const QUIZ_OWNER_USERNAME = 'Kasperhallo0';
 
 app.get('/api/quiz/today', (req, res) => {
+  // Morgen-quizen er fjernet — returner alltid "ingen quiz"
+  return res.json({ available: false, reason: 'finished', message: 'Morgen-quizen er fjernet. Bruk 11:50-quizen!' });
+  // (gammel kode under er deaktivert)
   const day = getCurrentQuizDay();
   const quiz = DAILY_QUIZ.find(q => q.day === day);
   if (!quiz) {
     return res.json({ available: false, reason: 'finished', message: 'Ingen flere quiz-spørsmål — kom tilbake senere!' });
   }
-  // Owner-bypass: tillat test før kl 09:00 for Kasperhallo0
   const bypassUser = (req.query.username || '').trim();
   const bypassKey = (req.query.bypass || '').trim();
   const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;

@@ -7885,35 +7885,23 @@ async function renderQuiz() {
     const bypassQS = (window.quizTestMode && state.username === CHEAT_OWNER_USERNAME)
       ? `?bypass=${encodeURIComponent(QUIZ_OWNER_BYPASS)}&username=${encodeURIComponent(state.username)}`
       : '';
-    const [r, rNoon] = await Promise.all([
-      fetch('/api/quiz/today' + bypassQS),
-      fetch('/api/quiz/noon' + bypassQS)
-    ]);
-    const d = await r.json();
+    // Morgen-quizen er fjernet — kun 11:50
+    const rNoon = await fetch('/api/quiz/noon' + bypassQS);
     const dNoon = await rNoon.json();
     content.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;">
-        ${quizSectionHtml(d, {
-          title: '🌅 Morgen-quiz (09:00)',
-          inputId: 'quizAnswerInput',
-          msgId: 'quizMsg',
-          submitFn: 'submitQuizAnswer',
-          dayLabel: d.day ? ('DAG ' + d.day) : ''
-        })}
         ${quizSectionHtml(dNoon, {
-          title: '🕛 Mat-tid quiz (11:50)',
+          title: '🕛 Daglig quiz (11:50 — 2 min vindu)',
           inputId: 'quizNoonInput',
           msgId: 'quizNoonMsg',
           submitFn: 'submitNoonQuizAnswer'
         })}
       </div>
     `;
-    if (d.available) {
-      setTimeout(() => { const i = document.getElementById('quizAnswerInput'); if (i) i.focus(); }, 50);
-    } else if (dNoon.available) {
+    if (dNoon.available) {
       setTimeout(() => { const i = document.getElementById('quizNoonInput'); if (i) i.focus(); }, 50);
     }
-    lastQuizState = (d.available || dNoon.available) ? 'available' : 'inactive';
+    lastQuizState = dNoon.available ? 'available' : 'inactive';
   } catch (e) {
     content.innerHTML = '<div style="color:#e74c3c;">Kunne ikke laste quiz: ' + e.message + '</div>';
   }
@@ -8032,15 +8020,11 @@ async function submitQuizAnswer() {
 
 async function checkQuizAvailable() {
   try {
-    const [r, rNoon] = await Promise.all([
-      fetch('/api/quiz/today'),
-      fetch('/api/quiz/noon')
-    ]);
-    const d = await r.json();
+    const rNoon = await fetch('/api/quiz/noon');
     const dNoon = await rNoon.json();
     const badge = document.getElementById('quizBadge');
     if (badge) {
-      if (d.available || dNoon.available) {
+      if (dNoon.available) {
         badge.style.display = 'block';
         badge.textContent = '!';
       } else {
@@ -8585,7 +8569,7 @@ async function respondIndTrade(tradeId, action) {
     const data = await res.json();
     if (!data.ok) { alert('✗ ' + (data.error || 'Failed')); return; }
     if (action === 'accept') {
-      // Last inn ny state fra server (med swapped individer)
+      // Last inn FULL state fra server (med swapped individer + candy + alt)
       const loginRes = await fetch('/api/account/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: state.username, password: state.password })
@@ -8594,9 +8578,31 @@ async function respondIndTrade(tradeId, action) {
       if (loginData.ok && loginData.state) {
         try {
           const srv = JSON.parse(loginData.state);
+          // Oppdater FULL state (ikke bare individuals)
           if (srv.individuals) state.individuals = srv.individuals;
+          if (srv.candy) state.candy = srv.candy;
+          if (srv.coins != null) state.coins = srv.coins;
+          if (srv.caught) state.caught = srv.caught;
+          if (srv.seen) state.seen = srv.seen;
+          if (srv.shinies) state.shinies = srv.shinies;
+          if (srv.shinySeen) state.shinySeen = srv.shinySeen;
+          // Defensiv: sørg for at alle traded Pokémon har riktige felter
+          if (Array.isArray(state.individuals)) {
+            for (const ind of state.individuals) {
+              if (!ind) continue;
+              if (!ind.rarity) ind.rarity = 'common';
+              if (ind.upgrades === undefined) ind.upgrades = 0;
+              if (ind.cp === undefined) ind.cp = 100;
+              if (ind.uid === undefined) ind.uid = 'recovered_' + Math.random().toString(36).slice(2);
+            }
+          }
+          // Hvis buddy refererte til en Pokémon som ikke lenger finnes (vi byttet den bort), fjern referansen
+          if (state.buddyUid && !state.individuals.some(i => i.uid === state.buddyUid)) {
+            state.buddyUid = null;
+            state.buddyId = null;
+          }
           save(); updateUI();
-        } catch {}
+        } catch (e) { console.warn('Trade sync error:', e); }
       }
       // Track for achievements
       state.tradesCompleted = (state.tradesCompleted || 0) + 1;
@@ -10287,8 +10293,13 @@ function pokeHp(cp) { return Math.max(5, Math.round(cp * 2)); }
 
 // Upgrade en individuell Pokémon med art-spesifikk candy + coins
 function upgradeIndividual(uid) {
-  const ind = state.individuals.find(i => i.uid === uid);
-  if (!ind) return;
+  if (!Array.isArray(state.individuals)) state.individuals = [];
+  const ind = state.individuals.find(i => i && i.uid === uid);
+  if (!ind) { alert('Kunne ikke finne Pokémon (uid: ' + uid + '). Last siden på nytt og prøv igjen.'); return; }
+  // Sørg for at alle felter eksisterer (for tradede Pokémon)
+  if (!ind.rarity) ind.rarity = 'common';
+  if (!ind.id) { alert('Pokémon mangler ID-felt — kan ikke oppgradere.'); return; }
+  if (!state.bestCp || typeof state.bestCp !== 'object') state.bestCp = {};
   const range = CP_RANGES[ind.rarity] || CP_RANGES.common;
   const maxCp = Math.round(range.max * 1.5);
   if (ind.cp >= maxCp) { alert(`${ind.name} is already at max CP (${maxCp})!`); return; }
@@ -10297,11 +10308,11 @@ function upgradeIndividual(uid) {
   if (!state.candy || typeof state.candy !== 'object') state.candy = {};
   const haveCandy = state.candy[ind.id] || 0;
   if (haveCandy < candyCost) {
-    alert(`Need ${candyCost} 🍬 ${ind.name} Candy (you have ${haveCandy}).\nSell more ${ind.name} to get candy!`);
+    alert(`Trenger ${candyCost} 🍬 ${ind.name} Candy (du har ${haveCandy}).\nSelg/fang flere ${ind.name} for å få candy!`);
     return;
   }
   if (state.coins < coinsCost) {
-    alert(`Need ${coinsCost} 💰 coins (you have ${state.coins}).`);
+    alert(`Trenger ${coinsCost} 💰 coins (du har ${state.coins}).`);
     return;
   }
   if (!confirm(`Upgrade ${ind.name} (CP ${ind.cp}) to level ${ind.upgrades + 1}?\nCost: ${candyCost} 🍬 + ${coinsCost} 💰`)) return;
@@ -10317,11 +10328,13 @@ function upgradeIndividual(uid) {
 }
 // Sett en individuell Pokémon som buddy
 function setIndividualAsBuddy(uid) {
-  const ind = state.individuals.find(i => i.uid === uid);
-  if (!ind) return;
+  if (!Array.isArray(state.individuals)) state.individuals = [];
+  const ind = state.individuals.find(i => i && i.uid === uid);
+  if (!ind) { alert('Kunne ikke finne Pokémon (uid: ' + uid + '). Last siden på nytt og prøv igjen.'); return; }
+  if (!ind.id) { alert('Pokémon mangler ID — kan ikke settes som buddy.'); return; }
   state.buddyUid = uid;
-  state.buddyId = ind.id; // bakoverkompat med eksisterende buddy-system
-  save(); updateUI();
+  state.buddyId = ind.id;
+  save(); updateUI(); submitScore();
   renderMyPokemons();
 }
 function renderMyPokemons() {
