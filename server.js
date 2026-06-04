@@ -274,7 +274,15 @@ const ONE_TIME_GLOBAL_CODES = {
   '873150': { type: 'coins', amount: 500000 },
   // Charizard CP 8000 koder
   '429173': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false },
-  '651284': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false }
+  '651284': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false },
+  // 3 nye 500k coin-koder
+  '826341': { type: 'coins', amount: 500000 },
+  '597082': { type: 'coins', amount: 500000 },
+  '138694': { type: 'coins', amount: 500000 },
+  // 1 kode med 1.3 mil
+  '274915': { type: 'coins', amount: 1300000 },
+  // 1 kode med 1 mil
+  '463827': { type: 'coins', amount: 1000000 }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
