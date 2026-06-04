@@ -6132,10 +6132,11 @@ if (state.username) {
       localStorage.setItem('pokeAccounts', JSON.stringify(accts));
     }
   } catch {}
-  // Start ban-watcher + quiz-polling hvis allerede logget inn ved oppstart
+  // Start ban-watcher + quiz-polling + playtime hvis allerede logget inn ved oppstart
   setTimeout(() => {
     if (typeof startBanWatcher === 'function') startBanWatcher();
     if (typeof startQuizPolling === 'function') startQuizPolling();
+    if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
   }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -7508,6 +7509,7 @@ async function loginToOther() {
     submitScore();
     startBanWatcher();
     startQuizPolling();
+    startPlaytimeTracker();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }
@@ -7718,6 +7720,39 @@ function changeUsername() {
 }
 
 let scoreSubmitTimer = null;
+
+// === PLAYTIME-TRACKER ===
+// Inkrementer playtime hvert 10 sek mens siden er synlig og bruker er logget inn
+let _playtimeTimer = null;
+let _playtimeLastTick = Date.now();
+function startPlaytimeTracker() {
+  if (_playtimeTimer) clearInterval(_playtimeTimer);
+  _playtimeLastTick = Date.now();
+  _playtimeTimer = setInterval(() => {
+    if (!state.username) return;
+    if (typeof document.hidden !== 'undefined' && document.hidden) {
+      _playtimeLastTick = Date.now();
+      return;
+    }
+    const now = Date.now();
+    const delta = Math.min(15000, now - _playtimeLastTick); // cap på 15s per tick (i tilfelle tab var inaktiv)
+    _playtimeLastTick = now;
+    state.playtimeMs = (state.playtimeMs || 0) + delta;
+  }, 10000);
+}
+function formatPlaytime(ms) {
+  if (!ms || ms < 1000) return '0m';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    const hh = h % 24;
+    return `${d}d ${hh}h`;
+  }
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 function submitScore() {
   if (!state.username) return;
   // Debounce: bare send hvert sekund maks
@@ -7778,6 +7813,7 @@ function submitScore() {
         bestPokemonName,
         bestPokemonCp,
         bestPokemonShiny,
+        playtimeMs: state.playtimeMs || 0,
         character: state.character ? {
           gender: state.character.gender,
           hat: state.character.equipped.hat,
@@ -8086,7 +8122,7 @@ async function renderLeaderboard() {
 
     let html = `<table class="leaderboard-table">
       <thead><tr>
-        <th>#</th><th>👤</th><th>Player</th><th>🏆 Best Pokémon</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>★ Buddy</th>
+        <th>#</th><th>👤</th><th>Player</th><th>🏆 Best Pokémon</th><th>Caught</th><th>✨</th><th>📖</th><th>💰</th><th>⏱️ Playtime</th><th>★ Buddy</th>
       </tr></thead><tbody>`;
 
     entries.forEach((e, i) => {
@@ -8173,6 +8209,7 @@ async function renderLeaderboard() {
         else if (ageDays >= 7) activityLabel = `<span style="color:#aaa;font-size:10px;"> (${ageDays}d ago)</span>`;
       }
       const rowOpacity = e.neverPlayed ? '0.65' : '1';
+      const playtimeLabel = e.playtimeMs ? formatPlaytime(e.playtimeMs) : '—';
       html += `<tr class="${isMe ? 'me' : ''}" style="opacity:${rowOpacity};">
         <td class="rank-cell ${rankClass}">${medal}</td>
         <td>${miniAvatar}</td>
@@ -8182,6 +8219,7 @@ async function renderLeaderboard() {
         <td style="color:gold;">${e.shinies || 0}</td>
         <td>${e.uniqueSeen || 0}</td>
         <td>${e.coins || 0}</td>
+        <td style="color:#7df;font-size:12px;font-weight:bold;">${playtimeLabel}</td>
         <td>${buddyCell}</td>
       </tr>`;
     });
@@ -9929,6 +9967,10 @@ const ACHIEVEMENTS = {
   explore_area_5:    { name: 'Volcano Conqueror',desc: 'Unlock the Volcano (area 5)',                   icon: '🌋',  reward: 25000,  check: s => (s.exploreUnlocked || []).includes(4) },
   explore_area_10:   { name: 'Dream Walker',     desc: 'Unlock the Dream Dimension (area 10)',          icon: '✨',  reward: 500000, check: s => (s.exploreUnlocked || []).includes(9) },
   explore_no_faint_10: { name: 'Tough Trainer', desc: 'Catch 10 wild without fainting once',           icon: '💪',  reward: 5000,   check: s => (s.exploreStats?.wildCaught || 0) >= 10 && (s.exploreStats?.faints || 0) === 0 },
+
+  // ⏱️ PLAYTIME
+  playtime_1h:  { name: 'Dedikert spiller', desc: 'Spill i 1 time totalt',   icon: '⏱️',  reward: 2000,  check: s => (s.playtimeMs || 0) >= 3600000 },
+  playtime_24h: { name: 'Maraton-trener',   desc: 'Spill i 24 timer totalt', icon: '🕘',   reward: 25000, check: s => (s.playtimeMs || 0) >= 86400000 },
   storage_max: { name: 'Storage Master', desc: 'Buy storage upgrade', icon: '🏦', reward: 2000, check: s => (s.storagePurchases || 0) >= 1 },
 
   // 🆚 PVP

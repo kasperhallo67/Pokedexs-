@@ -128,6 +128,7 @@ app.post('/api/score', (req, res) => {
     bestPokemonName: (d.bestPokemonName || '').slice(0, 50),
     bestPokemonCp:   parseInt(d.bestPokemonCp) || 0,
     bestPokemonShiny: !!d.bestPokemonShiny,
+    playtimeMs:      parseInt(d.playtimeMs) || 0,
     character:       d.character || null,
     lastUpdated: new Date().toISOString().slice(0, 19),
     lastUpdatedMs: Date.now()
