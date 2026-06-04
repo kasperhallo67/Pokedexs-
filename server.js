@@ -284,7 +284,30 @@ const ONE_TIME_GLOBAL_CODES = {
   // 1 kode med 1 mil
   '463827': { type: 'coins', amount: 1000000 },
   // 1 kode med 100k
-  '305172': { type: 'coins', amount: 100000 }
+  '305172': { type: 'coins', amount: 100000 },
+
+  // === 20 GIVEAWAY-KODER (i morra) ===
+  // Topp-premiene: 2 mil coins eller Greninja CP 10000
+  '482739': { type: 'coins', amount: 2000000 },
+  '173846': { type: 'pokemon', pokemonId: 658, name: 'Greninja', cp: 10000, rarity: 'legendary', isShiny: false },
+  '956127': { type: 'coins', amount: 1500000 },
+  '248501': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9000, rarity: 'epic', isShiny: true },
+  '793406': { type: 'coins', amount: 1200000 },
+  '614382': { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9500, rarity: 'legendary', isShiny: false },
+  '859014': { type: 'coins', amount: 1000000 },
+  '327691': { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 8800, rarity: 'legendary', isShiny: true },
+  '415803': { type: 'coins', amount: 900000 },
+  '968245': { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9200, rarity: 'legendary', isShiny: false },
+  '712598': { type: 'coins', amount: 800000 },
+  '530864': { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9000, rarity: 'legendary', isShiny: true },
+  '184329': { type: 'coins', amount: 700000 },
+  '691752': { type: 'pokemon', pokemonId: 149, name: 'Dragonite', cp: 8500, rarity: 'epic', isShiny: false },
+  '437218': { type: 'coins', amount: 600000 },
+  '802146': { type: 'pokemon', pokemonId: 248, name: 'Tyranitar', cp: 8800, rarity: 'epic', isShiny: false },
+  '365091': { type: 'coins', amount: 500000 },
+  '579468': { type: 'pokemon', pokemonId: 445, name: 'Garchomp', cp: 8200, rarity: 'epic', isShiny: false },
+  '924513': { type: 'coins', amount: 400000 },
+  '681734': { type: 'pokemon', pokemonId: 94, name: 'Gengar', cp: 8500, rarity: 'epic', isShiny: true }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
