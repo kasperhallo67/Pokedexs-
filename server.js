@@ -1140,6 +1140,105 @@ function getNorwayHour() {
   return parseInt(h);
 }
 
+// Norway local time (date YYYY-MM-DD + hour + minute)
+function getNorwayTime() {
+  const s = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' });
+  // s = "2026-06-03 11:50:23"
+  const [date, time] = s.split(' ');
+  const [h, m] = (time || '0:0').split(':').map(Number);
+  return { date, hour: h || 0, minute: m || 0 };
+}
+
+// 11:50-quizen — samme spørsmål hver dag, første som svarer det dagsen vinner
+const NOON_QUIZ = {
+  question: 'Hva er 1000 × 1000?',
+  answers: ['1000000', '1 000 000', '1.000.000', '1,000,000', '1000 000', 'en million', 'én million', '1 million', '1million', 'million'],
+  prize: { type: 'coins', amount: 1000000 },
+  prizeText: '1 000 000 💰 coins!',
+  openHour: 11,
+  openMinute: 50
+};
+
+function isNoonOpen(t) {
+  return (t.hour > NOON_QUIZ.openHour) || (t.hour === NOON_QUIZ.openHour && t.minute >= NOON_QUIZ.openMinute);
+}
+
+app.get('/api/quiz/noon', (req, res) => {
+  const t = getNorwayTime();
+  // Owner-bypass
+  const bypassUser = (req.query.username || '').trim();
+  const bypassKey = (req.query.bypass || '').trim();
+  const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;
+  if (!isNoonOpen(t) && !isOwnerBypass) {
+    return res.json({
+      available: false,
+      reason: 'too_early',
+      message: `11:50-quizen åpner kl 11:50 (nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')})`
+    });
+  }
+  const state = readJson(QUIZ_FILE, {});
+  state.noonClaims = state.noonClaims || {};
+  const todayKey = t.date;
+  if (state.noonClaims[todayKey]) {
+    return res.json({
+      available: false,
+      reason: 'claimed',
+      claimedBy: state.noonClaims[todayKey].username,
+      claimedAt: state.noonClaims[todayKey].claimedAt,
+      question: NOON_QUIZ.question,
+      prizeText: NOON_QUIZ.prizeText,
+      message: `Allerede vunnet av ${state.noonClaims[todayKey].username} i dag`
+    });
+  }
+  res.json({
+    available: true,
+    question: NOON_QUIZ.question,
+    prizeText: NOON_QUIZ.prizeText
+  });
+});
+
+app.post('/api/quiz/noon/answer', (req, res) => {
+  const { username, answer, bypass } = req.body || {};
+  const u = (username || '').trim();
+  const a = (answer || '').trim().toLowerCase();
+  if (!u || !a) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const isOwnerBypass = bypass === QUIZ_OWNER_BYPASS && u === QUIZ_OWNER_USERNAME;
+  const t = getNorwayTime();
+  if (!isNoonOpen(t) && !isOwnerBypass) {
+    return res.status(403).json({ ok: false, error: `11:50-quizen åpner kl 11:50 (nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')})` });
+  }
+  const state = readJson(QUIZ_FILE, {});
+  state.noonClaims = state.noonClaims || {};
+  const todayKey = t.date;
+  if (state.noonClaims[todayKey]) {
+    return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.noonClaims[todayKey].username}` });
+  }
+  const correct = NOON_QUIZ.answers.some(ans => ans.toLowerCase() === a);
+  if (!correct) {
+    return res.json({ ok: false, correct: false, message: 'Feil svar! Prøv igjen.' });
+  }
+  // Riktig — gi premie
+  const users = readJson(USERS_FILE, {});
+  if (!users[u]) return res.status(404).json({ ok: false, error: 'Brukerkonto ikke på serveren (sync først)' });
+  try {
+    const userState = users[u].state ? JSON.parse(users[u].state) : {};
+    userState.coins = (userState.coins || 0) + NOON_QUIZ.prize.amount;
+    users[u].state = JSON.stringify(userState);
+    writeJson(USERS_FILE, users);
+    // Leaderboard
+    const scores = readJson(SCORES_FILE, {});
+    if (scores[u]) {
+      scores[u].coins = userState.coins;
+      writeJson(SCORES_FILE, scores);
+    }
+    state.noonClaims[todayKey] = { username: u, claimedAt: new Date().toISOString() };
+    writeJson(QUIZ_FILE, state);
+    res.json({ ok: true, correct: true, prizeText: NOON_QUIZ.prizeText });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Hvilken dag er det? Basert på startdato lagret ved første call.
 function getCurrentQuizDay() {
   let q = readJson(QUIZ_FILE, {});

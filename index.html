@@ -7830,6 +7830,48 @@ async function openQuiz() {
   renderQuiz();
 }
 
+function quizSectionHtml(d, opts) {
+  // opts: { title, inputId, msgId, submitFn, dayLabel }
+  if (!d.available) {
+    if (d.reason === 'too_early') {
+      return `<div style="background:rgba(255,200,0,0.08);border:1px solid #443;padding:12px;border-radius:10px;text-align:center;">
+        <div style="font-size:34px;">⏰</div>
+        <div style="font-size:14px;color:#ffb;font-weight:bold;">${opts.title}</div>
+        <div style="font-size:12px;color:#ffd;margin-top:4px;">${d.message}</div>
+      </div>`;
+    } else if (d.reason === 'claimed') {
+      return `<div style="background:rgba(255,215,0,0.06);border:1px solid #553;padding:12px;border-radius:10px;text-align:center;">
+        <div style="font-size:34px;">🏆</div>
+        <div style="font-size:14px;color:#fff;font-weight:bold;">${opts.title}</div>
+        <div style="font-size:12px;color:#ffd700;margin:4px 0;">Vinner: <b>${(d.claimedBy || '').replace(/[<>&]/g, '')}</b></div>
+        <div style="font-size:11px;color:#aaa;background:rgba(0,0,0,0.3);padding:6px;border-radius:6px;margin-top:6px;">
+          <i>"${d.question || ''}"</i><br>
+          <span style="color:#7df;">🎁 ${d.prizeText || ''}</span>
+        </div>
+      </div>`;
+    } else if (d.reason === 'finished') {
+      return `<div style="background:rgba(120,120,120,0.1);padding:12px;border-radius:10px;text-align:center;">
+        <div style="font-size:34px;">🎯</div>
+        <div style="font-size:14px;color:#ccc;">${opts.title}</div>
+        <div style="font-size:12px;color:#888;">${d.message}</div>
+      </div>`;
+    } else {
+      return `<div style="background:rgba(120,120,120,0.1);padding:12px;border-radius:10px;text-align:center;">
+        <div style="font-size:14px;color:#aaa;">${opts.title} — ${d.message || ''}</div>
+      </div>`;
+    }
+  }
+  // Aktiv
+  return `<div style="background:rgba(46,204,113,0.1);border:2px solid #2ecc71;padding:14px;border-radius:10px;">
+    <div style="font-size:13px;color:#ffd700;font-weight:bold;margin-bottom:4px;">${opts.title}${opts.dayLabel ? ' — ' + opts.dayLabel : ''}</div>
+    <div style="font-size:16px;color:#fff;margin-bottom:6px;font-weight:bold;">${d.question}</div>
+    <div style="font-size:12px;color:#7dffac;margin-bottom:8px;">🎁 ${d.prizeText}</div>
+    <input id="${opts.inputId}" type="text" placeholder="Svar..." style="width:90%;padding:8px;font-size:15px;background:#222;color:white;border:2px solid #555;border-radius:6px;" onkeydown="if(event.key==='Enter') ${opts.submitFn}()">
+    <div id="${opts.msgId}" style="min-height:18px;font-size:13px;margin:4px 0;"></div>
+    <button onclick="${opts.submitFn}()" style="padding:8px 20px;background:#27ae60;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:bold;">💡 Send svar</button>
+  </div>`;
+}
+
 async function renderQuiz() {
   const content = document.getElementById('quizContent');
   content.innerHTML = '⏳ Laster...';
@@ -7837,54 +7879,95 @@ async function renderQuiz() {
     const bypassQS = (window.quizTestMode && state.username === CHEAT_OWNER_USERNAME)
       ? `?bypass=${encodeURIComponent(QUIZ_OWNER_BYPASS)}&username=${encodeURIComponent(state.username)}`
       : '';
-    const r = await fetch('/api/quiz/today' + bypassQS);
+    const [r, rNoon] = await Promise.all([
+      fetch('/api/quiz/today' + bypassQS),
+      fetch('/api/quiz/noon' + bypassQS)
+    ]);
     const d = await r.json();
-    if (!d.available) {
-      if (d.reason === 'too_early') {
-        content.innerHTML = `
-          <div style="font-size:60px;margin:20px 0;">⏰</div>
-          <div style="font-size:18px;color:#ffb;margin-bottom:8px;">${d.message}</div>
-          <div style="font-size:13px;color:#aaa;">Dag ${d.day || '?'} av quiz-serien åpner kl 09:00 norsk tid.</div>
-        `;
-      } else if (d.reason === 'claimed') {
-        content.innerHTML = `
-          <div style="font-size:60px;margin:20px 0;">🏆</div>
-          <div style="font-size:18px;color:#fff;margin-bottom:8px;">Dagens quiz er allerede vunnet!</div>
-          <div style="font-size:14px;color:#ffd700;margin-bottom:10px;">
-            Vinner: <b>${d.claimedBy.replace(/[<>&]/g, '')}</b>
-          </div>
-          <div style="font-size:13px;color:#aaa;background:rgba(255,255,255,0.05);padding:10px;border-radius:6px;margin-top:10px;">
-            <div style="font-size:11px;color:#888;margin-bottom:4px;">Dagens spørsmål var:</div>
-            <i>"${d.question}"</i>
-            <div style="margin-top:6px;color:#7df;">🎁 Premie: ${d.prizeText}</div>
-          </div>
-          <div style="font-size:12px;color:#aaa;margin-top:14px;">Kom tilbake i morgen for et nytt spørsmål!</div>
-        `;
-      } else {
-        content.innerHTML = `
-          <div style="font-size:60px;margin:20px 0;">🎯</div>
-          <div style="font-size:16px;color:#aaa;">${d.message || 'Ingen quiz akkurat nå.'}</div>
-        `;
-      }
-      lastQuizState = 'inactive';
-      return;
-    }
-    // Aktiv quiz!
+    const dNoon = await rNoon.json();
     content.innerHTML = `
-      <div style="font-size:60px;margin:10px 0;">❓</div>
-      <div style="font-size:13px;color:#ffd700;margin-bottom:4px;">DAG ${d.day} — Først ute vinner!</div>
-      <div style="background:rgba(0,0,0,0.4);padding:14px;border-radius:10px;margin:10px 0;">
-        <div style="font-size:18px;color:#fff;margin-bottom:6px;font-weight:bold;">${d.question}</div>
-        <div style="font-size:13px;color:#7dffac;">🎁 Premie: ${d.prizeText}</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        ${quizSectionHtml(d, {
+          title: '🌅 Morgen-quiz (09:00)',
+          inputId: 'quizAnswerInput',
+          msgId: 'quizMsg',
+          submitFn: 'submitQuizAnswer',
+          dayLabel: d.day ? ('DAG ' + d.day) : ''
+        })}
+        ${quizSectionHtml(dNoon, {
+          title: '🕛 Mat-tid quiz (11:50)',
+          inputId: 'quizNoonInput',
+          msgId: 'quizNoonMsg',
+          submitFn: 'submitNoonQuizAnswer'
+        })}
       </div>
-      <input id="quizAnswerInput" type="text" placeholder="Skriv svar her..." style="width:90%;padding:10px;font-size:16px;background:#222;color:white;border:2px solid #555;border-radius:6px;margin:8px 0;" onkeydown="if(event.key==='Enter') submitQuizAnswer()">
-      <div id="quizMsg" style="min-height:20px;font-size:14px;margin:6px 0;"></div>
-      <button onclick="submitQuizAnswer()" style="padding:10px 24px;background:#27ae60;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:bold;">💡 Send svar</button>
     `;
-    setTimeout(() => { const i = document.getElementById('quizAnswerInput'); if (i) i.focus(); }, 50);
-    lastQuizState = 'available';
+    if (d.available) {
+      setTimeout(() => { const i = document.getElementById('quizAnswerInput'); if (i) i.focus(); }, 50);
+    } else if (dNoon.available) {
+      setTimeout(() => { const i = document.getElementById('quizNoonInput'); if (i) i.focus(); }, 50);
+    }
+    lastQuizState = (d.available || dNoon.available) ? 'available' : 'inactive';
   } catch (e) {
     content.innerHTML = '<div style="color:#e74c3c;">Kunne ikke laste quiz: ' + e.message + '</div>';
+  }
+}
+
+async function submitNoonQuizAnswer() {
+  const inp = document.getElementById('quizNoonInput');
+  const msgEl = document.getElementById('quizNoonMsg');
+  if (!inp || !state.username) {
+    if (msgEl) { msgEl.textContent = '✗ Du må være logget inn'; msgEl.style.color = '#e74c3c'; }
+    return;
+  }
+  const answer = (inp.value || '').trim();
+  if (!answer) { msgEl.textContent = '✗ Skriv et svar først'; msgEl.style.color = '#e74c3c'; return; }
+  msgEl.textContent = '⏳ Sender...';
+  msgEl.style.color = '#aaa';
+  try {
+    const isOwnerTest = !!(window.quizTestMode && state.username === CHEAT_OWNER_USERNAME);
+    const r = await fetch('/api/quiz/noon/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.username,
+        answer,
+        bypass: isOwnerTest ? QUIZ_OWNER_BYPASS : undefined
+      })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok && d.correct) {
+      msgEl.innerHTML = `🎉 RIKTIG! Du vant <b>${d.prizeText}</b>!`;
+      msgEl.style.color = '#2ecc71';
+      // Re-sync coins fra server
+      setTimeout(async () => {
+        try {
+          const lr = await fetch('/api/account/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: state.username, password: state.password })
+          });
+          const ld = await lr.json();
+          if (ld.ok && ld.state) {
+            const serverState = JSON.parse(ld.state);
+            Object.assign(state, serverState);
+            save(); updateUI();
+          }
+        } catch {}
+        setTimeout(renderQuiz, 800);
+      }, 1500);
+    } else if (d.correct === false) {
+      msgEl.textContent = '✗ Feil svar! Prøv igjen.';
+      msgEl.style.color = '#e74c3c';
+      inp.value = '';
+      inp.focus();
+    } else {
+      msgEl.textContent = '✗ ' + (d.error || 'Feil');
+      msgEl.style.color = '#e74c3c';
+    }
+  } catch (e) {
+    msgEl.textContent = '✗ Server-feil: ' + e.message;
+    msgEl.style.color = '#e74c3c';
   }
 }
 
@@ -7954,11 +8037,15 @@ async function submitQuizAnswer() {
 
 async function checkQuizAvailable() {
   try {
-    const r = await fetch('/api/quiz/today');
+    const [r, rNoon] = await Promise.all([
+      fetch('/api/quiz/today'),
+      fetch('/api/quiz/noon')
+    ]);
     const d = await r.json();
+    const dNoon = await rNoon.json();
     const badge = document.getElementById('quizBadge');
     if (badge) {
-      if (d.available) {
+      if (d.available || dNoon.available) {
         badge.style.display = 'block';
         badge.textContent = '!';
       } else {
