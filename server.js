@@ -287,28 +287,27 @@ const ONE_TIME_GLOBAL_CODES = {
   // 1 kode med 100k
   '305172': { type: 'coins', amount: 100000 },
 
-  // === 20 GIVEAWAY-KODER (i morra) ===
-  // Topp-premiene: 2 mil coins eller Greninja CP 10000
-  '482739': { type: 'coins', amount: 2000000 },
-  '173846': { type: 'pokemon', pokemonId: 658, name: 'Greninja', cp: 10000, rarity: 'legendary', isShiny: false },
-  '956127': { type: 'coins', amount: 1500000 },
-  '248501': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9000, rarity: 'epic', isShiny: true },
-  '793406': { type: 'coins', amount: 1200000 },
-  '614382': { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9500, rarity: 'legendary', isShiny: false },
-  '859014': { type: 'coins', amount: 1000000 },
-  '327691': { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 8800, rarity: 'legendary', isShiny: true },
-  '415803': { type: 'coins', amount: 900000 },
-  '968245': { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9200, rarity: 'legendary', isShiny: false },
-  '712598': { type: 'coins', amount: 800000 },
-  '530864': { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9000, rarity: 'legendary', isShiny: true },
-  '184329': { type: 'coins', amount: 700000 },
-  '691752': { type: 'pokemon', pokemonId: 149, name: 'Dragonite', cp: 8500, rarity: 'epic', isShiny: false },
-  '437218': { type: 'coins', amount: 600000 },
-  '802146': { type: 'pokemon', pokemonId: 248, name: 'Tyranitar', cp: 8800, rarity: 'epic', isShiny: false },
-  '365091': { type: 'coins', amount: 500000 },
-  '579468': { type: 'pokemon', pokemonId: 445, name: 'Garchomp', cp: 8200, rarity: 'epic', isShiny: false },
-  '924513': { type: 'coins', amount: 400000 },
-  '681734': { type: 'pokemon', pokemonId: 94, name: 'Gengar', cp: 8500, rarity: 'epic', isShiny: true }
+  // === 20 GIVEAWAY-KODER — GLOBALT ÉN GANG (først til mølla, ingen kan bruke etterpå) ===
+  '482739': { type: 'coins', amount: 2000000, globalOneTime: true },
+  '173846': { type: 'pokemon', pokemonId: 658, name: 'Greninja', cp: 10000, rarity: 'legendary', isShiny: false, globalOneTime: true },
+  '956127': { type: 'coins', amount: 1500000, globalOneTime: true },
+  '248501': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9000, rarity: 'epic', isShiny: true, globalOneTime: true },
+  '793406': { type: 'coins', amount: 1200000, globalOneTime: true },
+  '614382': { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9500, rarity: 'legendary', isShiny: false, globalOneTime: true },
+  '859014': { type: 'coins', amount: 1000000, globalOneTime: true },
+  '327691': { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 8800, rarity: 'legendary', isShiny: true, globalOneTime: true },
+  '415803': { type: 'coins', amount: 900000, globalOneTime: true },
+  '968245': { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9200, rarity: 'legendary', isShiny: false, globalOneTime: true },
+  '712598': { type: 'coins', amount: 800000, globalOneTime: true },
+  '530864': { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9000, rarity: 'legendary', isShiny: true, globalOneTime: true },
+  '184329': { type: 'coins', amount: 700000, globalOneTime: true },
+  '691752': { type: 'pokemon', pokemonId: 149, name: 'Dragonite', cp: 8500, rarity: 'epic', isShiny: false, globalOneTime: true },
+  '437218': { type: 'coins', amount: 600000, globalOneTime: true },
+  '802146': { type: 'pokemon', pokemonId: 248, name: 'Tyranitar', cp: 8800, rarity: 'epic', isShiny: false, globalOneTime: true },
+  '365091': { type: 'coins', amount: 500000, globalOneTime: true },
+  '579468': { type: 'pokemon', pokemonId: 445, name: 'Garchomp', cp: 8200, rarity: 'epic', isShiny: false, globalOneTime: true },
+  '924513': { type: 'coins', amount: 400000, globalOneTime: true },
+  '681734': { type: 'pokemon', pokemonId: 94, name: 'Gengar', cp: 8500, rarity: 'epic', isShiny: true, globalOneTime: true }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
@@ -320,8 +319,7 @@ app.post('/api/cheat/onetime', (req, res) => {
   if (!(code in ONE_TIME_GLOBAL_CODES)) {
     return res.status(404).json({ ok: false, error: 'Ugyldig kode' });
   }
-  // Redeem-struktur: { code: { users: { username1: {...}, username2: {...} } } }
-  // Sjekk om DENNE brukeren allerede har brukt koden
+  // Redeem-struktur: { code: { users: { username1: {...}, username2: {...} } }, claimedBy?, claimedAt? }
   const redeemed = readJson(REDEEM_FILE, {});
   if (!redeemed[code]) redeemed[code] = { users: {} };
   // Backward-compat: hvis gammel struktur uten "users", konverter
@@ -332,7 +330,19 @@ app.post('/api/cheat/onetime', (req, res) => {
       redeemed[code] = { users: {} };
     }
   }
-  if (redeemed[code].users[username]) {
+  // Hent premie tidlig for å sjekke om globalOneTime
+  const prize = ONE_TIME_GLOBAL_CODES[code];
+  const prizeObj = typeof prize === 'number' ? { type: 'coins', amount: prize } : prize;
+  const isGlobalOneTime = !!prizeObj.globalOneTime;
+  // GLOBAL ONE-TIME: hvis noen ANNEN har allerede løst inn → blokker
+  if (isGlobalOneTime && redeemed[code].claimedBy) {
+    return res.status(409).json({
+      ok: false,
+      error: `Denne giveaway-koden er allerede løst inn av ${redeemed[code].claimedBy}!`
+    });
+  }
+  // PER-USER ONE-TIME: hvis DENNE brukeren har allerede brukt koden → blokker
+  if (!isGlobalOneTime && redeemed[code].users[username]) {
     return res.status(409).json({
       ok: false,
       error: 'Du har allerede brukt denne koden! (Hver bruker kan kun bruke hver kode én gang)'
@@ -340,9 +350,6 @@ app.post('/api/cheat/onetime', (req, res) => {
   }
   const users = readJson(USERS_FILE, {});
   if (!users[username]) return res.status(404).json({ ok: false, error: 'Brukerkonto finnes ikke på serveren (sync først)' });
-  const prize = ONE_TIME_GLOBAL_CODES[code];
-  // Backward-compat: hvis prize er et tall (gammel struktur), konverter til { type: 'coins', amount }
-  const prizeObj = typeof prize === 'number' ? { type: 'coins', amount: prize } : prize;
   try {
     const userState = users[username].state ? JSON.parse(users[username].state) : {};
     let prizeText = '';
@@ -387,6 +394,11 @@ app.post('/api/cheat/onetime', (req, res) => {
     writeJson(USERS_FILE, users);
     // Marker at DENNE brukeren har brukt koden
     redeemed[code].users[username] = { prize: prizeObj, claimedAt: new Date().toISOString() };
+    // Hvis globalOneTime: lås koden globalt slik at ingen andre kan bruke den
+    if (isGlobalOneTime) {
+      redeemed[code].claimedBy = username;
+      redeemed[code].claimedAt = new Date().toISOString();
+    }
     writeJson(REDEEM_FILE, redeemed);
     res.json({ ok: true, prize: prizeObj, prizeText, amount: prizeObj.amount || null, newCoins: userState.coins });
   } catch (e) {
