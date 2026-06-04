@@ -282,7 +282,9 @@ const ONE_TIME_GLOBAL_CODES = {
   // 1 kode med 1.3 mil
   '274915': { type: 'coins', amount: 1300000 },
   // 1 kode med 1 mil
-  '463827': { type: 'coins', amount: 1000000 }
+  '463827': { type: 'coins', amount: 1000000 },
+  // 1 kode med 100k
+  '305172': { type: 'coins', amount: 100000 }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
