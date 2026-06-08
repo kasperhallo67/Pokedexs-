@@ -349,6 +349,80 @@
   .casino-result.win  { color: #2ecc71; text-shadow: 0 0 10px #2ecc71; }
   .casino-result.lose { color: #e74c3c; }
 
+  /* WHEEL SPIN */
+  .wheel-container {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin: 0 auto 18px;
+  }
+  .wheel-pointer-big {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 28px solid gold;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.7));
+    z-index: 10;
+  }
+  .wheel-disc {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 8px solid #5a3a1a;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 18px rgba(0,0,0,0.5);
+    background: conic-gradient(
+      #e74c3c 0deg 32.7deg,
+      #f39c12 32.7deg 65.4deg,
+      #f1c40f 65.4deg 98.1deg,
+      #2ecc71 98.1deg 130.8deg,
+      #3498db 130.8deg 163.5deg,
+      #9b59b6 163.5deg 196.2deg,
+      #e91e63 196.2deg 228.9deg,
+      #ff6ec4 228.9deg 261.6deg,
+      #27ae60 261.6deg 294.3deg,
+      #c0392b 294.3deg 327deg,
+      gold 327deg 360deg
+    );
+    transition: transform 5s cubic-bezier(0.15, 0.7, 0.25, 1);
+  }
+  .wheel-center-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    background: radial-gradient(circle, #fff, #ddd);
+    border: 4px solid #5a3a1a;
+    border-radius: 50%;
+    color: #333;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 5;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+  }
+  .wheel-center-btn:hover { transform: translate(-50%, -50%) scale(1.05); }
+  .wheel-center-btn:disabled { background: #888; cursor: not-allowed; opacity: 0.6; }
+  .wheel-label {
+    position: absolute;
+    width: 80px;
+    text-align: center;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 0 0 4px #000, 0 0 4px #000;
+    pointer-events: none;
+    z-index: 6;
+  }
+
   /* ROULETTE */
   .roulette-wheel {
     width: 240px;
@@ -3797,6 +3871,7 @@
     <button class="menu-btn" onclick="openCasino()" style="background:#e91e63;">🎰 Casino</button>
     <button class="menu-btn" onclick="openExplore()" style="background:#16a085;">🗺️ Explore</button>
     <button class="menu-btn" id="quizBtn" onclick="openQuiz()" style="background:#e67e22;position:relative;">❓ Daglig Quiz<span id="quizBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:red;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;text-align:center;">!</span></button>
+    <button class="menu-btn" id="wheelBtn" onclick="openWheelSpin()" style="background:#8e44ad;position:relative;">🎡 Wheel Spin<span id="wheelBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:#f1c40f;color:#333;border-radius:50%;width:22px;height:22px;font-size:12px;line-height:22px;text-align:center;font-weight:bold;">0</span></button>
     <button class="menu-btn" onclick="openAchievements()" style="background:linear-gradient(135deg,#ffd700,#ff8c00);color:#333;">🏆 Achievements</button>
   </div>
   <div class="user-box" onclick="changeUsername()" title="Click to change username">
@@ -4004,6 +4079,15 @@
     </div>
     <!-- (Norwegian → English translation in progress for the rest) -->
     <div id="casinoContent" style="margin-top:20px;"></div>
+  </div>
+</div>
+
+<!-- WHEEL SPIN -->
+<div class="modal" id="wheelModal">
+  <div class="modal-content" style="max-width:560px;">
+    <button class="close-btn" onclick="closeModal('wheel')">×</button>
+    <h2 class="modal-title">🎡 Wheel Spin</h2>
+    <div id="wheelContent" style="text-align:center;padding:10px;color:#fff;"></div>
   </div>
 </div>
 
@@ -6138,6 +6222,7 @@ if (state.username) {
     if (typeof startQuizPolling === 'function') startQuizPolling();
     if (typeof maybeEstimatePastPlaytime === 'function') maybeEstimatePastPlaytime();
     if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
+    if (typeof startWheelPolling === 'function') startWheelPolling();
   }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -7512,6 +7597,7 @@ async function loginToOther() {
     startQuizPolling();
     maybeEstimatePastPlaytime();
     startPlaytimeTracker();
+    startWheelPolling();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }
@@ -8127,6 +8213,210 @@ function startQuizPolling() {
   if (quizCheckTimer) clearInterval(quizCheckTimer);
   checkQuizAvailable();
   quizCheckTimer = setInterval(checkQuizAvailable, 60000);
+}
+
+// ========== WHEEL SPIN ==========
+// Hver 1 time får du +1 spinn (cap 24). Premier varierer fra 10k coins til 2M / Pokemon.
+const WHEEL_SPIN_INTERVAL_MS = 3600000; // 1 time
+const WHEEL_MAX_SPINS = 24;
+// 11 sektorer rundt hjulet (samme antall som conic-gradient farger)
+const WHEEL_PRIZES = [
+  { key: '10k',     label: '10k 💰',        weight: 30, type: 'coins',   amount: 10000 },
+  { key: '25k',     label: '25k 💰',        weight: 18, type: 'coins',   amount: 25000 },
+  { key: '50k',     label: '50k 💰',        weight: 14, type: 'coins',   amount: 50000 },
+  { key: '100k',    label: '100k 💰',       weight: 10, type: 'coins',   amount: 100000 },
+  { key: '250k',    label: '250k 💰',       weight: 7,  type: 'coins',   amount: 250000 },
+  { key: '500k',    label: '500k 💰',       weight: 5,  type: 'coins',   amount: 500000 },
+  { key: '1M',      label: '1M 💰',         weight: 3,  type: 'coins',   amount: 1000000 },
+  { key: 'JACKPOT', label: '2M 💰 JACKPOT', weight: 1,  type: 'coins',   amount: 2000000 },
+  { key: 'low_p',   label: 'Pokémon ★',     weight: 4,  type: 'pokemon', cpRange: [5000, 7000] },
+  { key: 'mid_p',   label: 'Pokémon ★★',    weight: 2.5,type: 'pokemon', cpRange: [7000, 9000] },
+  { key: 'high_p',  label: 'Pokémon ★★★',   weight: 2.5,type: 'pokemon', cpRange: [9000, 11000] }
+];
+
+let wheelSpinning = false;
+let wheelRotation = 0;
+let _wheelTimer = null;
+
+function calcWheelSpins() {
+  // Sjekk tid siden lastSpinClaim. Inkrementer spinsAvailable basert på antall hele timer.
+  if (!state.lastSpinClaim) state.lastSpinClaim = Date.now() - WHEEL_SPIN_INTERVAL_MS; // start med 1 spinn klar
+  if (state.spinsAvailable == null) state.spinsAvailable = 0;
+  const now = Date.now();
+  const elapsed = now - state.lastSpinClaim;
+  if (elapsed >= WHEEL_SPIN_INTERVAL_MS) {
+    const newSpins = Math.floor(elapsed / WHEEL_SPIN_INTERVAL_MS);
+    state.spinsAvailable = Math.min(WHEEL_MAX_SPINS, (state.spinsAvailable || 0) + newSpins);
+    state.lastSpinClaim += newSpins * WHEEL_SPIN_INTERVAL_MS;
+    save();
+  }
+  return state.spinsAvailable;
+}
+
+function timeUntilNextSpin() {
+  if (!state.lastSpinClaim) return 0;
+  const next = state.lastSpinClaim + WHEEL_SPIN_INTERVAL_MS;
+  return Math.max(0, next - Date.now());
+}
+
+function formatHMS(ms) {
+  if (ms <= 0) return 'Nå!';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}t ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function updateWheelBadge() {
+  const badge = document.getElementById('wheelBadge');
+  if (!badge) return;
+  const count = calcWheelSpins();
+  if (count > 0) {
+    badge.style.display = 'block';
+    badge.textContent = count;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function startWheelPolling() {
+  if (_wheelTimer) clearInterval(_wheelTimer);
+  _wheelTimer = setInterval(() => {
+    updateWheelBadge();
+    // Hvis modal er åpen, oppdater også UI
+    const modal = document.getElementById('wheelModal');
+    if (modal && modal.classList.contains('active')) renderWheelSpin();
+  }, 5000);
+  updateWheelBadge();
+}
+
+function openWheelSpin() {
+  document.getElementById('wheelModal').classList.add('active');
+  renderWheelSpin();
+}
+
+function renderWheelSpin() {
+  const content = document.getElementById('wheelContent');
+  if (!content) return;
+  const spins = calcWheelSpins();
+  const nextMs = timeUntilNextSpin();
+  // Bygg etiketter rundt hjulet
+  const labels = WHEEL_PRIZES.map((p, i) => {
+    const angle = (i + 0.5) * (360 / WHEEL_PRIZES.length); // midten av hver sektor
+    const rad = (angle - 90) * Math.PI / 180; // -90 fordi 0deg = topp
+    const r = 120;
+    const x = 160 + Math.cos(rad) * r - 40; // -40 for å sentrere 80px-bredt label
+    const y = 160 + Math.sin(rad) * r - 10;
+    return `<div class="wheel-label" style="left:${x}px;top:${y}px;">${p.label}</div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="background:rgba(0,0,0,0.4);padding:10px;border-radius:8px;margin-bottom:14px;">
+      <div style="font-size:14px;color:#ffd700;">🎟️ Tilgjengelige spinn: <b>${spins}</b> / ${WHEEL_MAX_SPINS}</div>
+      <div style="font-size:12px;color:#aaa;">Neste spinn om: ${formatHMS(nextMs)} (1 spinn hver time)</div>
+    </div>
+    <div class="wheel-container">
+      <div class="wheel-pointer-big"></div>
+      <div id="wheelDisc" class="wheel-disc"></div>
+      ${labels}
+      <button id="wheelBtnCenter" class="wheel-center-btn" onclick="spinTheWheel()" ${spins === 0 || wheelSpinning ? 'disabled' : ''}>
+        ${wheelSpinning ? 'Spinner...' : (spins > 0 ? 'SPIN!' : 'Vent')}
+      </button>
+    </div>
+    <div id="wheelResult" style="min-height:60px;font-size:18px;color:gold;font-weight:bold;text-shadow:0 0 6px gold;"></div>
+  `;
+}
+
+function pickWheelPrize() {
+  const total = WHEEL_PRIZES.reduce((s, p) => s + p.weight, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < WHEEL_PRIZES.length; i++) {
+    r -= WHEEL_PRIZES[i].weight;
+    if (r <= 0) return { index: i, prize: WHEEL_PRIZES[i] };
+  }
+  return { index: 0, prize: WHEEL_PRIZES[0] };
+}
+
+function spinTheWheel() {
+  if (wheelSpinning) return;
+  const spins = calcWheelSpins();
+  if (spins <= 0) return;
+  // Bruk én spinn
+  state.spinsAvailable -= 1;
+  save();
+  wheelSpinning = true;
+  // Velg premie og finn landingsvinkel
+  const { index, prize } = pickWheelPrize();
+  const sliceDeg = 360 / WHEEL_PRIZES.length;
+  const target = -(index * sliceDeg + sliceDeg / 2); // midt i sektoren
+  const spinsExtra = 6 + Math.floor(Math.random() * 3); // 6-8 hele rotasjoner
+  wheelRotation = target - spinsExtra * 360;
+  const disc = document.getElementById('wheelDisc');
+  if (disc) disc.style.transform = `rotate(${wheelRotation}deg)`;
+  const btn = document.getElementById('wheelBtnCenter');
+  if (btn) { btn.disabled = true; btn.textContent = 'Spinner...'; }
+  setTimeout(() => resolveWheelPrize(prize), 5100);
+}
+
+function resolveWheelPrize(prize) {
+  wheelSpinning = false;
+  const resultEl = document.getElementById('wheelResult');
+  if (prize.type === 'coins') {
+    state.coins = (state.coins || 0) + prize.amount;
+    save(); updateUI(); submitScore(); checkAchievements();
+    if (resultEl) {
+      const isJackpot = prize.key === 'JACKPOT';
+      resultEl.innerHTML = `${isJackpot ? '💎💎💎 JACKPOT! 💎💎💎<br>' : '🎉 '}<b>+${prize.amount.toLocaleString()} 💰</b>!`;
+      if (isJackpot) resultEl.style.animation = 'shinyShift 1.5s ease-in-out infinite';
+    }
+  } else if (prize.type === 'pokemon') {
+    // Velg en tilfeldig Pokemon (id 1-1010, hopp over custom 9001/9002)
+    const validIds = [];
+    for (let i = 1; i <= 1010; i++) validIds.push(i);
+    const randomId = validIds[Math.floor(Math.random() * validIds.length)];
+    const poke = POKEMONS.find(p => p.id === randomId) || POKEMONS[Math.floor(Math.random() * POKEMONS.length)];
+    const minCp = prize.cpRange[0], maxCp = prize.cpRange[1];
+    const cp = minCp + Math.floor(Math.random() * (maxCp - minCp + 1));
+    // Bestem rarity basert på CP
+    let rarity = 'epic';
+    if (cp >= 9000) rarity = 'legendary';
+    else if (cp >= 6500) rarity = 'epic';
+    else rarity = 'rare';
+    // Legg til som individ
+    if (!Array.isArray(state.individuals)) state.individuals = [];
+    if (state.individuals.length >= state.storageMax) {
+      if (resultEl) resultEl.innerHTML = `🎁 Du vant ${poke.name} CP ${cp}<br><span style="color:#e74c3c;font-size:13px;">📦 Storage er full! Frigjør plass i My Pokémon først.</span>`;
+      return;
+    }
+    const uid = 'wheel_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    state.individuals.push({
+      uid, id: poke.id, name: poke.name, rarity, cp,
+      isShiny: false, caughtAt: Date.now(), eventType: null, upgrades: 0
+    });
+    if (!state.caught) state.caught = {};
+    if (!state.seen) state.seen = {};
+    state.caught[poke.id] = (state.caught[poke.id] || 0) + 1;
+    state.seen[poke.id] = true;
+    state.totalCatches = (state.totalCatches || 0) + 1;
+    save(); updateUI(); submitScore(); checkAchievements();
+    if (resultEl) {
+      resultEl.innerHTML = `🎁 Du vant <b>${poke.name}</b> CP <b>${cp}</b>!<br><img src="${SPRITE_URL(poke.id)}" style="width:80px;height:80px;image-rendering:pixelated;margin-top:6px;">`;
+    }
+  }
+  updateWheelBadge();
+  // Re-render etter 2 sek slik at spinner-knappen oppdaterer
+  setTimeout(() => {
+    if (state.spinsAvailable > 0) {
+      const btn = document.getElementById('wheelBtnCenter');
+      if (btn) { btn.disabled = false; btn.textContent = 'SPIN!'; }
+    } else {
+      const btn = document.getElementById('wheelBtnCenter');
+      if (btn) { btn.disabled = true; btn.textContent = 'Vent'; }
+    }
+  }, 1500);
 }
 
 function openLeaderboard() {
@@ -15229,6 +15519,7 @@ const CHEAT_PASSWORD_REMOVE = '8273';     // Trekk penger fra deg selv
 const CHEAT_PASSWORD_FORCE_ULT = '3456';  // Tving neste ball til shiny Ultimate
 const CHEAT_PASSWORD_ONETIME70 = '9521';  // Engangs: +70 coins
 const CHEAT_PASSWORD_DELETE_USER = '6741'; // Slett en annen brukerkonto (kun owner)
+const CHEAT_PASSWORD_WHEEL_BOOST = '7777'; // 24 wheel-spinn + 5M coins (kun owner, ubegrenset)
 const CHEAT_PASSWORD_TEST = 'test1';        // Test-kode for owner: gir 1M coins + reload (ubegrenset bruk)
 const CHEAT_PASSWORD_TEST_QUIZ = '8888';    // Test-kode for owner: åpne quizen NÅ (uavhengig av kl 09)
 const QUIZ_OWNER_BYPASS = 'kasper_owner_2026'; // Secret som sendes med bypass-requests
@@ -15468,6 +15759,16 @@ async function submitCheat() {
       }
       save(); updateUI(); submitScore();
       msg.innerHTML = '🧪 <b>TEST-KODE AKTIVERT</b><br>+1 000 000 💰<br>+50 🍬 Pikachu-candy<br>+99 av alle baller<br><span style="font-size:11px;color:#aaa;">(Kan brukes igjen)</span>';
+      msg.className = 'cheat-msg ok';
+      setTimeout(closeCheat, 2500);
+    } else if (input.value === CHEAT_PASSWORD_WHEEL_BOOST) {
+      // Owner-only: fyll wheel-spinn til max + gi 5M coins
+      state.spinsAvailable = WHEEL_MAX_SPINS;
+      state.lastSpinClaim = Date.now();
+      state.coins = (state.coins || 0) + 5000000;
+      save(); updateUI(); submitScore();
+      updateWheelBadge();
+      msg.innerHTML = `🎡 <b>WHEEL BOOST!</b><br>+${WHEEL_MAX_SPINS} spinn · +5 000 000 💰<br><span style="font-size:11px;color:#aaa;">(Owner-only, ubegrenset)</span>`;
       msg.className = 'cheat-msg ok';
       setTimeout(closeCheat, 2500);
     } else if (input.value === CHEAT_PASSWORD_DELETE_USER) {
