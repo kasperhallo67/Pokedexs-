@@ -8382,29 +8382,30 @@ function spinTheWheel() {
   if (wheelSpinning) return;
   const spins = calcWheelSpins();
   if (spins <= 0) return;
-  // Bruk én spinn
   state.spinsAvailable -= 1;
-  // IKKE kall save() her — det kan trigge state-sjekker som re-rendrer modalen
   wheelSpinning = true;
-  // Velg premie og finn landingsvinkel
+  // Velg premie
   const { index, prize } = pickWheelPrize();
   const sliceDeg = 360 / WHEEL_PRIZES.length;
-  const target = -(index * sliceDeg + sliceDeg / 2);
+  // Mål-vinkel: hver sektor i = (i+0.5)*sliceDeg fra toppen.
+  // For å plassere sektor i UNDER pointeren (toppen): rotor må stå på -((i+0.5)*sliceDeg).
+  const target = -((index + 0.5) * sliceDeg);
   const spinsExtra = 6 + Math.floor(Math.random() * 3);
-  // Akkumuler rotasjon (i tilfelle hjulet allerede har blitt spunnet før)
-  wheelRotation = (wheelRotation || 0) - spinsExtra * 360;
-  // Juster slik at endelig vinkel mod 360 = target
-  const adjust = (target - (wheelRotation % 360) + 360) % 360;
-  wheelRotation -= adjust;
+
   const rotor = document.getElementById('wheelRotor');
   if (rotor) {
-    // Forsikre at transition er aktivert (i tilfelle CSS ble overskrevet)
+    // 1) Reset hjulet INSTANT (uten transisjon) til 0 grader
+    rotor.style.transition = 'none';
+    rotor.style.transform = 'rotate(0deg)';
+    // 2) Tving reflow så at reset blir applied umiddelbart
+    void rotor.offsetHeight;
+    // 3) Skru på transisjonen og roter til endelig vinkel
     rotor.style.transition = 'transform 5s cubic-bezier(0.15, 0.7, 0.25, 1)';
+    wheelRotation = target - spinsExtra * 360;
     rotor.style.transform = `rotate(${wheelRotation}deg)`;
   }
   const btn = document.getElementById('wheelBtnCenter');
   if (btn) { btn.disabled = true; btn.textContent = 'Spinner...'; }
-  // Save state etterpå (etter animasjonen starter)
   setTimeout(() => save(), 100);
   setTimeout(() => resolveWheelPrize(prize), 5200);
 }
