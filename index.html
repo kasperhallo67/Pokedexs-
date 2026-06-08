@@ -8294,11 +8294,38 @@ function startWheelPolling() {
   if (_wheelTimer) clearInterval(_wheelTimer);
   _wheelTimer = setInterval(() => {
     updateWheelBadge();
-    // Hvis modal er åpen, oppdater også UI
+    // Hvis modal er åpen OG hjulet IKKE spinner, oppdater UI inkrementelt (ikke re-render)
     const modal = document.getElementById('wheelModal');
-    if (modal && modal.classList.contains('active')) renderWheelSpin();
+    if (modal && modal.classList.contains('active') && !wheelSpinning) {
+      // Oppdater bare spinn-count og countdown, ikke hele hjulet
+      updateWheelStatusOnly();
+    }
   }, 5000);
   updateWheelBadge();
+}
+
+function updateWheelStatusOnly() {
+  // Inkrementell oppdatering — ikke ødelegg rotoren
+  const spins = calcWheelSpins();
+  const nextMs = timeUntilNextSpin();
+  const statusBox = document.querySelector('#wheelContent > div:first-child');
+  if (statusBox) {
+    statusBox.innerHTML = `
+      <div style="font-size:14px;color:#ffd700;">🎟️ Tilgjengelige spinn: <b>${spins}</b> / ${WHEEL_MAX_SPINS}</div>
+      <div style="font-size:12px;color:#aaa;">Neste spinn om: ${formatHMS(nextMs)} (1 spinn hver time)</div>
+    `;
+  }
+  // Oppdater spinn-knappen
+  const btn = document.getElementById('wheelBtnCenter');
+  if (btn && !wheelSpinning) {
+    if (spins > 0) {
+      btn.disabled = false;
+      btn.textContent = 'SPIN!';
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Vent';
+    }
+  }
 }
 
 function openWheelSpin() {
@@ -8357,19 +8384,29 @@ function spinTheWheel() {
   if (spins <= 0) return;
   // Bruk én spinn
   state.spinsAvailable -= 1;
-  save();
+  // IKKE kall save() her — det kan trigge state-sjekker som re-rendrer modalen
   wheelSpinning = true;
   // Velg premie og finn landingsvinkel
   const { index, prize } = pickWheelPrize();
   const sliceDeg = 360 / WHEEL_PRIZES.length;
-  const target = -(index * sliceDeg + sliceDeg / 2); // midt i sektoren
-  const spinsExtra = 6 + Math.floor(Math.random() * 3); // 6-8 hele rotasjoner
-  wheelRotation = target - spinsExtra * 360;
+  const target = -(index * sliceDeg + sliceDeg / 2);
+  const spinsExtra = 6 + Math.floor(Math.random() * 3);
+  // Akkumuler rotasjon (i tilfelle hjulet allerede har blitt spunnet før)
+  wheelRotation = (wheelRotation || 0) - spinsExtra * 360;
+  // Juster slik at endelig vinkel mod 360 = target
+  const adjust = (target - (wheelRotation % 360) + 360) % 360;
+  wheelRotation -= adjust;
   const rotor = document.getElementById('wheelRotor');
-  if (rotor) rotor.style.transform = `rotate(${wheelRotation}deg)`;
+  if (rotor) {
+    // Forsikre at transition er aktivert (i tilfelle CSS ble overskrevet)
+    rotor.style.transition = 'transform 5s cubic-bezier(0.15, 0.7, 0.25, 1)';
+    rotor.style.transform = `rotate(${wheelRotation}deg)`;
+  }
   const btn = document.getElementById('wheelBtnCenter');
   if (btn) { btn.disabled = true; btn.textContent = 'Spinner...'; }
-  setTimeout(() => resolveWheelPrize(prize), 5100);
+  // Save state etterpå (etter animasjonen starter)
+  setTimeout(() => save(), 100);
+  setTimeout(() => resolveWheelPrize(prize), 5200);
 }
 
 function resolveWheelPrize(prize) {
@@ -8418,15 +8455,9 @@ function resolveWheelPrize(prize) {
     }
   }
   updateWheelBadge();
-  // Re-render etter 2 sek slik at spinner-knappen oppdaterer
+  // Oppdater bare spinn-status, ikke hele hjulet (så rotor beholder posisjon)
   setTimeout(() => {
-    if (state.spinsAvailable > 0) {
-      const btn = document.getElementById('wheelBtnCenter');
-      if (btn) { btn.disabled = false; btn.textContent = 'SPIN!'; }
-    } else {
-      const btn = document.getElementById('wheelBtnCenter');
-      if (btn) { btn.disabled = true; btn.textContent = 'Vent'; }
-    }
+    updateWheelStatusOnly();
   }, 1500);
 }
 
