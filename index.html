@@ -368,6 +368,12 @@
     filter: drop-shadow(0 3px 4px rgba(0,0,0,0.7));
     z-index: 10;
   }
+  .wheel-rotor {
+    position: absolute;
+    inset: 0;
+    transition: transform 5s cubic-bezier(0.15, 0.7, 0.25, 1);
+    transform-origin: 50% 50%;
+  }
   .wheel-disc {
     width: 100%;
     height: 100%;
@@ -387,7 +393,6 @@
       #c0392b 294.3deg 327deg,
       gold 327deg 360deg
     );
-    transition: transform 5s cubic-bezier(0.15, 0.7, 0.25, 1);
   }
   .wheel-center-btn {
     position: absolute;
@@ -414,13 +419,16 @@
   .wheel-label {
     position: absolute;
     width: 80px;
+    height: 24px;
+    line-height: 12px;
     text-align: center;
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     text-shadow: 0 0 4px #000, 0 0 4px #000;
     pointer-events: none;
     z-index: 6;
+    transform-origin: 50% 50%;
   }
 
   /* ROULETTE */
@@ -8303,14 +8311,15 @@ function renderWheelSpin() {
   if (!content) return;
   const spins = calcWheelSpins();
   const nextMs = timeUntilNextSpin();
-  // Bygg etiketter rundt hjulet
+  // Bygg etiketter rundt hjulet — INNI roterende container, så de spinner med
   const labels = WHEEL_PRIZES.map((p, i) => {
-    const angle = (i + 0.5) * (360 / WHEEL_PRIZES.length); // midten av hver sektor
-    const rad = (angle - 90) * Math.PI / 180; // -90 fordi 0deg = topp
-    const r = 120;
-    const x = 160 + Math.cos(rad) * r - 40; // -40 for å sentrere 80px-bredt label
-    const y = 160 + Math.sin(rad) * r - 10;
-    return `<div class="wheel-label" style="left:${x}px;top:${y}px;">${p.label}</div>`;
+    const angle = (i + 0.5) * (360 / WHEEL_PRIZES.length);
+    const rad = (angle - 90) * Math.PI / 180;
+    const r = 105;
+    const x = 160 + Math.cos(rad) * r - 40;
+    const y = 160 + Math.sin(rad) * r - 12;
+    // Roter også teksten så den peker utover (lettere å lese)
+    return `<div class="wheel-label" style="left:${x}px;top:${y}px;transform:rotate(${angle}deg);">${p.label}</div>`;
   }).join('');
 
   content.innerHTML = `
@@ -8320,8 +8329,10 @@ function renderWheelSpin() {
     </div>
     <div class="wheel-container">
       <div class="wheel-pointer-big"></div>
-      <div id="wheelDisc" class="wheel-disc"></div>
-      ${labels}
+      <div id="wheelRotor" class="wheel-rotor">
+        <div class="wheel-disc"></div>
+        ${labels}
+      </div>
       <button id="wheelBtnCenter" class="wheel-center-btn" onclick="spinTheWheel()" ${spins === 0 || wheelSpinning ? 'disabled' : ''}>
         ${wheelSpinning ? 'Spinner...' : (spins > 0 ? 'SPIN!' : 'Vent')}
       </button>
@@ -8354,8 +8365,8 @@ function spinTheWheel() {
   const target = -(index * sliceDeg + sliceDeg / 2); // midt i sektoren
   const spinsExtra = 6 + Math.floor(Math.random() * 3); // 6-8 hele rotasjoner
   wheelRotation = target - spinsExtra * 360;
-  const disc = document.getElementById('wheelDisc');
-  if (disc) disc.style.transform = `rotate(${wheelRotation}deg)`;
+  const rotor = document.getElementById('wheelRotor');
+  if (rotor) rotor.style.transform = `rotate(${wheelRotation}deg)`;
   const btn = document.getElementById('wheelBtnCenter');
   if (btn) { btn.disabled = true; btn.textContent = 'Spinner...'; }
   setTimeout(() => resolveWheelPrize(prize), 5100);
