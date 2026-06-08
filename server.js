@@ -263,51 +263,9 @@ app.post('/api/cheat/delete-user', (req, res) => {
 // === ENGANGS-KODER (GLOBALT ÉN GANG — først til mølla) ===
 // Når én bruker løser inn en kode, kan INGEN andre bruke samme kode etterpå.
 const ONE_TIME_GLOBAL_CODES = {
-  '384721': { type: 'coins', amount: 500000, globalOneTime: true },
-  '105693': { type: 'coins', amount: 500000, globalOneTime: true },
-  '627840': { type: 'coins', amount: 500000, globalOneTime: true },
-  '459127': { type: 'coins', amount: 500000, globalOneTime: true },
-  '738205': { type: 'coins', amount: 500000, globalOneTime: true },
-  '916384': { type: 'coins', amount: 500000, globalOneTime: true },
-  '253079': { type: 'coins', amount: 500000, globalOneTime: true },
-  '681492': { type: 'coins', amount: 500000, globalOneTime: true },
-  '547361': { type: 'coins', amount: 500000, globalOneTime: true },
-  '873150': { type: 'coins', amount: 500000, globalOneTime: true },
-  // Charizard CP 8000 koder
-  '429173': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false, globalOneTime: true },
-  '651284': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 8000, rarity: 'epic', isShiny: false, globalOneTime: true },
-  // 3 nye 500k coin-koder
-  '826341': { type: 'coins', amount: 500000, globalOneTime: true },
-  '597082': { type: 'coins', amount: 500000, globalOneTime: true },
-  '138694': { type: 'coins', amount: 500000, globalOneTime: true },
-  // 1 kode med 1.3 mil
-  '274915': { type: 'coins', amount: 1300000, globalOneTime: true },
-  // 1 kode med 1 mil
-  '463827': { type: 'coins', amount: 1000000, globalOneTime: true },
-  // 1 kode med 100k
-  '305172': { type: 'coins', amount: 100000, globalOneTime: true },
-
-  // === 20 GIVEAWAY-KODER — GLOBALT ÉN GANG (først til mølla, ingen kan bruke etterpå) ===
-  '482739': { type: 'coins', amount: 2000000, globalOneTime: true },
-  '173846': { type: 'pokemon', pokemonId: 658, name: 'Greninja', cp: 10000, rarity: 'legendary', isShiny: false, globalOneTime: true },
-  '956127': { type: 'coins', amount: 1500000, globalOneTime: true },
-  '248501': { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9000, rarity: 'epic', isShiny: true, globalOneTime: true },
-  '793406': { type: 'coins', amount: 1200000, globalOneTime: true },
-  '614382': { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9500, rarity: 'legendary', isShiny: false, globalOneTime: true },
-  '859014': { type: 'coins', amount: 1000000, globalOneTime: true },
-  '327691': { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 8800, rarity: 'legendary', isShiny: true, globalOneTime: true },
-  '415803': { type: 'coins', amount: 900000, globalOneTime: true },
-  '968245': { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9200, rarity: 'legendary', isShiny: false, globalOneTime: true },
-  '712598': { type: 'coins', amount: 800000, globalOneTime: true },
-  '530864': { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9000, rarity: 'legendary', isShiny: true, globalOneTime: true },
-  '184329': { type: 'coins', amount: 700000, globalOneTime: true },
-  '691752': { type: 'pokemon', pokemonId: 149, name: 'Dragonite', cp: 8500, rarity: 'epic', isShiny: false, globalOneTime: true },
-  '437218': { type: 'coins', amount: 600000, globalOneTime: true },
-  '802146': { type: 'pokemon', pokemonId: 248, name: 'Tyranitar', cp: 8800, rarity: 'epic', isShiny: false, globalOneTime: true },
-  '365091': { type: 'coins', amount: 500000, globalOneTime: true },
-  '579468': { type: 'pokemon', pokemonId: 445, name: 'Garchomp', cp: 8200, rarity: 'epic', isShiny: false, globalOneTime: true },
-  '924513': { type: 'coins', amount: 400000, globalOneTime: true },
-  '681734': { type: 'pokemon', pokemonId: 94, name: 'Gengar', cp: 8500, rarity: 'epic', isShiny: true, globalOneTime: true }
+  '372184': { type: 'coins', amount: 250000, globalOneTime: true },
+  '615903': { type: 'coins', amount: 250000, globalOneTime: true },
+  '824057': { type: 'coins', amount: 750000, globalOneTime: true }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
