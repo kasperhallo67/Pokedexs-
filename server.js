@@ -1880,7 +1880,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.7';
+const GAME_VERSION = '2026.06.03.8';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
