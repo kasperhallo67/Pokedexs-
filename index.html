@@ -5985,7 +5985,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.1';
+const CLIENT_GAME_VERSION = '2026.06.03.2';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -13463,8 +13463,10 @@ function spinRoulette() {
   // winnerOffset: hvor mange grader hjulet må rotere så at winNum havner på topp (under pointer)
   // I conic-gradient ovenfor starter slice 0 på 0deg (toppen). Hver slice tar 360/37 = ~9.73deg.
   // For å få winNum på topp må vi rotere -(winNum * sliceDeg).
-  const baseTarget = -winNum * sliceDeg;
-  // Mange flere rotasjoner — raskere spin men varer lenger
+  // VIKTIG: roter til MIDTEN av sektoren, ikke kanten — ellers kan pointer lande på grensen
+  // mellom to sektorer og se feil farge ut.
+  const baseTarget = -((winNum + 0.5) * sliceDeg);
+  // Mange rotasjoner for drama
   const spins = 14 + Math.floor(Math.random() * 5); // 14-18 hele runder
   rouletteRotation = baseTarget - spins * 360;
   wheel.style.transform = `rotate(${rouletteRotation}deg)`;
