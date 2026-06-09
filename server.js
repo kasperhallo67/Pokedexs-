@@ -44,17 +44,21 @@ ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
 
 // === STARTUP-UNBAN: Disse ble feilaktig banna under den gamle mass-ban-buggen ===
-// Fjern dem fra ban-listen ved oppstart.
+// Fjern alle med matchende deler av navnet (substring-match for fleksibilitet med staving)
 try {
   const banned = readJson(BANNED_FILE, []);
-  const wronglyBanned = ['seldonleecopperyoudawg', 'Tormd', 'tormd', 'SeldonLeeCopperYouDawg'];
+  // Substrenger som kvalifiserer for unban (case-insensitive)
+  const unbanSubstrings = ['seldon', 'copper', 'dawg', 'tormd', 'håkon', 'haakon', 'hakon'];
   let removed = 0;
   if (Array.isArray(banned)) {
-    const cleaned = banned.filter(b => !wronglyBanned.some(w => String(b).toLowerCase() === w.toLowerCase()));
+    const cleaned = banned.filter(b => {
+      const lower = String(b).toLowerCase();
+      return !unbanSubstrings.some(sub => lower.includes(sub));
+    });
     removed = banned.length - cleaned.length;
     if (removed > 0) {
       writeJson(BANNED_FILE, cleaned);
-      console.log(`✓ Unbanned ${removed} wrongly-banned users at startup`);
+      console.log(`✓ Unbanned ${removed} wrongly-banned users at startup:`, banned.filter(b => !cleaned.includes(b)));
     }
   }
 } catch (e) { console.warn('Startup unban failed:', e.message); }
