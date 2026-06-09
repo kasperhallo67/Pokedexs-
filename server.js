@@ -341,7 +341,9 @@ app.post('/api/cheat/delete-user', (req, res) => {
 // Når én bruker løser inn en kode, kan INGEN andre bruke samme kode etterpå.
 const ONE_TIME_GLOBAL_CODES = {
   '5283': { type: 'coins', amount: 250000, globalOneTime: true },
-  '7691': { type: 'coins', amount: 400000, globalOneTime: true }
+  '7691': { type: 'coins', amount: 400000, globalOneTime: true },
+  '3147': { type: 'coins', amount: 250000, globalOneTime: true },
+  '9026': { type: 'coins', amount: 400000, globalOneTime: true }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
@@ -1878,7 +1880,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.18';
+const GAME_VERSION = '2026.06.03.19';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
