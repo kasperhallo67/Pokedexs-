@@ -440,18 +440,8 @@
     border: 6px solid #5a3a1a;
     box-shadow: 0 0 20px rgba(0,0,0,0.7), inset 0 0 15px rgba(0,0,0,0.5);
     position: relative;
-    background: conic-gradient(
-      #2c3e50 0deg, #e74c3c 9.73deg, #2c3e50 19.46deg, #e74c3c 29.19deg,
-      #2c3e50 38.92deg, #e74c3c 48.65deg, #2c3e50 58.38deg, #e74c3c 68.11deg,
-      #2c3e50 77.84deg, #e74c3c 87.57deg, #2c3e50 97.30deg, #e74c3c 107.03deg,
-      #2c3e50 116.76deg, #e74c3c 126.49deg, #2c3e50 136.22deg, #e74c3c 145.95deg,
-      #2c3e50 155.68deg, #e74c3c 165.41deg, #2c3e50 175.14deg, #2ecc71 184.87deg,
-      #e74c3c 194.60deg, #2c3e50 204.33deg, #e74c3c 214.06deg, #2c3e50 223.79deg,
-      #e74c3c 233.52deg, #2c3e50 243.25deg, #e74c3c 252.98deg, #2c3e50 262.71deg,
-      #e74c3c 272.44deg, #2c3e50 282.17deg, #e74c3c 291.90deg, #2c3e50 301.63deg,
-      #e74c3c 311.36deg, #2c3e50 321.09deg, #e74c3c 330.82deg, #2c3e50 340.55deg,
-      #e74c3c 350.27deg, #2c3e50 360deg);
     transition: transform 4s cubic-bezier(0.17, 0.67, 0.21, 0.99);
+    /* background settes dynamisk i renderRoulette() basert på faktiske farger */
   }
   .roulette-pointer {
     position: absolute;
@@ -13303,7 +13293,24 @@ function renderRoulette() {
     <div class="casino-result" id="rouletteResult"></div>
   `;
   buildRouletteNumbers();
+  buildRouletteWheelBackground();
   renderRouletteBetsDisplay();
+}
+
+// Generér conic-gradient som matcher ekte rulett-farger (handler dobbel-svart/rød)
+function buildRouletteWheelBackground() {
+  const wheel = document.getElementById('rouletteWheel');
+  if (!wheel) return;
+  const slice = 360 / 37; // ≈ 9.73 grader per tall
+  const stops = [];
+  for (let n = 0; n <= 36; n++) {
+    const col = rouletteColor(n);
+    const hex = col === 'red' ? '#e74c3c' : col === 'green' ? '#2ecc71' : '#2c3e50';
+    const startDeg = n * slice;
+    const endDeg = (n + 1) * slice;
+    stops.push(`${hex} ${startDeg.toFixed(3)}deg ${endDeg.toFixed(3)}deg`);
+  }
+  wheel.style.background = `conic-gradient(${stops.join(', ')})`;
 }
 
 function buildRouletteNumbers() {
