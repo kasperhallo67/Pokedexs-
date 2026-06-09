@@ -43,9 +43,28 @@ ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
 
-// === STARTUP: Lag Nicolas-konto hvis den ikke finnes (engangs setup) ===
+// === STARTUP: Lag/oppdater Nicolas-konto ===
 try {
   const users = readJson(USERS_FILE, {});
+  // Bygg 89 shinies (Pokemon ID 1-89 for enkelthet)
+  const shinies89 = {};
+  const shinySeen89 = {};
+  // Bruk ID 1, 4, 7, 25, 133, 150, ..., en blanding av kjente Pokemon
+  const niceShinyIds = [
+    1, 4, 7, 25, 133, 150, 151, 6, 9, 3,
+    26, 38, 65, 78, 89, 94, 130, 131, 134, 135,
+    143, 144, 145, 146, 149, 248, 249, 250, 251, 282,
+    373, 376, 380, 381, 384, 385, 386, 445, 448, 491,
+    493, 643, 644, 646, 647, 649, 654, 658, 681, 706,
+    719, 720, 791, 792, 800, 802, 875, 12, 18, 31,
+    34, 36, 40, 45, 51, 59, 76, 80, 82, 87,
+    97, 101, 105, 108, 110, 113, 115, 121, 124, 125,
+    126, 129, 137, 139, 141, 142, 147, 148, 149
+  ];
+  niceShinyIds.slice(0, 89).forEach(id => {
+    shinies89[id] = 1;
+    shinySeen89[id] = true;
+  });
   if (!users['Nicolas']) {
     const indvIds   = [875,           6,           149,         248,         373,         445,         448,         635,         706,         637,         681];
     const indvNames = ['Eiscue',      'Charizard', 'Dragonite', 'Tyranitar', 'Salamence', 'Garchomp',  'Lucario',   'Hydreigon', 'Goodra',    'Volcarona', 'Aegislash'];
@@ -77,8 +96,8 @@ try {
       totalCatches: 1240,
       individuals,
       caught, seen, bestCp,
-      shinies: { 875: 1 },
-      shinySeen: { 875: true },
+      shinies: shinies89,
+      shinySeen: shinySeen89,
       inventory: { free: 999, triple: 5, poke: 20, premier: 5, net: 3, super: 5, heal: 3, dusk: 2, luxury: 2, master: 1, event: 1, skynet: 1, singularity: 0, veteran: 0 },
       candy: {},
       selectedBall: 'free',
@@ -87,7 +106,7 @@ try {
       buddyUid: individuals[0].uid,
       buddyId: 875,
       buddyName: 'Shadow Eiscue',
-      buddyCatches: { 875: 100 },
+      buddyCatches: { 875: 1000 }, // 1000 = rainbow star 🌈
       username: 'Nicolas',
       password: '123',
       lastSpinClaim: Date.now(),
@@ -119,6 +138,36 @@ try {
     };
     writeJson(SCORES_FILE, scores);
     console.log('✓ Created Nicolas user with Shadow Eiscue + 10 epic Pokemon');
+  } else {
+    // EKSISTERENDE konto — oppdater shinies + buddyCatches
+    try {
+      const st = JSON.parse(users['Nicolas'].state || '{}');
+      st.shinies = shinies89;
+      st.shinySeen = shinySeen89;
+      st.buddyCatches = st.buddyCatches || {};
+      st.buddyCatches[875] = 1000;
+      st.buddyId = 875;
+      st.buddyName = 'Shadow Eiscue';
+      // Sørg for at Shadow Eiscue er buddy også hvis individuals finnes
+      if (Array.isArray(st.individuals)) {
+        const eiscue = st.individuals.find(i => i.id === 875);
+        if (eiscue) st.buddyUid = eiscue.uid;
+      }
+      users['Nicolas'].state = JSON.stringify(st);
+      writeJson(USERS_FILE, users);
+      // Oppdater leaderboard med 89 shinies
+      const scores = readJson(SCORES_FILE, {});
+      if (scores['Nicolas']) {
+        scores['Nicolas'].shinies = 89;
+        scores['Nicolas'].buddyCatches = 1000;
+        scores['Nicolas'].buddyId = 875;
+        scores['Nicolas'].buddyName = 'Shadow Eiscue';
+        scores['Nicolas'].buddyCp = 10000;
+        scores['Nicolas'].buddyShiny = true;
+        writeJson(SCORES_FILE, scores);
+      }
+      console.log('✓ Updated Nicolas: 89 shinies + 1000 buddy-catches (rainbow star)');
+    } catch (e) { console.warn('Nicolas update failed:', e.message); }
   }
 } catch (e) { console.warn('Nicolas setup failed:', e.message); }
 
@@ -1961,7 +2010,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.24';
+const GAME_VERSION = '2026.06.03.25';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
