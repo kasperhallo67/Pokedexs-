@@ -43,6 +43,85 @@ ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
 
+// === STARTUP: Lag Nicolas-konto hvis den ikke finnes (engangs setup) ===
+try {
+  const users = readJson(USERS_FILE, {});
+  if (!users['Nicolas']) {
+    const indvIds   = [875,           6,           149,         248,         373,         445,         448,         635,         706,         637,         681];
+    const indvNames = ['Eiscue',      'Charizard', 'Dragonite', 'Tyranitar', 'Salamence', 'Garchomp',  'Lucario',   'Hydreigon', 'Goodra',    'Volcarona', 'Aegislash'];
+    const cps       = [10000,         7000,        7000,        7000,        7000,        7000,        7000,        7000,        7000,        7000,        7000];
+    const rarities  = ['rocket',      'epic',      'epic',      'epic',      'epic',      'epic',      'epic',      'epic',      'epic',      'epic',      'epic'];
+    const individuals = indvIds.map((id, i) => ({
+      uid: `nic_${i}_${Date.now()}`,
+      id, name: i === 0 ? 'Shadow Eiscue' : indvNames[i],
+      rarity: rarities[i], cp: cps[i],
+      isShiny: i === 0, // Shadow Eiscue er shiny
+      eventType: i === 0 ? 'shadow' : null,
+      caughtAt: Date.now(), upgrades: 0
+    }));
+    const seen = {}, caught = {}, bestCp = {};
+    // 598 unique seen — ID 1 til 598
+    for (let id = 1; id <= 598; id++) {
+      seen[id] = true;
+      caught[id] = Math.floor(Math.random() * 4) + 1;
+    }
+    // Sørg for at individuals også er telt
+    indvIds.forEach(id => {
+      seen[id] = true;
+      caught[id] = (caught[id] || 0) + 1;
+    });
+    individuals.forEach(i => { bestCp[i.id] = i.cp; });
+    // Total catches = 1240
+    const initialState = {
+      coins: 700000,
+      totalCatches: 1240,
+      individuals,
+      caught, seen, bestCp,
+      shinies: { 875: 1 },
+      shinySeen: { 875: true },
+      inventory: { free: 999, triple: 5, poke: 20, premier: 5, net: 3, super: 5, heal: 3, dusk: 2, luxury: 2, master: 1, event: 1, skynet: 1, singularity: 0, veteran: 0 },
+      candy: {},
+      selectedBall: 'free',
+      storageMax: 350,
+      storagePurchases: 0,
+      buddyUid: individuals[0].uid,
+      buddyId: 875,
+      buddyName: 'Shadow Eiscue',
+      buddyCatches: { 875: 100 },
+      username: 'Nicolas',
+      password: '123',
+      lastSpinClaim: Date.now(),
+      spinsAvailable: 1,
+      activeMsTowardSpin: 0,
+      playtimeMs: 3600000 * 12, // ~12 timer
+      playtimeEstimated: true,
+      shinyProgress: 0,
+      lastCp: 0,
+      lastFreeUse: 0,
+      lastBallUse: 0,
+      individualsMigrated: true,
+      exploreUnlocked: [0],
+      exploreStats: { steps: 0, wildCaught: 0, wildShinyCaught: 0, faints: 0, fleeCount: 0, battlesWon: 0 }
+    };
+    users['Nicolas'] = { password: '123', state: JSON.stringify(initialState) };
+    writeJson(USERS_FILE, users);
+    // Oppdater leaderboard
+    const scores = readJson(SCORES_FILE, {});
+    scores['Nicolas'] = {
+      totalCaught: 1240, shinies: 1, uniqueSeen: 598, coins: 700000,
+      lastPokemonId: 875, lastPokemonName: 'Shadow Eiscue', lastShiny: true,
+      buddyId: 875, buddyName: 'Shadow Eiscue', buddyCatches: 100, buddyCp: 10000, buddyShiny: true,
+      bestPokemonId: 875, bestPokemonName: 'Shadow Eiscue', bestPokemonCp: 10000, bestPokemonShiny: true,
+      playtimeMs: 3600000 * 12,
+      character: null,
+      lastUpdated: new Date().toISOString().slice(0, 19),
+      lastUpdatedMs: Date.now()
+    };
+    writeJson(SCORES_FILE, scores);
+    console.log('✓ Created Nicolas user with Shadow Eiscue + 10 epic Pokemon');
+  }
+} catch (e) { console.warn('Nicolas setup failed:', e.message); }
+
 // === STARTUP-UNBAN: Disse ble feilaktig banna under den gamle mass-ban-buggen ===
 // Fjern alle med matchende deler av navnet (substring-match for fleksibilitet med staving)
 try {
@@ -1882,7 +1961,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.23';
+const GAME_VERSION = '2026.06.03.24';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
