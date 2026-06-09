@@ -48,7 +48,7 @@ ensureFile(BANNED_FILE, '[]');
 try {
   const banned = readJson(BANNED_FILE, []);
   // Substrenger som kvalifiserer for unban (case-insensitive)
-  const unbanSubstrings = ['seldon', 'copper', 'dawg', 'tormd', 'håkon', 'haakon', 'hakon'];
+  const unbanSubstrings = ['seldon', 'copper', 'dawg', 'tormd', 'håkon', 'haakon', 'hakon', 'nicolas', 'nikolas'];
   let removed = 0;
   if (Array.isArray(banned)) {
     const cleaned = banned.filter(b => {
@@ -1882,7 +1882,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.21';
+const GAME_VERSION = '2026.06.03.22';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
