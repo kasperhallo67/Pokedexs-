@@ -6141,7 +6141,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.10';
+const CLIENT_GAME_VERSION = '2026.06.03.11';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -8556,38 +8556,61 @@ function startQuizPolling() {
 }
 
 // ========== MY ROOM (sofas, beds, pictures, etc.) ==========
+// size: 's' = small (60px), 'm' = medium (90px), 'l' = large (130px), 'xl' = ekstra-stor (170px)
+// zone: 'floor' = på gulv, 'wall' = på vegg
 const ROOM_FURNITURE = [
-  // Møbler — sofaer
-  { key: 'sofa_brown',   name: 'Brun sofa',       emoji: '🛋️', price: 5000,   category: 'sofa' },
-  { key: 'sofa_red',     name: 'Rød sofa',        emoji: '🛋️', price: 15000,  category: 'sofa' },
-  { key: 'armchair',     name: 'Lenestol',        emoji: '💺', price: 3000,   category: 'sofa' },
-  // Senger
-  { key: 'bed_single',   name: 'Enkel seng',      emoji: '🛏️', price: 8000,   category: 'bed' },
-  { key: 'bed_luxury',   name: 'Luksus-seng',     emoji: '🛌', price: 30000,  category: 'bed' },
-  // Bilder/dekorasjoner
-  { key: 'pic_landscape', name: 'Landskap',       emoji: '🖼️', price: 2000,   category: 'pic' },
-  { key: 'pic_abstract',  name: 'Abstrakt',       emoji: '🎨', price: 4000,   category: 'pic' },
-  { key: 'pic_pokeball',  name: 'Pokéball-bilde', emoji: '🔴', price: 6000,   category: 'pic' },
-  // Lamper
-  { key: 'lamp_floor',    name: 'Gulvlampe',      emoji: '💡', price: 1500,   category: 'lamp' },
-  { key: 'lamp_table',    name: 'Bordlampe',      emoji: '🕯️', price: 800,    category: 'lamp' },
-  // Bord
-  { key: 'table_coffee',  name: 'Salongbord',     emoji: '🪑', price: 2500,   category: 'table' },
-  { key: 'table_dining',  name: 'Spisebord',      emoji: '🍽️', price: 12000,  category: 'table' },
-  // Planter
-  { key: 'plant_small',   name: 'Liten plante',   emoji: '🪴', price: 500,    category: 'plant' },
-  { key: 'plant_tree',    name: 'Innendørs-tre',  emoji: '🌳', price: 3500,   category: 'plant' },
-  { key: 'cactus',        name: 'Kaktus',         emoji: '🌵', price: 700,    category: 'plant' },
-  // Underholdning
-  { key: 'tv',            name: 'TV',             emoji: '📺', price: 18000,  category: 'tech' },
-  { key: 'game_console',  name: 'Spillkonsoll',   emoji: '🎮', price: 25000,  category: 'tech' },
-  { key: 'laptop',        name: 'Laptop',         emoji: '💻', price: 22000,  category: 'tech' },
-  // Andre
-  { key: 'fireplace',     name: 'Peis',           emoji: '🔥', price: 50000,  category: 'special' },
-  { key: 'aquarium',      name: 'Akvarium',       emoji: '🐠', price: 35000,  category: 'special' },
-  { key: 'piano',         name: 'Piano',          emoji: '🎹', price: 80000,  category: 'special' },
-  { key: 'crystal_ball',  name: 'Krystallkule',   emoji: '🔮', price: 100000, category: 'special' }
+  // 🛋️ SOFAER & STOLER
+  { key: 'sofa_brown',    name: 'Brun sofa',       emoji: '🛋️', price: 5000,   size: 'l',  zone: 'floor', category: 'sofa' },
+  { key: 'sofa_red',      name: 'Rød sofa',        emoji: '🛋️', price: 15000,  size: 'l',  zone: 'floor', category: 'sofa' },
+  { key: 'sofa_blue',     name: 'Blå luksus-sofa', emoji: '🛋️', price: 28000,  size: 'xl', zone: 'floor', category: 'sofa' },
+  { key: 'armchair',      name: 'Lenestol',        emoji: '💺', price: 3000,   size: 'm',  zone: 'floor', category: 'sofa' },
+  { key: 'chair_wood',    name: 'Trestol',         emoji: '🪑', price: 600,    size: 's',  zone: 'floor', category: 'sofa' },
+  { key: 'bean_bag',      name: 'Sittesekk',       emoji: '🟣', price: 1200,   size: 'm',  zone: 'floor', category: 'sofa' },
+  // 🛏️ SENGER
+  { key: 'bed_single',    name: 'Enkel seng',      emoji: '🛏️', price: 8000,   size: 'l',  zone: 'floor', category: 'bed' },
+  { key: 'bed_luxury',    name: 'Luksus-seng',     emoji: '🛌', price: 30000,  size: 'xl', zone: 'floor', category: 'bed' },
+  { key: 'bunk_bed',      name: 'Køyeseng',        emoji: '🛏️', price: 15000,  size: 'l',  zone: 'floor', category: 'bed' },
+  { key: 'hammock',       name: 'Hengekøye',       emoji: '🪢', price: 5500,   size: 'l',  zone: 'floor', category: 'bed' },
+  // 🖼️ BILDER / VEGG-DEKOR
+  { key: 'pic_landscape', name: 'Landskap',        emoji: '🖼️', price: 2000,   size: 'm',  zone: 'wall',  category: 'pic' },
+  { key: 'pic_abstract',  name: 'Abstrakt',        emoji: '🎨', price: 4000,   size: 'm',  zone: 'wall',  category: 'pic' },
+  { key: 'pic_pokeball',  name: 'Pokéball-bilde',  emoji: '🔴', price: 6000,   size: 'm',  zone: 'wall',  category: 'pic' },
+  { key: 'clock',         name: 'Veggur',          emoji: '🕰️', price: 3500,   size: 's',  zone: 'wall',  category: 'pic' },
+  { key: 'mirror',        name: 'Speil',           emoji: '🪞', price: 4500,   size: 'm',  zone: 'wall',  category: 'pic' },
+  { key: 'flag',          name: 'Norsk flagg',     emoji: '🇳🇴', price: 1800,   size: 'm',  zone: 'wall',  category: 'pic' },
+  { key: 'trophy_wall',   name: 'Trofé på vegg',   emoji: '🏆', price: 8500,   size: 'm',  zone: 'wall',  category: 'pic' },
+  // 💡 LAMPER
+  { key: 'lamp_floor',    name: 'Gulvlampe',       emoji: '💡', price: 1500,   size: 'm',  zone: 'floor', category: 'lamp' },
+  { key: 'lamp_table',    name: 'Bordlampe',       emoji: '🕯️', price: 800,    size: 's',  zone: 'floor', category: 'lamp' },
+  { key: 'chandelier',    name: 'Lysekrone',       emoji: '🏮', price: 12000,  size: 'l',  zone: 'wall',  category: 'lamp' },
+  // 🪑 BORD
+  { key: 'table_coffee',  name: 'Salongbord',      emoji: '🪑', price: 2500,   size: 'm',  zone: 'floor', category: 'table' },
+  { key: 'table_dining',  name: 'Spisebord',       emoji: '🍽️', price: 12000,  size: 'l',  zone: 'floor', category: 'table' },
+  { key: 'desk',          name: 'Skrivebord',      emoji: '🗄️', price: 6000,   size: 'l',  zone: 'floor', category: 'table' },
+  { key: 'bookshelf',     name: 'Bokhylle',        emoji: '📚', price: 4500,   size: 'l',  zone: 'floor', category: 'table' },
+  // 🪴 PLANTER
+  { key: 'plant_small',   name: 'Liten plante',    emoji: '🪴', price: 500,    size: 's',  zone: 'floor', category: 'plant' },
+  { key: 'plant_tree',    name: 'Innendørs-tre',   emoji: '🌳', price: 3500,   size: 'l',  zone: 'floor', category: 'plant' },
+  { key: 'cactus',        name: 'Kaktus',          emoji: '🌵', price: 700,    size: 's',  zone: 'floor', category: 'plant' },
+  { key: 'bonsai',        name: 'Bonsai',          emoji: '🎍', price: 2200,   size: 'm',  zone: 'floor', category: 'plant' },
+  { key: 'flowers',       name: 'Blomstervase',    emoji: '💐', price: 950,    size: 's',  zone: 'floor', category: 'plant' },
+  // 📺 TECH
+  { key: 'tv',            name: 'TV',              emoji: '📺', price: 18000,  size: 'l',  zone: 'floor', category: 'tech' },
+  { key: 'tv_big',        name: 'Stor-TV',         emoji: '📺', price: 45000,  size: 'xl', zone: 'floor', category: 'tech' },
+  { key: 'game_console',  name: 'Spillkonsoll',    emoji: '🎮', price: 25000,  size: 'm',  zone: 'floor', category: 'tech' },
+  { key: 'laptop',        name: 'Laptop',          emoji: '💻', price: 22000,  size: 's',  zone: 'floor', category: 'tech' },
+  { key: 'speaker',       name: 'Høyttaler',       emoji: '🔊', price: 5500,   size: 'm',  zone: 'floor', category: 'tech' },
+  { key: 'arcade',        name: 'Arcade-maskin',   emoji: '🕹️', price: 65000,  size: 'l',  zone: 'floor', category: 'tech' },
+  // ✨ SPECIAL
+  { key: 'fireplace',     name: 'Peis',            emoji: '🔥', price: 50000,  size: 'l',  zone: 'floor', category: 'special' },
+  { key: 'aquarium',      name: 'Akvarium',        emoji: '🐠', price: 35000,  size: 'l',  zone: 'floor', category: 'special' },
+  { key: 'piano',         name: 'Piano',           emoji: '🎹', price: 80000,  size: 'xl', zone: 'floor', category: 'special' },
+  { key: 'crystal_ball',  name: 'Krystallkule',    emoji: '🔮', price: 100000, size: 'm',  zone: 'floor', category: 'special' },
+  { key: 'treasure',      name: 'Skattekiste',     emoji: '💰', price: 75000,  size: 'l',  zone: 'floor', category: 'special' },
+  { key: 'gem',           name: 'Diamantstativ',   emoji: '💎', price: 150000, size: 'm',  zone: 'floor', category: 'special' },
+  { key: 'rainbow',       name: 'Regnbue',         emoji: '🌈', price: 200000, size: 'xl', zone: 'wall',  category: 'special' }
 ];
+const ROOM_SIZE_PX = { s: 50, m: 80, l: 120, xl: 160 };
 
 let myRoomTab = 'room'; // 'room' eller 'shop'
 let myRoomSelectedItemIdx = null;
@@ -8622,9 +8645,12 @@ function renderRoomView() {
   const body = document.getElementById('myRoomBody');
   const ownedKeys = Object.keys(state.roomPurchased || {}).filter(k => state.roomPurchased[k]);
   const itemsInRoom = state.roomItems || [];
+  // Hent valgt rom-Pokemon (kan være en av brukerens individs)
+  const roomPokeUid = state.roomPokemonUid || null;
+  const roomPoke = roomPokeUid ? (state.individuals || []).find(i => i.uid === roomPokeUid) : null;
   body.innerHTML = `
     <div style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;margin-bottom:10px;color:#fff;font-size:13px;">
-      Klikk på et møbel for å plassere det. Klikk et plassert møbel for å flytte eller fjerne det.
+      Klikk på et møbel = auto-plassert der det passer. Klikk et plassert møbel = flytt eller fjern.
     </div>
     <div class="room-view" id="roomView">
       <div class="room-wall">
@@ -8636,38 +8662,57 @@ function renderRoomView() {
         const fur = ROOM_FURNITURE.find(f => f.key === it.key);
         if (!fur) return '';
         const sel = myRoomSelectedItemIdx === i ? 'selected' : '';
+        const sizePx = ROOM_SIZE_PX[fur.size] || 80;
         return `<div class="room-item ${sel}" style="left:${it.x}%;top:${it.y}%;" onclick="event.stopPropagation();selectRoomItem(${i})">
-          <div class="room-item-emoji">${fur.emoji}</div>
+          <div class="room-item-emoji" style="font-size:${sizePx}px;">${fur.emoji}</div>
           <div class="room-item-remove" onclick="event.stopPropagation();removeRoomItem(${i})">×</div>
         </div>`;
       }).join('')}
+      ${roomPoke ? `<div class="room-item" id="roomPokeEl" style="left:${state.roomPokemonX || 70}%;top:${state.roomPokemonY || 60}%;" onclick="event.stopPropagation();selectRoomPokemon()">
+        <img src="${roomPoke.isShiny ? SHINY_SPRITE_URL(roomPoke.id) : SPRITE_URL(roomPoke.id)}" style="width:80px;height:80px;image-rendering:pixelated;${roomPoke.isShiny ? 'filter:drop-shadow(0 0 6px gold);' : ''}">
+        <div style="color:white;font-size:11px;text-align:center;text-shadow:1px 1px 2px #000;font-weight:bold;">${roomPoke.isShiny ? '✨' : ''} ${roomPoke.name}</div>
+      </div>` : ''}
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="chooseRoomPokemon()" style="background:linear-gradient(135deg,#3498db,#2980b9);color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">🐾 ${roomPoke ? 'Bytt' : 'Velg'} Pokémon i rommet</button>
+      ${roomPoke ? `<button onclick="removeRoomPokemon()" style="background:#e74c3c;color:white;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:bold;">❌ Fjern Pokémon</button>` : ''}
     </div>
     <div style="margin-top:14px;">
-      <div style="color:#fff;font-size:13px;margin-bottom:6px;">Dine møbler (klikk for å plassere):</div>
+      <div style="color:#fff;font-size:13px;margin-bottom:6px;">Dine møbler (klikk for auto-plassering):</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${ownedKeys.length === 0 ? '<div style="color:#aaa;font-size:12px;">Kjøp møbler i shoppen først!</div>' : ownedKeys.map(k => {
           const fur = ROOM_FURNITURE.find(f => f.key === k);
           if (!fur) return '';
-          return `<button onclick="placeFurniture('${k}')" style="background:rgba(155,89,182,0.3);border:2px solid #9b59b6;border-radius:8px;padding:8px;cursor:pointer;color:white;font-weight:bold;">
+          const alreadyInRoom = itemsInRoom.some(i => i.key === k);
+          return `<button onclick="placeFurniture('${k}')" style="background:rgba(155,89,182,${alreadyInRoom ? '0.1' : '0.3'});border:2px solid ${alreadyInRoom ? '#555' : '#9b59b6'};border-radius:8px;padding:8px;cursor:pointer;color:white;font-weight:bold;${alreadyInRoom ? 'opacity:0.5;' : ''}">
             <span style="font-size:28px;">${fur.emoji}</span><br>
-            <span style="font-size:11px;">${fur.name}</span>
+            <span style="font-size:11px;">${fur.name}${alreadyInRoom ? ' ✓' : ''}</span>
           </button>`;
         }).join('')}
       </div>
     </div>
   `;
-  // Klikk på selve rommet = dropp selected item
   const rv = document.getElementById('roomView');
   if (rv) {
     rv.addEventListener('click', e => {
-      if (myRoomSelectedItemIdx !== null) {
+      if (myRoomSelectedItemIdx === 'poke' && state.roomPokemonUid) {
         const rect = rv.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
-        // Flytt selected item til denne posisjonen
+        state.roomPokemonX = Math.max(0, Math.min(90, x));
+        state.roomPokemonY = Math.max(0, Math.min(85, y));
+        save();
+        myRoomSelectedItemIdx = null;
+        renderRoomView();
+        return;
+      }
+      if (myRoomSelectedItemIdx !== null && typeof myRoomSelectedItemIdx === 'number') {
+        const rect = rv.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
         if (state.roomItems[myRoomSelectedItemIdx]) {
           state.roomItems[myRoomSelectedItemIdx].x = Math.max(0, Math.min(90, x));
-          state.roomItems[myRoomSelectedItemIdx].y = Math.max(0, Math.min(80, y));
+          state.roomItems[myRoomSelectedItemIdx].y = Math.max(0, Math.min(85, y));
           save();
           myRoomSelectedItemIdx = null;
           renderRoomView();
@@ -8675,6 +8720,54 @@ function renderRoomView() {
       }
     });
   }
+}
+
+function selectRoomPokemon() {
+  myRoomSelectedItemIdx = myRoomSelectedItemIdx === 'poke' ? null : 'poke';
+  renderRoomView();
+}
+
+function chooseRoomPokemon() {
+  const inds = (state.individuals || []).filter(i => i && i.cp);
+  if (inds.length === 0) { alert('Du har ingen Pokémon å velge!'); return; }
+  // Sorter etter CP
+  const sorted = [...inds].sort((a, b) => b.cp - a.cp).slice(0, 50);
+  // Vis valg-popup
+  const html = `
+    <div style="background:rgba(0,0,0,0.95);position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;" onclick="event.target===this && this.remove()">
+      <div style="background:#222;border-radius:14px;padding:20px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+        <h3 style="color:gold;text-align:center;margin-bottom:10px;">🐾 Velg en Pokémon til rommet ditt</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;overflow-y:auto;max-height:60vh;">
+          ${sorted.map(ind => `
+            <div onclick="setRoomPokemon('${ind.uid}')" style="background:rgba(255,255,255,0.05);border:2px solid ${ind.isShiny ? 'gold' : '#555'};border-radius:10px;padding:8px;text-align:center;cursor:pointer;color:white;">
+              <img src="${ind.isShiny ? SHINY_SPRITE_URL(ind.id) : SPRITE_URL(ind.id)}" style="width:60px;height:60px;image-rendering:pixelated;">
+              <div style="font-size:12px;font-weight:bold;">${ind.isShiny ? '✨' : ''} ${ind.name}</div>
+              <div style="font-size:11px;color:#7df;">CP ${ind.cp}</div>
+            </div>
+          `).join('')}
+        </div>
+        <button onclick="this.parentElement.parentElement.remove()" style="background:#e74c3c;color:white;border:none;padding:10px;border-radius:8px;cursor:pointer;font-weight:bold;margin-top:10px;">Avbryt</button>
+      </div>
+    </div>
+  `;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstElementChild);
+}
+
+function setRoomPokemon(uid) {
+  state.roomPokemonUid = uid;
+  state.roomPokemonX = 70;
+  state.roomPokemonY = 65;
+  save();
+  document.querySelector('div[style*="z-index:9999"]')?.remove();
+  renderRoomView();
+}
+
+function removeRoomPokemon() {
+  state.roomPokemonUid = null;
+  save();
+  renderRoomView();
 }
 
 function selectRoomItem(idx) {
@@ -8691,11 +8784,44 @@ function removeRoomItem(idx) {
 }
 
 function placeFurniture(key) {
-  // Plasser nytt møbel midt i rommet
   if (!Array.isArray(state.roomItems)) state.roomItems = [];
-  state.roomItems.push({ key, x: 40, y: 50 });
+  const fur = ROOM_FURNITURE.find(f => f.key === key);
+  if (!fur) return;
+  // Sjekk om allerede i rommet
+  if (state.roomItems.some(i => i.key === key)) {
+    alert('Dette møbelet er allerede i rommet ditt! Fjern det først om du vil flytte det.');
+    return;
+  }
+  // AUTO-PLASSERING: finn en posisjon som ikke kolliderer med andre møbler
+  const occupied = state.roomItems.map(it => {
+    const f = ROOM_FURNITURE.find(x => x.key === it.key);
+    return { x: it.x, y: it.y, size: f?.size || 'm' };
+  });
+  // Predefinerte slot-områder basert på zone
+  const wallSlots = [
+    { x: 8, y: 5 }, { x: 28, y: 5 }, { x: 48, y: 5 }, { x: 68, y: 5 }, { x: 85, y: 5 },
+    { x: 8, y: 20 }, { x: 38, y: 20 }, { x: 68, y: 20 }, { x: 85, y: 20 }
+  ];
+  const floorSlots = [
+    { x: 5, y: 65 }, { x: 25, y: 65 }, { x: 45, y: 65 }, { x: 65, y: 65 }, { x: 85, y: 65 },
+    { x: 5, y: 80 }, { x: 25, y: 80 }, { x: 45, y: 80 }, { x: 65, y: 80 }, { x: 85, y: 80 },
+    { x: 15, y: 50 }, { x: 40, y: 50 }, { x: 65, y: 50 }, { x: 85, y: 50 }
+  ];
+  const slots = fur.zone === 'wall' ? wallSlots : floorSlots;
+  // Finn første ledige slot (med 12% radius minimum mellom plasserte items)
+  let placed = null;
+  for (const slot of slots) {
+    const tooClose = occupied.some(o => {
+      const dx = o.x - slot.x;
+      const dy = o.y - slot.y;
+      return Math.sqrt(dx*dx + dy*dy) < 14;
+    });
+    if (!tooClose) { placed = slot; break; }
+  }
+  if (!placed) placed = slots[Math.floor(Math.random() * slots.length)];
+  state.roomItems.push({ key, x: placed.x, y: placed.y });
   save();
-  myRoomSelectedItemIdx = state.roomItems.length - 1;
+  myRoomSelectedItemIdx = null;
   renderRoomView();
 }
 
