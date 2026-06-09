@@ -4016,6 +4016,30 @@
   <button class="logout-btn" onclick="logout()" title="Log out">🚪</button>
 </div>
 
+<!-- VEDLIKEHOLD/MAINTENANCE-overlay -->
+<div id="maintenanceOverlay" style="position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);z-index:99997;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#fff;font-family:sans-serif;">
+  <div style="background:rgba(0,0,0,0.5);border:3px solid #f39c12;border-radius:20px;padding:50px 40px;max-width:600px;box-shadow:0 10px 40px rgba(0,0,0,0.6);">
+    <div style="font-size:90px;margin-bottom:10px;animation:wrenchSpin 3s ease-in-out infinite;">🔧</div>
+    <h1 style="font-size:36px;color:#f39c12;margin:10px 0;text-shadow:0 0 12px rgba(243,156,18,0.6);">Spillet er ikke tilgjengelig</h1>
+    <p style="font-size:18px;color:#fff;margin:20px 0;line-height:1.5;">
+      På grunn av bugs og krasjer er Pokedexs nede akkurat nå.
+    </p>
+    <p style="font-size:16px;color:#ffd700;margin:20px 0;font-weight:bold;">
+      Jeg jobber med å fikse det! Forventet ferdig <u>torsdag</u> 😊
+    </p>
+    <div style="font-size:14px;color:#aaa;margin-top:30px;border-top:1px solid #555;padding-top:15px;">
+      Takk for tålmodigheten — kom tilbake snart! 🚀
+    </div>
+    <button onclick="bypassMaintenance()" style="margin-top:20px;background:transparent;color:#444;border:1px solid #333;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;">Eier-bypass</button>
+  </div>
+  <style>
+    @keyframes wrenchSpin {
+      0%, 100% { transform: rotate(-15deg); }
+      50% { transform: rotate(15deg); }
+    }
+  </style>
+</div>
+
 <!-- Login-skjerm -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
@@ -6157,7 +6181,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.26';
+const CLIENT_GAME_VERSION = '2026.06.03.27';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -7713,6 +7737,35 @@ function renderPokedex() {
 // ========== LOGIN ==========
 let loginAttempts = 0;
 let lockoutUntil = 0;
+
+// === VEDLIKEHOLDS-MODUS ===
+// Eier kan bypasse med spesielt passord. Eller hvis localStorage har bypass-flagg.
+const MAINTENANCE_ACTIVE = true;
+const MAINTENANCE_BYPASS_PASSWORD = 'kasperowner2026';
+function bypassMaintenance() {
+  const pw = prompt('Eier-passord for å bypasse vedlikeholdsskjermen:');
+  if (pw === MAINTENANCE_BYPASS_PASSWORD) {
+    localStorage.setItem('maintenanceBypass', '1');
+    const overlay = document.getElementById('maintenanceOverlay');
+    if (overlay) overlay.style.display = 'none';
+  } else if (pw !== null) {
+    alert('Feil passord');
+  }
+}
+// Sjekk ved oppstart om bypass er aktivert
+if (typeof window !== 'undefined') {
+  const overlay = document.getElementById('maintenanceOverlay');
+  if (MAINTENANCE_ACTIVE) {
+    const bypassed = localStorage.getItem('maintenanceBypass') === '1';
+    if (overlay && !bypassed) {
+      overlay.style.display = 'flex';
+    } else if (overlay) {
+      overlay.style.display = 'none';
+    }
+  } else if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
 
 function showLogin() {
   const content = document.getElementById('loginContent');
@@ -14513,14 +14566,40 @@ async function sendExploreChatFromInput() {
   if (!inp) return;
   const msg = (inp.value || '').trim();
   if (!msg) return;
+  // Optimistisk: vis meldingen UMIDDELBART i historikken
+  const hist = document.getElementById('exploreChatHistory');
+  if (hist) {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    // Fjern placeholder hvis den finnes
+    const placeholder = hist.querySelector('div[style*="italic"]');
+    if (placeholder) placeholder.remove();
+    const div = document.createElement('div');
+    div.style.cssText = 'margin-bottom:3px;color:#7dffac;opacity:0.6;';
+    div.innerHTML = `<span style="color:#888;">[${hh}:${mm}]</span> <b style="color:#7dffac;">${(state.username || 'Du').replace(/[<>&]/g, '')}:</b> <span>${msg.replace(/[<>&]/g, '')}</span> <i style="color:#aaa;">(sender...)</i>`;
+    hist.appendChild(div);
+    hist.scrollTop = hist.scrollHeight;
+  }
   inp.value = '';
-  await sendChatMessage(msg);
+  inp.focus();
+  const result = await sendChatMessage(msg);
+  if (result && !result.ok && hist) {
+    // Hvis send feilet, vis det
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'color:#e74c3c;font-size:11px;';
+    errDiv.textContent = '✗ Kunne ikke sende: ' + (result.error || 'feil');
+    hist.appendChild(errDiv);
+  }
 }
 
 async function sendChatMessage(msg) {
-  if (!state.username) { alert('Sett brukernavn først!'); return; }
+  if (!state.username) {
+    alert('Sett brukernavn først!');
+    return { ok: false, error: 'no username' };
+  }
   try {
-    await fetch('/api/explore/chat', {
+    const r = await fetch('/api/explore/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -14529,9 +14608,17 @@ async function sendChatMessage(msg) {
         message: msg
       })
     });
-    // Trigger umiddelbar chat-refresh
-    fetchExploreChats();
-  } catch (e) { alert('Kunne ikke sende: ' + e.message); }
+    if (!r.ok) {
+      console.warn('[CHAT] send failed:', r.status);
+      return { ok: false, error: 'server ' + r.status };
+    }
+    // Trigger umiddelbar refresh
+    setTimeout(fetchExploreChats, 200);
+    return { ok: true };
+  } catch (e) {
+    console.warn('[CHAT] send error:', e);
+    return { ok: false, error: e.message };
+  }
 }
 
 let _exploreChatTimer = null;
