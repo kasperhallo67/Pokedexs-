@@ -4255,6 +4255,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px;margin-bottom:8px;">
       <div>Bruk <b>WASD</b> / <b>piltaster</b> for å gå. Gå i gress for å møte Pokémon!</div>
       <div id="exploreStatus">Steg: 0</div>
+      <div id="exploreOnlineStatus" style="color:#7dffac;font-weight:bold;font-size:13px;">👥 0 andre</div>
       <button onclick="sendExploreChat()" title="Chat med andre spillere (T)" style="position:absolute;top:6px;right:50px;background:#27ae60;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:bold;z-index:10;">💬 Chat (T)</button>
     </div>
     <div id="exploreWrap" style="position:relative;display:flex;justify-content:center;background:#000;border-radius:8px;overflow:hidden;">
@@ -6142,7 +6143,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.12';
+const CLIENT_GAME_VERSION = '2026.06.03.13';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -14373,9 +14374,11 @@ function stopExploreMultiplayer() {
 }
 
 async function sendOwnPosition() {
-  if (!state.username || !exploreActive || explorePhase !== 'on_map') return;
+  if (!state.username) { console.warn('[MP] Ingen brukernavn satt'); return; }
+  if (!exploreActive) return;
+  if (explorePhase !== 'on_map') return;
   try {
-    await fetch('/api/explore/position', {
+    const r = await fetch('/api/explore/position', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -14387,16 +14390,25 @@ async function sendOwnPosition() {
         walkFrame: explorePlayer.walkFrame
       })
     });
-  } catch {}
+    if (!r.ok) console.warn('[MP] Posisjons-send mislyktes:', r.status);
+  } catch (e) { console.warn('[MP] Posisjons-feil:', e); }
 }
 
 async function fetchOtherPlayers() {
   if (!exploreActive || explorePhase !== 'on_map') return;
   try {
     const r = await fetch(`/api/explore/players?area=${exploreCurrentArea}&exclude=${encodeURIComponent(state.username || '')}`);
+    if (!r.ok) { console.warn('[MP] Player-fetch failed:', r.status); return; }
     const d = await r.json();
     exploreOtherPlayers = d.players || [];
-  } catch {}
+    // Oppdater synlig teller
+    const el = document.getElementById('exploreOnlineStatus');
+    if (el) {
+      const n = exploreOtherPlayers.length;
+      el.textContent = `👥 ${n} ${n === 1 ? 'annen spiller' : 'andre spillere'}`;
+      el.style.color = n > 0 ? '#7dffac' : '#aaa';
+    }
+  } catch (e) { console.warn('[MP] Fetch error:', e); }
 }
 
 async function sendExploreChat() {
@@ -14647,10 +14659,11 @@ function drawOtherPlayer(ctx, other) {
     const w = Math.min(180, ctx.measureText(txt).width + 14);
     const bubX = px + 16 - w/2;
     const bubY = py - 38;
-    // Hvit boble
+    // Hvit boble (med fallback hvis roundRect ikke støttes)
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.beginPath();
-    ctx.roundRect(bubX, bubY, w, 20, 6);
+    if (ctx.roundRect) ctx.roundRect(bubX, bubY, w, 20, 6);
+    else ctx.rect(bubX, bubY, w, 20);
     ctx.fill();
     ctx.strokeStyle = '#27ae60';
     ctx.lineWidth = 2;
