@@ -42,6 +42,22 @@ ensureFile(CHAT_FILE, '[]');
 ensureFile(DM_FILE, '[]');
 ensureFile(REDEEM_FILE, '{}');
 ensureFile(BANNED_FILE, '[]');
+
+// === STARTUP-UNBAN: Disse ble feilaktig banna under den gamle mass-ban-buggen ===
+// Fjern dem fra ban-listen ved oppstart.
+try {
+  const banned = readJson(BANNED_FILE, []);
+  const wronglyBanned = ['seldonleecopperyoudawg', 'Tormd', 'tormd', 'SeldonLeeCopperYouDawg'];
+  let removed = 0;
+  if (Array.isArray(banned)) {
+    const cleaned = banned.filter(b => !wronglyBanned.some(w => String(b).toLowerCase() === w.toLowerCase()));
+    removed = banned.length - cleaned.length;
+    if (removed > 0) {
+      writeJson(BANNED_FILE, cleaned);
+      console.log(`✓ Unbanned ${removed} wrongly-banned users at startup`);
+    }
+  }
+} catch (e) { console.warn('Startup unban failed:', e.message); }
 ensureFile(DEVICES_FILE, '{}');
 ensureFile(QUIZ_FILE, '{}');
 
@@ -635,6 +651,56 @@ app.get('/api/account/check', (req, res) => {
   res.json({ banned: isBanned });
 });
 
+// Bytt brukernavn — flytter både konto, score og device-ID til nytt navn
+app.post('/api/account/rename', (req, res) => {
+  const { oldUsername, newUsername, password } = req.body || {};
+  const oldU = (oldUsername || '').trim();
+  const newU = (newUsername || '').trim();
+  if (!oldU || !newU || oldU.length > 30 || newU.length > 30) {
+    return res.status(400).json({ ok: false, error: 'Invalid username' });
+  }
+  if (newU === oldU) return res.status(400).json({ ok: false, error: 'Samme navn' });
+  if (censorText(newU) !== newU) return res.status(400).json({ ok: false, error: 'Username contains banned words' });
+  const users = readJson(USERS_FILE, {});
+  if (!users[oldU]) return res.status(404).json({ ok: false, error: 'Gammel bruker finnes ikke' });
+  if (users[oldU].password !== password) return res.status(401).json({ ok: false, error: 'Feil passord' });
+  if (users[newU]) return res.status(409).json({ ok: false, error: 'Nytt brukernavn er allerede tatt' });
+  // Sjekk ban
+  const banned = readJson(BANNED_FILE, []);
+  if (Array.isArray(banned) && banned.some(b => String(b).toLowerCase() === newU.toLowerCase())) {
+    return res.status(403).json({ ok: false, error: 'Nytt brukernavn er bannet' });
+  }
+  // Trekk 100k coins fra state
+  try {
+    const st = JSON.parse(users[oldU].state || '{}');
+    if ((st.coins || 0) < 100000) return res.status(400).json({ ok: false, error: 'Trenger 100 000 coins' });
+    st.coins -= 100000;
+    st.username = newU;
+    users[oldU].state = JSON.stringify(st);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+  // Rename users
+  users[newU] = users[oldU];
+  delete users[oldU];
+  writeJson(USERS_FILE, users);
+  // Rename scores
+  const scores = readJson(SCORES_FILE, {});
+  if (scores[oldU]) {
+    scores[newU] = scores[oldU];
+    delete scores[oldU];
+    writeJson(SCORES_FILE, scores);
+  }
+  // Rename device binding
+  const devices = readJson(DEVICES_FILE, {});
+  let deviceChanged = false;
+  for (const dev of Object.keys(devices)) {
+    if (devices[dev] === oldU) { devices[dev] = newU; deviceChanged = true; }
+  }
+  if (deviceChanged) writeJson(DEVICES_FILE, devices);
+  res.json({ ok: true, newUsername: newU });
+});
+
 app.post('/api/account/sync', (req, res) => {
   const { username, password, state } = req.body || {};
   const u = (username || '').trim();
@@ -1175,7 +1241,18 @@ const MORNING_QUIZ_SERIES = [
   { day: 7,  question: 'Hvor mange tenner har et voksent menneske?',      answers: ['32','tretti to','trettito','thirty two','thirtytwo'],                    prize: { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 9000, rarity: 'legendary', isShiny: true },     prizeText: '✨ Shiny Mew CP 9000' },
   { day: 8,  question: 'Hva heter den høyeste fjelltoppen i verden?',     answers: ['mount everest','everest','mt everest','sagarmatha'],                     prize: { type: 'coins', amount: 1800000 },                                                                 prizeText: '1 800 000 💰' },
   { day: 9,  question: 'Hvilket land vant fotball-VM 2022?',              answers: ['argentina'],                                                              prize: { type: 'pokemon', pokemonId: 249, name: 'Lugia', cp: 9500, rarity: 'legendary', isShiny: false },   prizeText: 'Lugia CP 9500' },
-  { day: 10, question: 'Hvor mange kontinenter er det i verden?',         answers: ['7','syv','sju','seven'],                                                  prize: { type: 'coins', amount: 5000000 },                                                                 prizeText: '5 000 000 💰' }
+  { day: 10, question: 'Hvor mange kontinenter er det i verden?',         answers: ['7','syv','sju','seven'],                                                  prize: { type: 'coins', amount: 5000000 },                                                                 prizeText: '5 000 000 💰' },
+  // === NYE morgen-quizer (dag 11-20) ===
+  { day: 11, question: 'Hva heter Norges nasjonalblomst?',                answers: ['røsslyng','rosslyng','røslyng','heather'],                                  prize: { type: 'pokemon', pokemonId: 282, name: 'Gardevoir', cp: 9300, rarity: 'epic', isShiny: true },     prizeText: '✨ Shiny Gardevoir CP 9300' },
+  { day: 12, question: 'Hvilken farge har solen sett fra rommet?',        answers: ['hvit','white','kvit'],                                                      prize: { type: 'coins', amount: 1700000 },                                                                 prizeText: '1 700 000 💰' },
+  { day: 13, question: 'Hva heter den minste planeten i solsystemet?',    answers: ['merkur','mercury'],                                                         prize: { type: 'pokemon', pokemonId: 282, name: 'Gardevoir', cp: 8800, rarity: 'epic', isShiny: false },    prizeText: 'Gardevoir CP 8800' },
+  { day: 14, question: 'Hvor mange spillere er det på et fotballag?',     answers: ['11','elleve','eleven'],                                                     prize: { type: 'coins', amount: 1100000 },                                                                 prizeText: '1 100 000 💰' },
+  { day: 15, question: 'Hva er den lengste muskelen i kroppen?',          answers: ['sartorius','skreddermusculus','skreddermuskel'],                            prize: { type: 'pokemon', pokemonId: 376, name: 'Metagross', cp: 9400, rarity: 'epic', isShiny: false },    prizeText: 'Metagross CP 9400' },
+  { day: 16, question: 'Hva er hovedstaden i Japan?',                     answers: ['tokyo','tokio'],                                                            prize: { type: 'coins', amount: 2200000 },                                                                 prizeText: '2 200 000 💰' },
+  { day: 17, question: 'Hva slags dyr er Norges flagghvete (riksvåpen)?', answers: ['løve','lion','loven','løven'],                                              prize: { type: 'pokemon', pokemonId: 376, name: 'Metagross', cp: 9700, rarity: 'epic', isShiny: true },     prizeText: '✨ Shiny Metagross CP 9700' },
+  { day: 18, question: 'Hvor mange kontinent er Norge på?',               answers: ['europa','europe'],                                                          prize: { type: 'coins', amount: 1300000 },                                                                 prizeText: '1 300 000 💰' },
+  { day: 19, question: 'Hva er fartsmåleren i bilen kalt?',               answers: ['speedometer','speedo','speedometer'],                                       prize: { type: 'pokemon', pokemonId: 472, name: 'Gliscor', cp: 9000, rarity: 'epic', isShiny: false },      prizeText: 'Gliscor CP 9000' },
+  { day: 20, question: 'Hva heter den siste boken i Harry Potter?',       answers: ['relikvier','dødstalismanene','deathly hallows','dødstalismaner'],          prize: { type: 'coins', amount: 4000000 },                                                                 prizeText: '4 000 000 💰' }
 ];
 const MORNING_OPEN_HOUR = 9;
 const MORNING_OPEN_MINUTE = 0;
@@ -1207,7 +1284,18 @@ const NOON_QUIZ_SERIES = [
   { day: 7,  question: 'Hva er kvadratroten av 144?',                     answers: ['12','tolv','twelve'],                                                                       prize: { type: 'pokemon', pokemonId: 151, name: 'Mew', cp: 9000, rarity: 'legendary', isShiny: false },     prizeText: 'Mew CP 9000' },
   { day: 8,  question: 'Hva heter hovedstaden i Frankrike?',              answers: ['paris'],                                                                                    prize: { type: 'coins', amount: 1500000 },                            prizeText: '1 500 000 💰' },
   { day: 9,  question: 'Hvor mange farger er det i en regnbue?',          answers: ['7','syv','sju','seven'],                                                                    prize: { type: 'pokemon', pokemonId: 384, name: 'Rayquaza', cp: 9800, rarity: 'legendary', isShiny: true }, prizeText: '✨ Shiny Rayquaza CP 9800' },
-  { day: 10, question: 'Hva er det største havet i verden?',              answers: ['stillehavet','stilla havet','stille havet','pacific','pacific ocean','stillehav'],         prize: { type: 'coins', amount: 3000000 },                            prizeText: '3 000 000 💰' }
+  { day: 10, question: 'Hva er det største havet i verden?',              answers: ['stillehavet','stilla havet','stille havet','pacific','pacific ocean','stillehav'],         prize: { type: 'coins', amount: 3000000 },                            prizeText: '3 000 000 💰' },
+  // === NYE 11:50-quizer (dag 11-20) ===
+  { day: 11, question: 'Hvor mange dager har et skuddår?',                answers: ['366','tre hundre og sekssti seks','tre hundre sekssti seks','366 dager'],     prize: { type: 'coins', amount: 1400000 },                            prizeText: '1 400 000 💰' },
+  { day: 12, question: 'Hva er hovedstaden i Tyskland?',                  answers: ['berlin'],                                                                    prize: { type: 'pokemon', pokemonId: 130, name: 'Gyarados', cp: 9200, rarity: 'epic', isShiny: true },      prizeText: '✨ Shiny Gyarados CP 9200' },
+  { day: 13, question: 'Hva er 7 × 9?',                                   answers: ['63','sekstitre','sixty three','sixty-three'],                                prize: { type: 'coins', amount: 700000 },                             prizeText: '700 000 💰' },
+  { day: 14, question: 'Hvilket dyr er kjent for å sove i en kokong?',    answers: ['sommerfugl','butterfly','larve'],                                            prize: { type: 'pokemon', pokemonId: 12, name: 'Butterfree', cp: 8500, rarity: 'rare', isShiny: true },     prizeText: '✨ Shiny Butterfree CP 8500' },
+  { day: 15, question: 'Hva er kvadratroten av 81?',                      answers: ['9','ni','nine'],                                                             prize: { type: 'pokemon', pokemonId: 257, name: 'Blaziken', cp: 9100, rarity: 'epic', isShiny: false },     prizeText: 'Blaziken CP 9100' },
+  { day: 16, question: 'Hva heter den største ørkenen i verden?',         answers: ['sahara','antarktis'],                                                        prize: { type: 'coins', amount: 1800000 },                            prizeText: '1 800 000 💰' },
+  { day: 17, question: 'Hva slags planet er Jorden?',                     answers: ['steinplanet','steinrik planet','jordnær planet','indre planet'],             prize: { type: 'pokemon', pokemonId: 95, name: 'Onix', cp: 8200, rarity: 'rare', isShiny: false },          prizeText: 'Onix CP 8200' },
+  { day: 18, question: 'Hva heter dronningen av England nå?',             answers: ['camilla','queen camilla','konge charles','charles iii','charles 3'],         prize: { type: 'coins', amount: 2500000 },                            prizeText: '2 500 000 💰' },
+  { day: 19, question: 'Hvor mange chromosomer har et menneske?',         answers: ['46','førtiseks','forti seks','forty six'],                                   prize: { type: 'pokemon', pokemonId: 142, name: 'Aerodactyl', cp: 9300, rarity: 'epic', isShiny: true },    prizeText: '✨ Shiny Aerodactyl CP 9300' },
+  { day: 20, question: 'Hva heter den dypeste plassen i havet?',          answers: ['marianergropen','mariana gropen','mariana trench','marianer'],               prize: { type: 'coins', amount: 4500000 },                            prizeText: '4 500 000 💰' }
 ];
 
 const NOON_OPEN_HOUR = 11;

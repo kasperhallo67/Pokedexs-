@@ -7800,19 +7800,52 @@ function logout() {
 }
 
 // ========== BRUKERNAVN OG LEADERBOARD ==========
-function changeUsername() {
+const USERNAME_CHANGE_COST = 100000;
+
+async function changeUsername() {
   const current = state.username || '';
-  const name = prompt('Enter your username (max 30 chars):', current);
-  if (name === null) return;
-  const trimmed = name.trim().slice(0, 30);
-  if (!trimmed) {
-    alert('Username cannot be empty');
+  if (!current) {
+    // Første gang setter brukernavn — gratis
+    const name = prompt('Enter your username (max 30 chars):', '');
+    if (name === null) return;
+    const trimmed = name.trim().slice(0, 30);
+    if (!trimmed) { alert('Username cannot be empty'); return; }
+    state.username = trimmed;
+    save(); updateUI(); submitScore();
     return;
   }
-  state.username = trimmed;
-  save();
-  updateUI();
-  submitScore();
+  if ((state.coins || 0) < USERNAME_CHANGE_COST) {
+    alert(`💸 Å bytte brukernavn koster ${USERNAME_CHANGE_COST.toLocaleString()} 💰.\nDu har ${(state.coins || 0).toLocaleString()} 💰.`);
+    return;
+  }
+  const name = prompt(`Bytt brukernavn (koster ${USERNAME_CHANGE_COST.toLocaleString()} 💰):\nNåværende: ${current}`, current);
+  if (name === null) return;
+  const trimmed = name.trim().slice(0, 30);
+  if (!trimmed) { alert('Brukernavn kan ikke være tomt'); return; }
+  if (trimmed === current) { alert('Samme brukernavn — ingen endring.'); return; }
+  if (!confirm(`Bytte ${current} → ${trimmed}? Dette koster ${USERNAME_CHANGE_COST.toLocaleString()} 💰.`)) return;
+  try {
+    const r = await fetch('/api/account/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        oldUsername: current,
+        newUsername: trimmed,
+        password: state.password
+      })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      state.username = trimmed;
+      state.coins = (state.coins || 0) - USERNAME_CHANGE_COST;
+      save(); updateUI(); submitScore();
+      alert(`✓ Brukernavn byttet til "${trimmed}"!\n−${USERNAME_CHANGE_COST.toLocaleString()} 💰`);
+    } else {
+      alert('✗ ' + (d.error || 'Kunne ikke bytte navn'));
+    }
+  } catch (e) {
+    alert('Server-feil: ' + e.message);
+  }
 }
 
 let scoreSubmitTimer = null;
@@ -7861,6 +7894,8 @@ function startPlaytimeTracker() {
     const delta = Math.min(15000, now - _playtimeLastTick); // cap på 15s per tick (i tilfelle tab var inaktiv)
     _playtimeLastTick = now;
     state.playtimeMs = (state.playtimeMs || 0) + delta;
+    // AKTIV-TID akkumulering mot wheel-spinn (kun mens du faktisk er aktiv)
+    state.activeMsTowardSpin = (state.activeMsTowardSpin || 0) + delta;
   }, 10000);
 }
 function formatPlaytime(ms) {
@@ -8247,24 +8282,22 @@ let wheelRotation = 0;
 let _wheelTimer = null;
 
 function calcWheelSpins() {
-  // Sjekk tid siden lastSpinClaim. Inkrementer spinsAvailable basert på antall hele timer.
-  if (!state.lastSpinClaim) state.lastSpinClaim = Date.now() - WHEEL_SPIN_INTERVAL_MS; // start med 1 spinn klar
-  if (state.spinsAvailable == null) state.spinsAvailable = 0;
-  const now = Date.now();
-  const elapsed = now - state.lastSpinClaim;
-  if (elapsed >= WHEEL_SPIN_INTERVAL_MS) {
-    const newSpins = Math.floor(elapsed / WHEEL_SPIN_INTERVAL_MS);
+  // KUN AKTIV TID teller (som Veteran-ballen). Inkrementer kun gjennom playtime-tracker.
+  if (state.spinsAvailable == null) state.spinsAvailable = 1; // 1 spinn til alle ved første gang
+  if (state.activeMsTowardSpin == null) state.activeMsTowardSpin = 0;
+  // Sjekk om akkumulert aktiv tid er nok for nytt spinn
+  if (state.activeMsTowardSpin >= WHEEL_SPIN_INTERVAL_MS) {
+    const newSpins = Math.floor(state.activeMsTowardSpin / WHEEL_SPIN_INTERVAL_MS);
     state.spinsAvailable = Math.min(WHEEL_MAX_SPINS, (state.spinsAvailable || 0) + newSpins);
-    state.lastSpinClaim += newSpins * WHEEL_SPIN_INTERVAL_MS;
+    state.activeMsTowardSpin -= newSpins * WHEEL_SPIN_INTERVAL_MS;
     save();
   }
   return state.spinsAvailable;
 }
 
 function timeUntilNextSpin() {
-  if (!state.lastSpinClaim) return 0;
-  const next = state.lastSpinClaim + WHEEL_SPIN_INTERVAL_MS;
-  return Math.max(0, next - Date.now());
+  const remaining = WHEEL_SPIN_INTERVAL_MS - (state.activeMsTowardSpin || 0);
+  return Math.max(0, remaining);
 }
 
 function formatHMS(ms) {
