@@ -98,17 +98,28 @@
     0%,100% { transform: translateX(-50%) rotate(-1deg); }
     50% { transform: translateX(-50%) rotate(1deg); }
   }
-  /* Frukt på treet */
+  /* Frukt på treet (epler) — plassert INNI tre-bladene så de henger på treet */
   .tree-fruit {
     position: absolute;
-    width: 14px; height: 14px;
+    width: 16px; height: 16px;
     background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
     border-radius: 50%;
-    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset -2px -2px 3px rgba(0,0,0,0.3);
+    z-index: 3;
   }
-  .tree-fruit-1 { bottom: 200px; left: 30%; }
-  .tree-fruit-2 { bottom: 240px; left: 60%; }
-  .tree-fruit-3 { bottom: 180px; left: 55%; }
+  .tree-fruit::after {
+    content: '';
+    position: absolute;
+    top: -3px; left: 50%;
+    transform: translateX(-50%);
+    width: 2px; height: 4px;
+    background: #5d4037;
+    border-radius: 1px;
+  }
+  /* Tre-bladene har høyde 230px og bottom:110px. Frukt-bottom 30-180px = inni leaves */
+  .tree-fruit-1 { bottom: 140px; left: 25%; }
+  .tree-fruit-2 { bottom: 100px; left: 60%; }
+  .tree-fruit-3 { bottom: 60px;  left: 40%; }
 
   .ground-decor {
     position: fixed;
@@ -5994,7 +6005,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.8';
+const CLIENT_GAME_VERSION = '2026.06.03.9';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -6939,12 +6950,12 @@ function spawnShinyDancer(pokemon, eventType) {
     }
   }, 150);
 
-  // Rydd opp etter ~16 sekunder
+  // Rydd opp etter 5 sekunder
   setTimeout(() => {
     clearInterval(sparkleInterval);
     dancer.remove();
     backdrop.remove();
-  }, 16000);
+  }, 5000);
 }
 
 function showCatchPopup(pokemon, isNew, reward, isShiny, eventType, cpArg) {
