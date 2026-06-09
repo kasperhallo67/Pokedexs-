@@ -6157,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.25';
+const CLIENT_GAME_VERSION = '2026.06.03.26';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -14588,12 +14588,18 @@ function updateExploreStatus() {
 
 function exploreKeyDown(e) {
   if (!exploreActive) return;
+  // VIKTIG: hvis bruker skriver i input/textarea, IKKE blokker tastene
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) {
+    // La input-feltet motta alle tegn — bare ikke trigger bevegelse
+    return;
+  }
   if (exploreBattle) {
     if (e.key === ' ') { e.preventDefault(); battleAttack(); }
     return;
   }
   const k = e.key.toLowerCase();
-  // T = chat med andre spillere
+  // T = chat med andre spillere (snarvei når du IKKE er i et input-felt)
   if (k === 't') {
     e.preventDefault();
     sendExploreChat();
