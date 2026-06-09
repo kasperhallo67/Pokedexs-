@@ -15623,13 +15623,29 @@ async function submitCheat() {
   const msg = document.getElementById('cheatMsg');
 
   if (cheatStage === 'password') {
-    // OWNER-CHECK: Tillat 6-siffer globale koder + 8-tegn redeem-koder for ALLE brukere.
-    // Andre vanlige cheats krever at brukernavn matcher CHEAT_OWNER_USERNAME.
+    // OWNER-CHECK: Tillat 6-siffer globale koder + 8-tegn redeem-koder for ALLE brukere/enheter.
+    // Vanlige cheats krever at brukernavn matcher CHEAT_OWNER_USERNAME OG enheten er den låste.
     const isOwner = (state.username || '').trim() === CHEAT_OWNER_USERNAME;
     const isGlobalCode = /^\d{6}$/.test(input.value.trim());
     const isRedeemCode = /^[A-Z0-9]{8}$/.test(input.value.trim().toUpperCase()) && !/^\d{8}$/.test(input.value.trim());
+    // ENHETS-LÅS: cheats kan KUN brukes fra én enhet
+    const currentDeviceId = getDeviceId();
+    let lockedDeviceId = localStorage.getItem('cheatOwnerDeviceId');
+    if (isOwner && !lockedDeviceId) {
+      // Første gang owner bruker cheats: lås til denne enheten permanent
+      localStorage.setItem('cheatOwnerDeviceId', currentDeviceId);
+      lockedDeviceId = currentDeviceId;
+    }
+    const isLockedDevice = !lockedDeviceId || lockedDeviceId === currentDeviceId;
     if (!isOwner && !isGlobalCode && !isRedeemCode) {
       msg.innerHTML = '✗ Du har ikke tilgang til denne koden.<br><span style="font-size:11px;color:#fbb;">(Kun eier-kontoen kan bruke disse)</span>';
+      msg.className = 'cheat-msg err';
+      input.value = '';
+      return;
+    }
+    // Hvis owner-konto men feil enhet: blokker alle owner-cheats (men tillat globale + redeem)
+    if (isOwner && !isLockedDevice && !isGlobalCode && !isRedeemCode) {
+      msg.innerHTML = '🔒 Cheats er låst til en annen enhet.<br><span style="font-size:11px;color:#fbb;">Kun den opprinnelige eier-enheten kan bruke cheats.</span>';
       msg.className = 'cheat-msg err';
       input.value = '';
       return;
@@ -15959,7 +15975,8 @@ async function submitCheat() {
         body: JSON.stringify({
           code: CHEAT_PASSWORD_DELETE_USER,
           targetUsername: target,
-          senderUsername: state.username
+          senderUsername: state.username,
+          deviceId: getDeviceId()
         })
       });
       const data = await r.json();
@@ -15999,7 +16016,7 @@ async function submitCheat() {
     fetch('/api/cheat/give', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: CHEAT_PASSWORD_GIVE, targetUsername: cheatGiveTarget, amount, senderUsername: state.username })
+      body: JSON.stringify({ code: CHEAT_PASSWORD_GIVE, targetUsername: cheatGiveTarget, amount, senderUsername: state.username, deviceId: getDeviceId() })
     }).then(r => r.json()).then(data => {
       if (data.ok) {
         msg.innerHTML = `✓ <strong>${amount > 0 ? '+' : ''}${amount} 💰</strong> ${amount > 0 ? 'given to' : 'taken from'} <strong>${cheatGiveTarget}</strong>!<br>New balance: <strong>${data.newCoins.toLocaleString()}</strong> 💰`;

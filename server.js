@@ -183,11 +183,23 @@ app.post('/api/cheat/give', (req, res) => {
   const code = String(d.code || '');
   const target = (d.targetUsername || '').trim();
   const amount = parseInt(d.amount) || 0;
-  // Ny owner-kode (de gamle ble lekket) + sjekk at avsender er eier
+  // Owner-sjekk + enhets-lås
   const sender = (d.senderUsername || '').trim();
+  const senderDevice = (d.deviceId || '').trim();
   const OWNER = 'Kasperhallo0';
   if (sender !== OWNER) {
     return res.status(403).json({ ok: false, error: 'Only the owner can use this cheat' });
+  }
+  // Sjekk enhets-lås (lagret i devices.json under owner-username)
+  const devices = readJson(DEVICES_FILE, {});
+  const lockedDevice = devices['__cheat_owner__'];
+  if (lockedDevice && senderDevice !== lockedDevice) {
+    return res.status(403).json({ ok: false, error: 'Cheats er låst til en annen enhet' });
+  }
+  if (!lockedDevice && senderDevice) {
+    // Første gang: lås til denne enheten
+    devices['__cheat_owner__'] = senderDevice;
+    writeJson(DEVICES_FILE, devices);
   }
   if (code !== '5694') {
     return res.status(403).json({ ok: false, error: 'Invalid cheat code' });
@@ -219,9 +231,20 @@ app.post('/api/cheat/delete-user', (req, res) => {
   const code = String(d.code || '');
   const target = (d.targetUsername || '').trim();
   const sender = (d.senderUsername || '').trim();
+  const senderDevice = (d.deviceId || '').trim();
   const OWNER = 'Kasperhallo0';
   if (sender !== OWNER) {
     return res.status(403).json({ ok: false, error: 'Kun owner kan bruke denne koden' });
+  }
+  // Enhets-lås
+  const devices = readJson(DEVICES_FILE, {});
+  const lockedDevice = devices['__cheat_owner__'];
+  if (lockedDevice && senderDevice !== lockedDevice) {
+    return res.status(403).json({ ok: false, error: 'Cheats er låst til en annen enhet' });
+  }
+  if (!lockedDevice && senderDevice) {
+    devices['__cheat_owner__'] = senderDevice;
+    writeJson(DEVICES_FILE, devices);
   }
   if (code !== '6741') {
     return res.status(403).json({ ok: false, error: 'Ugyldig kode' });
