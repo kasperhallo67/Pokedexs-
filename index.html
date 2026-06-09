@@ -6157,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.14';
+const CLIENT_GAME_VERSION = '2026.06.03.15';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -6565,6 +6565,45 @@ function clearSearch() {
   currentSearch = '';
   document.getElementById('clearSearchBtn').style.display = 'none';
   renderPokedex();
+}
+
+// Synk state fra localStorage (brukes når en annen fane har endret state)
+function syncStateFromStorage() {
+  try {
+    const raw = localStorage.getItem('pokeGame');
+    if (!raw) return;
+    const stored = JSON.parse(raw);
+    // Bare oppdater nøkkelfelter som kan endres av andre faner — IKKE overskriv hele state
+    // (i tilfelle denne fanen er midt i en transaksjon)
+    if (typeof stored.coins === 'number') state.coins = stored.coins;
+    if (typeof stored.spinsAvailable === 'number') state.spinsAvailable = stored.spinsAvailable;
+    if (typeof stored.activeMsTowardSpin === 'number') state.activeMsTowardSpin = stored.activeMsTowardSpin;
+    if (typeof stored.lastSpinClaim === 'number') state.lastSpinClaim = stored.lastSpinClaim;
+    if (Array.isArray(stored.individuals)) state.individuals = stored.individuals;
+    if (stored.inventory) state.inventory = stored.inventory;
+    if (stored.caught) state.caught = stored.caught;
+    if (stored.candy) state.candy = stored.candy;
+    if (typeof stored.usedOneTime70 === 'boolean') state.usedOneTime70 = stored.usedOneTime70;
+  } catch {}
+}
+
+// Lytt etter localStorage-endringer fra andre faner
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'pokeGame' && e.newValue) {
+      syncStateFromStorage();
+      // Oppdater UI hvis tilgjengelig
+      try { if (typeof updateUI === 'function') updateUI(); } catch {}
+      try { if (typeof updateWheelBadge === 'function') updateWheelBadge(); } catch {}
+      // Hvis wheel-modal er åpen, oppdater status (men ikke under spinn)
+      try {
+        const modal = document.getElementById('wheelModal');
+        if (modal && modal.classList.contains('active') && !window.wheelSpinning && typeof updateWheelStatusOnly === 'function') {
+          updateWheelStatusOnly();
+        }
+      } catch {}
+    }
+  });
 }
 
 function save() {
@@ -9033,9 +9072,18 @@ function pickWheelPrize() {
 
 function spinTheWheel() {
   if (wheelSpinning) return;
+  // ANTI-DOBBELT-FANE: synkroniser state fra localStorage før vi sjekker spinns
+  // (en annen fane kan ha brukt spinns siden vi sist sjekket)
+  syncStateFromStorage();
   const spins = calcWheelSpins();
-  if (spins <= 0) return;
+  if (spins <= 0) {
+    alert('Du har ingen spinns igjen! En annen fane kan ha brukt dem.');
+    renderWheelSpin();
+    return;
+  }
   state.spinsAvailable -= 1;
+  // Lagre umiddelbart slik at andre faner ser endringen
+  save();
   wheelSpinning = true;
   // Velg premie
   const { index, prize } = pickWheelPrize();
