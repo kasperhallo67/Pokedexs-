@@ -6157,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.15';
+const CLIENT_GAME_VERSION = '2026.06.03.16';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -12203,21 +12203,21 @@ function generateMathProblem() {
   const type = Math.floor(Math.random() * 3);
   let a, b, op, answer;
   if (type === 0) {
-    // Ganging (multiplikasjon) - 3-13 ganger 3-13
-    a = Math.floor(Math.random() * 11) + 3;
-    b = Math.floor(Math.random() * 11) + 3;
+    // Ganging — 1 til 10 gangetabell (lett)
+    a = Math.floor(Math.random() * 10) + 1; // 1-10
+    b = Math.floor(Math.random() * 10) + 1; // 1-10
     op = '×';
     answer = a * b;
   } else if (type === 1) {
-    // Høy pluss - 100-999 + 100-999
-    a = Math.floor(Math.random() * 900) + 100;
-    b = Math.floor(Math.random() * 900) + 100;
+    // Lett pluss — 10-50 + 5-30 (f.eks. 17+12)
+    a = Math.floor(Math.random() * 41) + 10; // 10-50
+    b = Math.floor(Math.random() * 26) + 5;  // 5-30
     op = '+';
     answer = a + b;
   } else {
-    // Subtraksjon (rene stykker) - alltid positivt svar
-    a = Math.floor(Math.random() * 700) + 300;  // 300-999
-    b = Math.floor(Math.random() * (a - 50)) + 50;
+    // Lett minus — 20-60 − 5-20 (alltid positivt)
+    a = Math.floor(Math.random() * 41) + 20; // 20-60
+    b = Math.floor(Math.random() * 16) + 5;  // 5-20
     op = '−';
     answer = a - b;
   }
@@ -12231,7 +12231,7 @@ function startRocketEncounter() {
   document.getElementById('rocketResult').textContent = '';
   document.getElementById('rocketResult').className = 'rocket-result';
   document.getElementById('rocketTimerFill').style.width = '100%';
-  document.getElementById('rocketTimerText').textContent = '⏱ 30 seconds';
+  document.getElementById('rocketTimerText').textContent = '⏱ 15 sekunder';
 
   // Velg en tilfeldig type Team Rocket målretter, og finn beste individ av den typen
   state.rocketTargetUid = null;
@@ -12273,7 +12273,7 @@ function startRocketEncounter() {
   document.getElementById('rocketModal').classList.add('active');
   setTimeout(() => document.getElementById('rocketInput').focus(), 100);
 
-  let timeLeft = 30000; // ms
+  let timeLeft = 15000; // 15 sek
   const startTime = Date.now();
   if (rocketTimer) clearInterval(rocketTimer);
   rocketTimer = setInterval(() => {
@@ -12281,11 +12281,11 @@ function startRocketEncounter() {
     const remaining = Math.max(0, timeLeft - elapsed);
     const pct = (remaining / timeLeft) * 100;
     document.getElementById('rocketTimerFill').style.width = pct + '%';
-    document.getElementById('rocketTimerText').textContent = '⏱ ' + Math.ceil(remaining / 1000) + ' seconds';
+    document.getElementById('rocketTimerText').textContent = '⏱ ' + Math.ceil(remaining / 1000) + ' sekunder';
     if (remaining <= 0) {
       clearInterval(rocketTimer);
       rocketTimer = null;
-      handleRocketWrong("Time's up!");
+      handleRocketWrong("Tiden er ute!");
     }
   }, 100);
 }
