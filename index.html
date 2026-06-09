@@ -4255,6 +4255,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:13px;margin-bottom:8px;">
       <div>Bruk <b>WASD</b> / <b>piltaster</b> for å gå. Gå i gress for å møte Pokémon!</div>
       <div id="exploreStatus">Steg: 0</div>
+      <button onclick="sendExploreChat()" title="Chat med andre spillere (T)" style="position:absolute;top:6px;right:50px;background:#27ae60;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:bold;z-index:10;">💬 Chat (T)</button>
     </div>
     <div id="exploreWrap" style="position:relative;display:flex;justify-content:center;background:#000;border-radius:8px;overflow:hidden;">
       <canvas id="exploreCanvas" width="800" height="576" style="display:block;image-rendering:pixelated;background:#2c3e50;"></canvas>
@@ -6141,7 +6142,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.11';
+const CLIENT_GAME_VERSION = '2026.06.03.12';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -14145,6 +14146,10 @@ let exploreCurrentMap = null;   // det genererte kartet
 let exploreBattlePokemon = null; // din valgte Pokémon (uid fra individuals)
 let explorePhase = 'select_area'; // 'select_area' | 'select_pokemon' | 'on_map'
 let exploreEnemyAttackTimer = null; // timer for fiendens passive angrep
+// Multiplayer state
+let exploreOtherPlayers = []; // [{ username, x, y, dir, walkFrame, chat }]
+let _exploreMpPositionTimer = null;
+let _exploreMpPlayersTimer = null;
 
 // Init unlocked areas hvis ikke satt
 if (!Array.isArray(state.exploreUnlocked)) state.exploreUnlocked = [0];
@@ -14340,17 +14345,82 @@ function startOnMap() {
   exploreSteps = 0;
   exploreActive = true;
   exploreBattle = null;
-  setExploreLog(`🌲 ${EXPLORE_AREAS[exploreCurrentArea].name} — gå i mørkegrønt gress for å møte Pokémon. Bruk WASD/piltaster.`);
+  exploreOtherPlayers = [];
+  setExploreLog(`🌲 ${EXPLORE_AREAS[exploreCurrentArea].name} — gå i mørkegrønt gress. Trykk T for å chatte med andre spillere!`);
   updateExploreStatus();
   document.addEventListener('keydown', exploreKeyDown);
   document.addEventListener('keyup', exploreKeyUp);
   if (exploreLoopId) cancelAnimationFrame(exploreLoopId);
   exploreLoopId = requestAnimationFrame(exploreLoop);
+  // START MULTIPLAYER
+  startExploreMultiplayer();
+}
+
+function startExploreMultiplayer() {
+  stopExploreMultiplayer();
+  // Send egen posisjon hvert 1.5 sek
+  _exploreMpPositionTimer = setInterval(sendOwnPosition, 1500);
+  sendOwnPosition();
+  // Hent andre spillere hvert 1 sek
+  _exploreMpPlayersTimer = setInterval(fetchOtherPlayers, 1000);
+  fetchOtherPlayers();
+}
+
+function stopExploreMultiplayer() {
+  if (_exploreMpPositionTimer) { clearInterval(_exploreMpPositionTimer); _exploreMpPositionTimer = null; }
+  if (_exploreMpPlayersTimer) { clearInterval(_exploreMpPlayersTimer); _exploreMpPlayersTimer = null; }
+  exploreOtherPlayers = [];
+}
+
+async function sendOwnPosition() {
+  if (!state.username || !exploreActive || explorePhase !== 'on_map') return;
+  try {
+    await fetch('/api/explore/position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.username,
+        area: exploreCurrentArea,
+        x: explorePlayer.x,
+        y: explorePlayer.y,
+        dir: explorePlayer.dir,
+        walkFrame: explorePlayer.walkFrame
+      })
+    });
+  } catch {}
+}
+
+async function fetchOtherPlayers() {
+  if (!exploreActive || explorePhase !== 'on_map') return;
+  try {
+    const r = await fetch(`/api/explore/players?area=${exploreCurrentArea}&exclude=${encodeURIComponent(state.username || '')}`);
+    const d = await r.json();
+    exploreOtherPlayers = d.players || [];
+  } catch {}
+}
+
+async function sendExploreChat() {
+  const msg = prompt('Hva vil du si til andre spillere? (maks 100 tegn)');
+  if (!msg || !msg.trim()) return;
+  try {
+    await fetch('/api/explore/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.username,
+        area: exploreCurrentArea,
+        message: msg.trim()
+      })
+    });
+    // Vis lokalt med en gang
+    setExploreLog(`💬 Du: "${msg.trim()}"`);
+  } catch (e) { alert('Kunne ikke sende: ' + e.message); }
 }
 
 function closeExplore() {
   exploreActive = false;
   stopEnemyAutoAttack();
+  stopExploreMultiplayer();
   if (exploreLoopId) { cancelAnimationFrame(exploreLoopId); exploreLoopId = null; }
   document.removeEventListener('keydown', exploreKeyDown);
   document.removeEventListener('keyup', exploreKeyUp);
@@ -14377,6 +14447,12 @@ function exploreKeyDown(e) {
     return;
   }
   const k = e.key.toLowerCase();
+  // T = chat med andre spillere
+  if (k === 't') {
+    e.preventDefault();
+    sendExploreChat();
+    return;
+  }
   if (['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d',' '].includes(k)) {
     e.preventDefault();
     exploreKeys[k] = true;
@@ -14492,6 +14568,10 @@ function drawExploreMap() {
     }
   }
   // Tegn spilleren med gå-animasjon
+  // Tegn ANDRE spillere først (under egen spiller)
+  for (const other of exploreOtherPlayers) {
+    drawOtherPlayer(ctx, other);
+  }
   drawPlayer(ctx, explorePlayer.x * TILE_SIZE, explorePlayer.y * TILE_SIZE);
 }
 
@@ -14511,6 +14591,84 @@ function shadeColor(hex, amt) {
     b = Math.max(0, b * (1 + amt));
   }
   return '#' + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+}
+
+function drawOtherPlayer(ctx, other) {
+  const px = other.x * TILE_SIZE, py = other.y * TILE_SIZE;
+  // Skygge
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(px + 16, py + 30, 10, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Bein
+  ctx.fillStyle = '#34495e';
+  ctx.fillRect(px + 10, py + 22, 4, 6);
+  ctx.fillRect(px + 18, py + 22, 4, 6);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + 9, py + 26, 5, 2);
+  ctx.fillRect(px + 18, py + 26, 5, 2);
+
+  // Kropp (lilla, så den skiller seg fra spilleren)
+  ctx.fillStyle = '#9b59b6';
+  ctx.fillRect(px + 8, py + 14, 16, 12);
+
+  // Armer
+  ctx.fillStyle = '#f4d6a3';
+  ctx.fillRect(px + 6, py + 14, 3, 9);
+  ctx.fillRect(px + 23, py + 14, 3, 9);
+
+  // Hode
+  ctx.fillStyle = '#f4d6a3';
+  ctx.fillRect(px + 9, py + 4, 14, 12);
+  // Lue (grønn for andre spillere)
+  ctx.fillStyle = '#27ae60';
+  ctx.fillRect(px + 8, py + 2, 16, 5);
+  ctx.fillRect(px + 6, py + 5, 20, 3);
+
+  // Øyne (alltid downward)
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + 12, py + 10, 2, 2);
+  ctx.fillRect(px + 18, py + 10, 2, 2);
+
+  // Brukernavn over
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(px - 10, py - 14, 52, 12);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  const name = (other.username || '').slice(0, 8);
+  ctx.fillText(name, px + 16, py - 5);
+
+  // Chat-boble
+  if (other.chat) {
+    const txt = other.chat.slice(0, 50);
+    ctx.font = 'bold 11px monospace';
+    const w = Math.min(180, ctx.measureText(txt).width + 14);
+    const bubX = px + 16 - w/2;
+    const bubY = py - 38;
+    // Hvit boble
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    ctx.roundRect(bubX, bubY, w, 20, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#27ae60';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Pil ned
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    ctx.moveTo(px + 12, bubY + 20);
+    ctx.lineTo(px + 20, bubY + 20);
+    ctx.lineTo(px + 16, bubY + 26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Tekst
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'center';
+    ctx.fillText(txt, px + 16, bubY + 14);
+  }
 }
 
 function drawPlayer(ctx, px, py) {

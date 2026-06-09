@@ -1880,9 +1880,83 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.11';
+const GAME_VERSION = '2026.06.03.12';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
+});
+
+// === EXPLORE MULTIPLAYER ===
+// In-memory: { area: { username: { x, y, dir, walkFrame, lastSeen, chat?, chatExpiresAt? } } }
+const explorePlayers = {};
+
+function pruneExplorePlayers() {
+  const now = Date.now();
+  for (const area of Object.keys(explorePlayers)) {
+    for (const u of Object.keys(explorePlayers[area])) {
+      if (now - explorePlayers[area][u].lastSeen > 8000) {
+        delete explorePlayers[area][u];
+      }
+    }
+    if (Object.keys(explorePlayers[area]).length === 0) delete explorePlayers[area];
+  }
+}
+
+app.post('/api/explore/position', (req, res) => {
+  const d = req.body || {};
+  const username = (d.username || '').trim();
+  const area = String(d.area || 0);
+  if (!username) return res.status(400).json({ ok: false });
+  if (!explorePlayers[area]) explorePlayers[area] = {};
+  const existing = explorePlayers[area][username] || {};
+  explorePlayers[area][username] = {
+    x: parseInt(d.x) || 0,
+    y: parseInt(d.y) || 0,
+    dir: (d.dir || 'down'),
+    walkFrame: parseInt(d.walkFrame) || 0,
+    lastSeen: Date.now(),
+    chat: existing.chat,
+    chatExpiresAt: existing.chatExpiresAt
+  };
+  // Hvis brukeren skiftet område, fjern fra andre områder
+  for (const a of Object.keys(explorePlayers)) {
+    if (a !== area && explorePlayers[a][username]) delete explorePlayers[a][username];
+  }
+  pruneExplorePlayers();
+  res.json({ ok: true });
+});
+
+app.get('/api/explore/players', (req, res) => {
+  const area = String(req.query.area || 0);
+  const excludeUser = (req.query.exclude || '').trim();
+  pruneExplorePlayers();
+  const players = explorePlayers[area] || {};
+  const result = [];
+  const now = Date.now();
+  for (const [u, p] of Object.entries(players)) {
+    if (u === excludeUser) continue;
+    result.push({
+      username: u,
+      x: p.x, y: p.y, dir: p.dir, walkFrame: p.walkFrame || 0,
+      chat: (p.chatExpiresAt && now < p.chatExpiresAt) ? p.chat : null
+    });
+  }
+  res.json({ players: result });
+});
+
+app.post('/api/explore/chat', (req, res) => {
+  const d = req.body || {};
+  const username = (d.username || '').trim();
+  const area = String(d.area || 0);
+  const message = censorText(String(d.message || '').trim().slice(0, 100));
+  if (!username || !message) return res.status(400).json({ ok: false });
+  if (!explorePlayers[area]) explorePlayers[area] = {};
+  if (!explorePlayers[area][username]) {
+    explorePlayers[area][username] = { x: 0, y: 0, dir: 'down', walkFrame: 0, lastSeen: Date.now() };
+  }
+  explorePlayers[area][username].chat = message;
+  explorePlayers[area][username].chatExpiresAt = Date.now() + 6000;
+  explorePlayers[area][username].lastSeen = Date.now();
+  res.json({ ok: true });
 });
 
 // === Health check ===
