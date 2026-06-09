@@ -6157,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.22';
+const CLIENT_GAME_VERSION = '2026.06.03.23';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -8095,12 +8095,30 @@ function openAccountSwitcherFromLogin() {
 
 function logout() {
   if (!state.password) {
-    alert('You have not set a password yet.');
+    alert('Du har ikke satt et passord enda — kan ikke logge ut.');
     return;
   }
-  if (!confirm('Log out?\n\nYour progress is saved — nothing is lost.\nYou can switch accounts or log back in.')) return;
-  // Sørg for at gjeldende konto er lagret i pokeAccounts før logout
-  save();
+  if (!confirm('Logg ut?\n\n✓ Brukeren din lagres trygt\n✓ Alle Pokémon, coins og fremgang bevares\n✓ Du kan logge inn igjen når som helst med passord')) return;
+  // 1) Sørg for at gjeldende konto er lagret i pokeAccounts SLIK AT vi kan komme tilbake
+  try {
+    const accounts = JSON.parse(localStorage.getItem('pokeAccounts') || '{}');
+    accounts[state.username] = JSON.stringify(state);
+    localStorage.setItem('pokeAccounts', JSON.stringify(accounts));
+  } catch {}
+  // 2) Sync til server (siste state)
+  try { if (typeof syncToServer === 'function') syncToServer(); } catch {}
+  // 3) RYDD ut lokal username/password så showLogin viser login-skjerm (auto-login slår ikke til)
+  const savedUsername = state.username; // husk for visning på login
+  state.username = '';
+  state.password = '';
+  // 4) Lagre den tomme tilstanden lokalt (men IKKE overskriv pokeAccounts)
+  localStorage.setItem('pokeGame', JSON.stringify(state));
+  // 5) Stopp polling-timere så de ikke kjører i bakgrunnen
+  try { if (_banCheckTimer) { clearInterval(_banCheckTimer); _banCheckTimer = null; } } catch {}
+  try { if (quizCheckTimer) { clearInterval(quizCheckTimer); quizCheckTimer = null; } } catch {}
+  try { if (_playtimeTimer) { clearInterval(_playtimeTimer); _playtimeTimer = null; } } catch {}
+  try { if (_wheelTimer) { clearInterval(_wheelTimer); _wheelTimer = null; } } catch {}
+  // 6) Vis login-skjerm
   showLogin();
 }
 
