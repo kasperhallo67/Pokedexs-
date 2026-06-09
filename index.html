@@ -6157,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.16';
+const CLIENT_GAME_VERSION = '2026.06.03.17';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -16619,8 +16619,15 @@ async function submitCheat() {
 
   if (cheatStage === 'password') {
     // GLOBALE koder + REDEEM-koder fungerer for alle, alltid
-    const isGlobalCode = /^\d{6}$/.test(input.value.trim());
-    const isRedeemCode = /^[A-Z0-9]{8}$/.test(input.value.trim().toUpperCase()) && !/^\d{8}$/.test(input.value.trim());
+    // Owner-cheats er 4-sifre nummer som ER hardkodede — disse må IKKE klassifiseres som global codes
+    const OWNER_CHEAT_CODES = [
+      CHEAT_PASSWORD, CHEAT_PASSWORD_ULTIMATE, CHEAT_PASSWORD_RESET, CHEAT_PASSWORD_PICK,
+      CHEAT_PASSWORD_GIVE, CHEAT_PASSWORD_REMOVE, CHEAT_PASSWORD_FORCE_ULT, CHEAT_PASSWORD_ONETIME70,
+      CHEAT_PASSWORD_DELETE_USER, CHEAT_PASSWORD_TEST, CHEAT_PASSWORD_TEST_QUIZ, CHEAT_PASSWORD_WHEEL_BOOST
+    ];
+    const trimmedInput = input.value.trim();
+    const isGlobalCode = /^\d{4,6}$/.test(trimmedInput) && !OWNER_CHEAT_CODES.includes(trimmedInput);
+    const isRedeemCode = /^[A-Z0-9]{8}$/.test(trimmedInput.toUpperCase()) && !/^\d{8}$/.test(trimmedInput);
 
     // CHEAT-EIER-SJEKK: Kun den registrerte eier-enheten kan bruke owner-cheats.
     // 1. Brukernavn må matche CHEAT_OWNER_USERNAME
@@ -16749,7 +16756,7 @@ async function submitCheat() {
         msg.innerHTML = '✗ Server-feil: ' + e.message;
         msg.className = 'cheat-msg err';
       }
-    } else if (/^\d{6}$/.test(input.value.trim())) {
+    } else if (/^\d{4,6}$/.test(input.value.trim()) && !OWNER_CHEAT_CODES.includes(input.value.trim())) {
       // Mulig globalt engangs-kode (6 sifre). Sjekk mot server.
       const code = input.value.trim();
       const username = (state.username || '').trim();

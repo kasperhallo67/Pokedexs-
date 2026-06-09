@@ -343,7 +343,8 @@ const ONE_TIME_GLOBAL_CODES = {
   '372184': { type: 'coins', amount: 250000, globalOneTime: true },
   '615903': { type: 'coins', amount: 250000, globalOneTime: true },
   '824057': { type: 'coins', amount: 750000, globalOneTime: true },
-  '946208': { type: 'coins', amount: 500000, globalOneTime: true }
+  '946208': { type: 'coins', amount: 500000, globalOneTime: true },
+  '4080':   { type: 'coins', amount: 400000, globalOneTime: true }
 };
 
 app.post('/api/cheat/onetime', (req, res) => {
@@ -1880,7 +1881,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.16';
+const GAME_VERSION = '2026.06.03.17';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
