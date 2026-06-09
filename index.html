@@ -5983,6 +5983,56 @@ if (state.username === undefined) state.username = '';
 if (state.password === undefined) state.password = '';
 if (state.buddyId === undefined) state.buddyId = null;
 
+// === GAME VERSION-SJEKK ===
+// Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
+const CLIENT_GAME_VERSION = '2026.06.03.1';
+let _versionCheckTimer = null;
+let _versionOverlayShown = false;
+
+async function checkGameVersion() {
+  if (_versionOverlayShown) return;
+  try {
+    const r = await fetch('/api/version?t=' + Date.now()); // cache-bust
+    const d = await r.json();
+    if (d && d.version && d.version !== CLIENT_GAME_VERSION) {
+      showVersionMismatchOverlay(d.version);
+    }
+  } catch { /* ignorer nettverksfeil */ }
+}
+
+function showVersionMismatchOverlay(serverVersion) {
+  if (_versionOverlayShown) return;
+  _versionOverlayShown = true;
+  if (_versionCheckTimer) { clearInterval(_versionCheckTimer); _versionCheckTimer = null; }
+  let overlay = document.getElementById('versionOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'versionOverlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.97);z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:monospace;color:#fff;padding:40px;text-align:center;';
+  overlay.innerHTML = `
+    <div style="font-size:80px;margin-bottom:10px;animation:versionPulse 1.4s ease-in-out infinite;">🔄</div>
+    <div style="font-size:42px;font-weight:bold;color:#3498db;text-shadow:0 0 12px #3498db;letter-spacing:1px;margin-bottom:8px;">NY VERSJON TILGJENGELIG</div>
+    <div style="font-size:18px;color:#aaa;margin-bottom:20px;">Spillet har blitt oppdatert.</div>
+    <div style="font-size:14px;color:#888;max-width:600px;line-height:1.6;margin-bottom:30px;">
+      Din versjon: <b style="color:#fff;">${CLIENT_GAME_VERSION}</b><br>
+      Server-versjon: <b style="color:#7dffac;">${serverVersion}</b><br><br>
+      Du må <b>oppdatere siden (refresh)</b> for å fortsette å spille.<br>
+      Trykk <b style="color:#ffd700;">Ctrl + Shift + R</b> (Windows) eller <b style="color:#ffd700;">Cmd + Shift + R</b> (Mac) for hard refresh.
+    </div>
+    <button onclick="location.reload(true)" style="padding:18px 40px;background:linear-gradient(135deg,#3498db,#2980b9);color:white;border:none;border-radius:10px;font-size:18px;cursor:pointer;font-weight:bold;box-shadow:0 4px 16px rgba(52,152,219,0.5);">🔄 Oppdater nå</button>
+    <style>@keyframes versionPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }</style>
+  `;
+}
+
+function startVersionChecker() {
+  if (_versionCheckTimer) clearInterval(_versionCheckTimer);
+  // Sjekk hvert 30 sek
+  _versionCheckTimer = setInterval(checkGameVersion, 30000);
+  checkGameVersion();
+}
+
 // === CHEAT-EIER ENHETS-VERIFISERING ===
 // Caches om DENNE enheten er den registrerte cheat-eieren (sjekkes mot server)
 window._cheatOwnerStatus = { locked: false, isOwnerDevice: false, checked: false };
@@ -6272,6 +6322,7 @@ if (state.username) {
     if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
     if (typeof startWheelPolling === 'function') startWheelPolling();
     if (typeof refreshCheatOwnerStatus === 'function') refreshCheatOwnerStatus();
+    if (typeof startVersionChecker === 'function') startVersionChecker();
   }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -7648,6 +7699,7 @@ async function loginToOther() {
     startPlaytimeTracker();
     startWheelPolling();
     refreshCheatOwnerStatus();
+    startVersionChecker();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }

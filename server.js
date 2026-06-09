@@ -1703,6 +1703,12 @@ function _oldQuizAnswerCode() {
   }
 }
 
+// === GAME VERSION — bumpes hver gang vi deployer ===
+const GAME_VERSION = '2026.06.03.1';
+app.get('/api/version', (req, res) => {
+  res.json({ version: GAME_VERSION, timestamp: Date.now() });
+});
+
 // === Health check ===
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
