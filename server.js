@@ -1880,7 +1880,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.13';
+const GAME_VERSION = '2026.06.03.14';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
@@ -1943,11 +1943,24 @@ app.get('/api/explore/players', (req, res) => {
   res.json({ players: result });
 });
 
+// In-memory chat-historikk per område (siste 30 meldinger, 10 min)
+const exploreAreaChats = {};
+
+function pruneAreaChats() {
+  const now = Date.now();
+  for (const area of Object.keys(exploreAreaChats)) {
+    exploreAreaChats[area] = exploreAreaChats[area].filter(m => now - m.time < 600000);
+    if (exploreAreaChats[area].length > 30) {
+      exploreAreaChats[area] = exploreAreaChats[area].slice(-30);
+    }
+  }
+}
+
 app.post('/api/explore/chat', (req, res) => {
   const d = req.body || {};
   const username = (d.username || '').trim();
   const area = String(d.area || 0);
-  const message = censorText(String(d.message || '').trim().slice(0, 100));
+  const message = censorText(String(d.message || '').trim().slice(0, 150));
   if (!username || !message) return res.status(400).json({ ok: false });
   if (!explorePlayers[area]) explorePlayers[area] = {};
   if (!explorePlayers[area][username]) {
@@ -1956,7 +1969,17 @@ app.post('/api/explore/chat', (req, res) => {
   explorePlayers[area][username].chat = message;
   explorePlayers[area][username].chatExpiresAt = Date.now() + 6000;
   explorePlayers[area][username].lastSeen = Date.now();
+  // Lagre i historikk
+  if (!exploreAreaChats[area]) exploreAreaChats[area] = [];
+  exploreAreaChats[area].push({ username, message, time: Date.now() });
+  pruneAreaChats();
   res.json({ ok: true });
+});
+
+app.get('/api/explore/chats', (req, res) => {
+  const area = String(req.query.area || 0);
+  pruneAreaChats();
+  res.json({ chats: exploreAreaChats[area] || [] });
 });
 
 // === Health check ===

@@ -4284,6 +4284,20 @@
       </div>
     </div>
     <div id="exploreLog" style="color:#aaa;font-size:12px;text-align:center;margin-top:8px;min-height:20px;"></div>
+    <!-- CHAT-PANEL -->
+    <div id="exploreChatPanel" style="background:rgba(0,0,0,0.5);border:2px solid #27ae60;border-radius:8px;padding:8px;margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <strong style="color:#27ae60;font-size:13px;">💬 Område-chat</strong>
+        <span id="exploreChatAreaName" style="color:#aaa;font-size:11px;"></span>
+      </div>
+      <div id="exploreChatHistory" style="background:rgba(0,0,0,0.4);border-radius:6px;padding:6px;height:100px;overflow-y:auto;font-size:12px;color:#fff;font-family:monospace;line-height:1.4;">
+        <div style="color:#888;text-align:center;font-style:italic;">(ingen meldinger enda)</div>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:5px;">
+        <input id="exploreChatInput" type="text" maxlength="150" placeholder="Skriv en melding..." onkeydown="if(event.key==='Enter') sendExploreChatFromInput()" style="flex:1;padding:6px;background:rgba(0,0,0,0.6);color:white;border:1px solid #555;border-radius:6px;font-size:13px;">
+        <button onclick="sendExploreChatFromInput()" style="background:#27ae60;color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:bold;">Send</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -6143,7 +6157,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.13';
+const CLIENT_GAME_VERSION = '2026.06.03.14';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -14365,11 +14379,21 @@ function startExploreMultiplayer() {
   // Hent andre spillere hvert 1 sek
   _exploreMpPlayersTimer = setInterval(fetchOtherPlayers, 1000);
   fetchOtherPlayers();
+  // Hent chat hvert 2 sek
+  _exploreChatTimer = setInterval(fetchExploreChats, 2000);
+  fetchExploreChats();
+  // Vis område-navn i chat
+  const areaEl = document.getElementById('exploreChatAreaName');
+  if (areaEl) {
+    const area = EXPLORE_AREAS[exploreCurrentArea];
+    areaEl.textContent = area ? area.name : 'Område ' + exploreCurrentArea;
+  }
 }
 
 function stopExploreMultiplayer() {
   if (_exploreMpPositionTimer) { clearInterval(_exploreMpPositionTimer); _exploreMpPositionTimer = null; }
   if (_exploreMpPlayersTimer) { clearInterval(_exploreMpPlayersTimer); _exploreMpPlayersTimer = null; }
+  if (_exploreChatTimer) { clearInterval(_exploreChatTimer); _exploreChatTimer = null; }
   exploreOtherPlayers = [];
 }
 
@@ -14412,8 +14436,23 @@ async function fetchOtherPlayers() {
 }
 
 async function sendExploreChat() {
-  const msg = prompt('Hva vil du si til andre spillere? (maks 100 tegn)');
+  // T-tast åpner prompt
+  const msg = prompt('Hva vil du si til andre spillere? (maks 150 tegn)');
   if (!msg || !msg.trim()) return;
+  await sendChatMessage(msg.trim());
+}
+
+async function sendExploreChatFromInput() {
+  const inp = document.getElementById('exploreChatInput');
+  if (!inp) return;
+  const msg = (inp.value || '').trim();
+  if (!msg) return;
+  inp.value = '';
+  await sendChatMessage(msg);
+}
+
+async function sendChatMessage(msg) {
+  if (!state.username) { alert('Sett brukernavn først!'); return; }
   try {
     await fetch('/api/explore/chat', {
       method: 'POST',
@@ -14421,12 +14460,41 @@ async function sendExploreChat() {
       body: JSON.stringify({
         username: state.username,
         area: exploreCurrentArea,
-        message: msg.trim()
+        message: msg
       })
     });
-    // Vis lokalt med en gang
-    setExploreLog(`💬 Du: "${msg.trim()}"`);
+    // Trigger umiddelbar chat-refresh
+    fetchExploreChats();
   } catch (e) { alert('Kunne ikke sende: ' + e.message); }
+}
+
+let _exploreChatTimer = null;
+async function fetchExploreChats() {
+  if (!exploreActive || explorePhase !== 'on_map') return;
+  try {
+    const r = await fetch(`/api/explore/chats?area=${exploreCurrentArea}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const chats = d.chats || [];
+    const hist = document.getElementById('exploreChatHistory');
+    if (!hist) return;
+    if (chats.length === 0) {
+      hist.innerHTML = '<div style="color:#888;text-align:center;font-style:italic;">(ingen meldinger enda — skriv en hilsen!)</div>';
+      return;
+    }
+    hist.innerHTML = chats.slice(-20).map(c => {
+      const isMine = c.username === state.username;
+      const time = new Date(c.time);
+      const hh = String(time.getHours()).padStart(2, '0');
+      const mm = String(time.getMinutes()).padStart(2, '0');
+      return `<div style="margin-bottom:3px;${isMine ? 'color:#7dffac;' : ''}">
+        <span style="color:#888;">[${hh}:${mm}]</span>
+        <b style="color:${isMine ? '#7dffac' : '#9bd1ff'};">${(c.username || '').replace(/[<>&]/g, '')}:</b>
+        <span>${(c.message || '').replace(/[<>&]/g, '')}</span>
+      </div>`;
+    }).join('');
+    hist.scrollTop = hist.scrollHeight;
+  } catch (e) { /* ignorer */ }
 }
 
 function closeExplore() {
