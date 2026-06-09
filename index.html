@@ -5994,7 +5994,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.6';
+const CLIENT_GAME_VERSION = '2026.06.03.7';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -8206,11 +8206,13 @@ async function renderQuiz() {
     const bypassQS = (window.quizTestMode && state.username === CHEAT_OWNER_USERNAME)
       ? `?bypass=${encodeURIComponent(QUIZ_OWNER_BYPASS)}&username=${encodeURIComponent(state.username)}`
       : '';
-    const [rM, rNoon] = await Promise.all([
+    const [rM, r905, rNoon] = await Promise.all([
       fetch('/api/quiz/today' + bypassQS),
+      fetch('/api/quiz/nineofive' + bypassQS),
       fetch('/api/quiz/noon' + bypassQS)
     ]);
     const dM = await rM.json();
+    const d905 = await r905.json();
     const dNoon = await rNoon.json();
     content.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;">
@@ -8220,6 +8222,13 @@ async function renderQuiz() {
           msgId: 'quizMsg',
           submitFn: 'submitQuizAnswer',
           dayLabel: dM.day ? ('DAG ' + dM.day) : ''
+        })}
+        ${quizSectionHtml(d905, {
+          title: '☀️ 09:05-quiz (2 min vindu)',
+          inputId: 'quiz905Input',
+          msgId: 'quiz905Msg',
+          submitFn: 'submit905QuizAnswer',
+          dayLabel: d905.day ? ('DAG ' + d905.day) : ''
         })}
         ${quizSectionHtml(dNoon, {
           title: '🕛 Mat-tid quiz (11:50 — 2 min vindu)',
@@ -8231,12 +8240,61 @@ async function renderQuiz() {
     `;
     if (dM.available) {
       setTimeout(() => { const i = document.getElementById('quizAnswerInput'); if (i) i.focus(); }, 50);
+    } else if (d905.available) {
+      setTimeout(() => { const i = document.getElementById('quiz905Input'); if (i) i.focus(); }, 50);
     } else if (dNoon.available) {
       setTimeout(() => { const i = document.getElementById('quizNoonInput'); if (i) i.focus(); }, 50);
     }
-    lastQuizState = (dM.available || dNoon.available) ? 'available' : 'inactive';
+    lastQuizState = (dM.available || d905.available || dNoon.available) ? 'available' : 'inactive';
   } catch (e) {
     content.innerHTML = '<div style="color:#e74c3c;">Kunne ikke laste quiz: ' + e.message + '</div>';
+  }
+}
+
+async function submit905QuizAnswer() {
+  const inp = document.getElementById('quiz905Input');
+  const msgEl = document.getElementById('quiz905Msg');
+  if (!inp || !state.username) {
+    if (msgEl) { msgEl.textContent = '✗ Du må være logget inn'; msgEl.style.color = '#e74c3c'; }
+    return;
+  }
+  const answer = (inp.value || '').trim();
+  if (!answer) { msgEl.textContent = '✗ Skriv et svar først'; msgEl.style.color = '#e74c3c'; return; }
+  msgEl.textContent = '⏳ Sender...';
+  msgEl.style.color = '#aaa';
+  try {
+    const isOwnerTest = !!(window.quizTestMode && state.username === CHEAT_OWNER_USERNAME);
+    const r = await fetch('/api/quiz/nineofive/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.username,
+        answer,
+        bypass: isOwnerTest ? QUIZ_OWNER_BYPASS : undefined
+      })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok && d.correct) {
+      msgEl.innerHTML = `🎉 RIKTIG! Du vant <b>${d.prizeText}</b>!<br>
+        <div style="background:#000;border:2px solid gold;padding:14px;border-radius:8px;margin-top:10px;">
+          <div style="font-size:11px;color:#ffd700;">Din hemmelige innløsningskode:</div>
+          <div style="font-size:28px;font-weight:bold;color:gold;letter-spacing:4px;font-family:monospace;text-shadow:0 0 8px gold;user-select:all;">${d.redeemCode}</div>
+          <div style="font-size:11px;color:#fff;margin-top:6px;">📋 Kopier koden og lim den i <b>cheat-prompten</b>!</div>
+          <div style="font-size:10px;color:#fbb;margin-top:4px;">⏰ Gyldig i 24 timer</div>
+        </div>`;
+      msgEl.style.color = '#2ecc71';
+    } else if (d.correct === false) {
+      msgEl.textContent = '✗ Feil svar! Prøv igjen.';
+      msgEl.style.color = '#e74c3c';
+      inp.value = '';
+      inp.focus();
+    } else {
+      msgEl.textContent = '✗ ' + (d.error || 'Feil');
+      msgEl.style.color = '#e74c3c';
+    }
+  } catch (e) {
+    msgEl.textContent = '✗ Server-feil: ' + e.message;
+    msgEl.style.color = '#e74c3c';
   }
 }
 
@@ -8336,15 +8394,17 @@ async function submitQuizAnswer() {
 
 async function checkQuizAvailable() {
   try {
-    const [rM, rNoon] = await Promise.all([
+    const [rM, r905, rNoon] = await Promise.all([
       fetch('/api/quiz/today'),
+      fetch('/api/quiz/nineofive'),
       fetch('/api/quiz/noon')
     ]);
     const dM = await rM.json();
+    const d905 = await r905.json();
     const dNoon = await rNoon.json();
     const badge = document.getElementById('quizBadge');
     if (badge) {
-      if (dM.available || dNoon.available) {
+      if (dM.available || d905.available || dNoon.available) {
         badge.style.display = 'block';
         badge.textContent = '!';
       } else {

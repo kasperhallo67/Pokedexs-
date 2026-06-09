@@ -1372,6 +1372,130 @@ const MORNING_OPEN_HOUR = 9;
 const MORNING_OPEN_MINUTE = 0;
 const MORNING_WINDOW_MINUTES = 2;
 
+// === EKSTRA 09:05-quiz — separat fra 09:00 morgen-quiz ===
+const NINE_O_FIVE_QUIZ_SERIES = [
+  { day: 1,  question: 'Hvor mange ben har en bie?',                       answers: ['6','seks','six'],                                                            prize: { type: 'coins', amount: 800000 },                                                                       prizeText: '800 000 💰' },
+  { day: 2,  question: 'Hvilken farge er sola?',                           answers: ['gul','oransje','yellow','orange','gul-oransje'],                             prize: { type: 'pokemon', pokemonId: 6, name: 'Charizard', cp: 9000, rarity: 'epic', isShiny: false },           prizeText: 'Charizard CP 9000' },
+  { day: 3,  question: 'Hva er Pi rundet til 2 desimaler?',                answers: ['3.14','3,14','3.14159','3,14159','pi'],                                      prize: { type: 'coins', amount: 1500000 },                                                                      prizeText: '1 500 000 💰' },
+  { day: 4,  question: 'Hva heter Norges nasjonalsang?',                   answers: ['ja vi elsker','ja, vi elsker','ja vi elsker dette landet'],                  prize: { type: 'pokemon', pokemonId: 143, name: 'Snorlax', cp: 8500, rarity: 'epic', isShiny: false },            prizeText: 'Snorlax CP 8500' },
+  { day: 5,  question: 'Hva slags dyrekategori er en delfin?',             answers: ['pattedyr','mammal','sjøpattedyr'],                                            prize: { type: 'coins', amount: 1000000 },                                                                      prizeText: '1 000 000 💰' },
+  { day: 6,  question: 'Hvor mange sider har en sekskant?',                answers: ['6','seks','six','six sides'],                                                 prize: { type: 'pokemon', pokemonId: 133, name: 'Eevee', cp: 8800, rarity: 'rare', isShiny: true },              prizeText: '✨ Shiny Eevee CP 8800' },
+  { day: 7,  question: 'Hvilken planet er nærmest sola?',                  answers: ['merkur','mercury'],                                                           prize: { type: 'coins', amount: 1200000 },                                                                      prizeText: '1 200 000 💰' },
+  { day: 8,  question: 'Hvor mange land grenser til Norge?',               answers: ['3','tre','three'],                                                            prize: { type: 'pokemon', pokemonId: 448, name: 'Lucario', cp: 9200, rarity: 'epic', isShiny: false },           prizeText: 'Lucario CP 9200' },
+  { day: 9,  question: 'Hva er hovedstaden i Italia?',                     answers: ['roma','rome'],                                                                prize: { type: 'coins', amount: 2000000 },                                                                      prizeText: '2 000 000 💰' },
+  { day: 10, question: 'Hva heter Norges nåværende konge?',                answers: ['harald','harald v','harald 5','kong harald','king harald'],                  prize: { type: 'pokemon', pokemonId: 94, name: 'Gengar', cp: 9500, rarity: 'epic', isShiny: true },              prizeText: '✨ Shiny Gengar CP 9500' }
+];
+const NINE_O_FIVE_OPEN_HOUR = 9;
+const NINE_O_FIVE_OPEN_MINUTE = 5;
+const NINE_O_FIVE_WINDOW_MINUTES = 2;
+
+function getNineOFiveDay() {
+  let q = readJson(QUIZ_FILE, {});
+  if (!q.nineOFiveStartDate) {
+    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+    q.nineOFiveStartDate = today;
+    writeJson(QUIZ_FILE, q);
+  }
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+  const start = new Date(q.nineOFiveStartDate + 'T00:00:00');
+  const now = new Date(today + 'T00:00:00');
+  return Math.floor((now - start) / 86400000) + 1;
+}
+function isNineOFiveOpen(t) {
+  const startMin = NINE_O_FIVE_OPEN_HOUR * 60 + NINE_O_FIVE_OPEN_MINUTE;
+  const endMin = startMin + NINE_O_FIVE_WINDOW_MINUTES;
+  const nowMin = t.hour * 60 + t.minute;
+  return nowMin >= startMin && nowMin < endMin;
+}
+function isBeforeNineOFive(t) {
+  return (t.hour * 60 + t.minute) < (NINE_O_FIVE_OPEN_HOUR * 60 + NINE_O_FIVE_OPEN_MINUTE);
+}
+
+app.get('/api/quiz/nineofive', (req, res) => {
+  const t = getNorwayTime();
+  const bypassUser = (req.query.username || '').trim();
+  const bypassKey = (req.query.bypass || '').trim();
+  const isOwnerBypass = bypassKey === QUIZ_OWNER_BYPASS && bypassUser === QUIZ_OWNER_USERNAME;
+  const day = getNineOFiveDay();
+  const quiz = NINE_O_FIVE_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) {
+    return res.json({ available: false, reason: 'finished', message: 'Ingen flere 09:05-quizer i serien.' });
+  }
+  if (!isNineOFiveOpen(t) && !isOwnerBypass) {
+    const before = isBeforeNineOFive(t);
+    return res.json({
+      available: false,
+      reason: before ? 'too_early' : 'window_closed',
+      message: before
+        ? `09:05-quizen åpner kl 09:05 (kun ${NINE_O_FIVE_WINDOW_MINUTES} min vindu!) — nå: ${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`
+        : `09:05-quizen lukket kl 09:${String(NINE_O_FIVE_OPEN_MINUTE + NINE_O_FIVE_WINDOW_MINUTES).padStart(2,'0')} — kom tilbake i morgen!`,
+      day
+    });
+  }
+  const state = readJson(QUIZ_FILE, {});
+  state.nineOFiveClaims = state.nineOFiveClaims || {};
+  const todayKey = t.date;
+  if (state.nineOFiveClaims[todayKey]) {
+    return res.json({
+      available: false,
+      reason: 'claimed',
+      claimedBy: state.nineOFiveClaims[todayKey].username,
+      claimedAt: state.nineOFiveClaims[todayKey].claimedAt,
+      question: quiz.question,
+      prizeText: quiz.prizeText,
+      day,
+      message: `Allerede vunnet av ${state.nineOFiveClaims[todayKey].username} i dag`
+    });
+  }
+  res.json({
+    available: true,
+    day,
+    question: quiz.question,
+    prizeText: quiz.prizeText,
+    windowMinutes: NINE_O_FIVE_WINDOW_MINUTES
+  });
+});
+
+app.post('/api/quiz/nineofive/answer', (req, res) => {
+  const { username, answer, bypass } = req.body || {};
+  const u = (username || '').trim();
+  const a = (answer || '').trim().toLowerCase();
+  if (!u || !a) return res.status(400).json({ ok: false, error: 'Missing fields' });
+  const isOwnerBypass = bypass === QUIZ_OWNER_BYPASS && u === QUIZ_OWNER_USERNAME;
+  const t = getNorwayTime();
+  if (!isNineOFiveOpen(t) && !isOwnerBypass) {
+    return res.status(403).json({ ok: false, error: `Vinduet er lukket (åpent 09:05 - 09:${String(NINE_O_FIVE_OPEN_MINUTE + NINE_O_FIVE_WINDOW_MINUTES).padStart(2,'0')})` });
+  }
+  const day = getNineOFiveDay();
+  const quiz = NINE_O_FIVE_QUIZ_SERIES.find(q => q.day === day);
+  if (!quiz) return res.status(404).json({ ok: false, error: 'Ingen 09:05-quiz i dag' });
+  const state = readJson(QUIZ_FILE, {});
+  state.nineOFiveClaims = state.nineOFiveClaims || {};
+  state.noonRedeemCodes = state.noonRedeemCodes || {};
+  const todayKey = t.date;
+  if (state.nineOFiveClaims[todayKey]) {
+    return res.status(409).json({ ok: false, error: `Allerede vunnet av ${state.nineOFiveClaims[todayKey].username}` });
+  }
+  const correct = quiz.answers.some(ans => ans.toLowerCase() === a);
+  if (!correct) {
+    return res.json({ ok: false, correct: false, message: 'Feil svar! Prøv igjen.' });
+  }
+  // RIKTIG! Generer redeem-kode (samme pool som de andre quizene)
+  const code = generateRedeemCode();
+  state.noonRedeemCodes[code] = {
+    username: u,
+    prize: quiz.prize,
+    prizeText: quiz.prizeText,
+    issuedAt: new Date().toISOString(),
+    redeemed: false,
+    expiresAt: Date.now() + 24 * 3600 * 1000,
+    source: 'nineofive'
+  };
+  state.nineOFiveClaims[todayKey] = { username: u, claimedAt: new Date().toISOString(), code };
+  writeJson(QUIZ_FILE, state);
+  res.json({ ok: true, correct: true, redeemCode: code, prizeText: quiz.prizeText });
+});
+
 // Norway local hour
 function getNorwayHour() {
   const h = new Date().toLocaleString('en-US', { timeZone: 'Europe/Oslo', hour: 'numeric', hour12: false });
@@ -1389,7 +1513,7 @@ function getNorwayTime() {
 
 // 11:50-quizen — NYTT spørsmål hver dag, vindu 2 minutter, vinner får redemption-kode
 const NOON_QUIZ_SERIES = [
-  { day: 1,  question: 'Hva er 1000 × 1000?',                            answers: ['1000000','1 000 000','1.000.000','1,000,000','million','en million','én million','1 million'], prize: { type: 'coins', amount: 1000000 },                            prizeText: '1 000 000 💰' },
+  { day: 1,  question: 'Hva er 25 × 4?',                                  answers: ['100','hundre','one hundred','et hundre'],                                    prize: { type: 'coins', amount: 1000000 },                            prizeText: '1 000 000 💰' },
   { day: 2,  question: 'Hvor mange ben har en edderkopp?',                answers: ['8','åtte','atte','eight'],                                                                  prize: { type: 'coins', amount: 1500000 },                            prizeText: '1 500 000 💰' },
   { day: 3,  question: 'Hva er den største planeten i solsystemet?',      answers: ['jupiter'],                                                                                  prize: { type: 'pokemon', pokemonId: 150, name: 'Mewtwo', cp: 9000, rarity: 'legendary', isShiny: false }, prizeText: 'Mewtwo CP 9000' },
   { day: 4,  question: 'Hvilket dyr blir kalt kongen av jungelen?',       answers: ['løve','love','loven','løven','lion'],                                                       prize: { type: 'coins', amount: 800000 },                             prizeText: '800 000 💰' },
@@ -1756,7 +1880,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.6';
+const GAME_VERSION = '2026.06.03.7';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
