@@ -8447,11 +8447,24 @@ function resolveWheelPrize(prize) {
   wheelSpinning = false;
   const resultEl = document.getElementById('wheelResult');
   if (prize.type === 'coins') {
-    state.coins = (state.coins || 0) + prize.amount;
-    save(); updateUI(); submitScore(); checkAchievements();
+    // Sikker tall-coercion (state.coins kunne være string fra gammel save)
+    const before = Number(state.coins) || 0;
+    const amount = Number(prize.amount) || 0;
+    state.coins = before + amount;
+    console.log(`[Wheel] Coins: ${before} + ${amount} = ${state.coins}`);
+    // Tving save og UI-oppdatering
+    save();
+    updateUI();
+    submitScore();
+    checkAchievements();
+    // Re-verify etter en frame at coins faktisk vises (defensiv)
+    requestAnimationFrame(() => {
+      const coinEl = document.getElementById('coins');
+      if (coinEl) coinEl.textContent = state.coins;
+    });
     if (resultEl) {
       const isJackpot = prize.key === 'JACKPOT';
-      resultEl.innerHTML = `${isJackpot ? '💎💎💎 JACKPOT! 💎💎💎<br>' : '🎉 '}<b>+${prize.amount.toLocaleString()} 💰</b>!`;
+      resultEl.innerHTML = `${isJackpot ? '💎💎💎 JACKPOT! 💎💎💎<br>' : '🎉 '}<b>+${amount.toLocaleString()} 💰</b>!<br><span style="font-size:13px;color:#7df;">Ny saldo: ${state.coins.toLocaleString()} 💰</span>`;
       if (isJackpot) resultEl.style.animation = 'shinyShift 1.5s ease-in-out infinite';
     }
   } else if (prize.type === 'pokemon') {
@@ -8484,6 +8497,10 @@ function resolveWheelPrize(prize) {
     state.seen[poke.id] = true;
     state.totalCatches = (state.totalCatches || 0) + 1;
     save(); updateUI(); submitScore(); checkAchievements();
+    requestAnimationFrame(() => {
+      const coinEl = document.getElementById('coins');
+      if (coinEl) coinEl.textContent = state.coins;
+    });
     if (resultEl) {
       resultEl.innerHTML = `🎁 Du vant <b>${poke.name}</b> CP <b>${cp}</b>!<br><img src="${SPRITE_URL(poke.id)}" style="width:80px;height:80px;image-rendering:pixelated;margin-top:6px;">`;
     }
