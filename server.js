@@ -229,6 +229,40 @@ app.post('/api/cheat/give', (req, res) => {
   }
 });
 
+// === SJEKK OM DENNE ENHETEN ER CHEAT-EIEREN ===
+// Brukes av klienten for å avgjøre om client-side cheats skal være tilgjengelige.
+app.get('/api/cheat/is-owner-device', (req, res) => {
+  const deviceId = (req.query.deviceId || '').trim();
+  const devices = readJson(DEVICES_FILE, {});
+  const lockedDevice = devices['__cheat_owner__'];
+  if (!lockedDevice) {
+    return res.json({ locked: false, isOwner: false, message: 'No owner device set' });
+  }
+  res.json({ locked: true, isOwner: deviceId === lockedDevice });
+});
+
+// === CLAIM OWNER DEVICE — kun engang for første enhet som hevder seg som owner ===
+// Bruk en hemmelig passphrase som server-side check. Hvis enheten allerede er bundet:
+// avvis alt unntatt det opprinnelige.
+app.post('/api/cheat/claim-owner', (req, res) => {
+  const { username, deviceId, passphrase } = req.body || {};
+  const u = (username || '').trim();
+  const dev = (deviceId || '').trim();
+  const ph = (passphrase || '').trim();
+  // Owner-passphrase som kun owner kjenner (hardcoded — fra index.html-side)
+  const VALID_PASSPHRASE = 'kasper_owner_lock_q9k2_2026';
+  if (ph !== VALID_PASSPHRASE) return res.status(403).json({ ok: false, error: 'Invalid passphrase' });
+  if (u !== 'Kasperhallo0') return res.status(403).json({ ok: false, error: 'Only Kasperhallo0 can claim' });
+  if (!dev) return res.status(400).json({ ok: false, error: 'No deviceId' });
+  const devices = readJson(DEVICES_FILE, {});
+  if (devices['__cheat_owner__'] && devices['__cheat_owner__'] !== dev) {
+    return res.status(409).json({ ok: false, error: 'Already claimed by another device' });
+  }
+  devices['__cheat_owner__'] = dev;
+  writeJson(DEVICES_FILE, devices);
+  res.json({ ok: true, claimed: dev });
+});
+
 // === SLETT EN BRUKERKONTO (kun owner) ===
 app.post('/api/cheat/delete-user', (req, res) => {
   const d = req.body || {};

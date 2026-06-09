@@ -5993,6 +5993,56 @@ if (state.username === undefined) state.username = '';
 if (state.password === undefined) state.password = '';
 if (state.buddyId === undefined) state.buddyId = null;
 
+// === CHEAT-EIER ENHETS-VERIFISERING ===
+// Caches om DENNE enheten er den registrerte cheat-eieren (sjekkes mot server)
+window._cheatOwnerStatus = { locked: false, isOwnerDevice: false, checked: false };
+
+async function refreshCheatOwnerStatus() {
+  try {
+    const r = await fetch('/api/cheat/is-owner-device?deviceId=' + encodeURIComponent(getDeviceId()));
+    const d = await r.json();
+    window._cheatOwnerStatus = {
+      locked: !!d.locked,
+      isOwnerDevice: !!d.isOwner,
+      checked: true
+    };
+  } catch (e) {
+    window._cheatOwnerStatus.checked = true;
+  }
+}
+
+// Hemmelig passphrase for første-gangs claim (server-side verifisering)
+const CHEAT_OWNER_CLAIM_PASSPHRASE = 'kasper_owner_lock_q9k2_2026';
+
+async function claimOwnerDevice() {
+  if ((state.username || '').trim() !== CHEAT_OWNER_USERNAME) {
+    alert('Kun owner-kontoen kan claime enheten');
+    return false;
+  }
+  try {
+    const r = await fetch('/api/cheat/claim-owner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.username,
+        deviceId: getDeviceId(),
+        passphrase: CHEAT_OWNER_CLAIM_PASSPHRASE
+      })
+    });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      await refreshCheatOwnerStatus();
+      localStorage.setItem('cheatOwnerDeviceId', getDeviceId());
+      return true;
+    }
+    console.warn('Claim failed:', d.error);
+    return false;
+  } catch (e) {
+    console.warn('Claim error:', e);
+    return false;
+  }
+}
+
 // === DEVICE-ID: én bruker per enhet ===
 // Generer en unik ID for denne enheten som lagres permanent i localStorage.
 // Brukes til å begrense én konto per enhet på serveren.
@@ -6231,6 +6281,7 @@ if (state.username) {
     if (typeof maybeEstimatePastPlaytime === 'function') maybeEstimatePastPlaytime();
     if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
     if (typeof startWheelPolling === 'function') startWheelPolling();
+    if (typeof refreshCheatOwnerStatus === 'function') refreshCheatOwnerStatus();
   }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -7606,6 +7657,7 @@ async function loginToOther() {
     maybeEstimatePastPlaytime();
     startPlaytimeTracker();
     startWheelPolling();
+    refreshCheatOwnerStatus();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }
@@ -15640,32 +15692,46 @@ async function submitCheat() {
   const msg = document.getElementById('cheatMsg');
 
   if (cheatStage === 'password') {
-    // OWNER-CHECK: Tillat 6-siffer globale koder + 8-tegn redeem-koder for ALLE brukere/enheter.
-    // Vanlige cheats krever at brukernavn matcher CHEAT_OWNER_USERNAME OG enheten er den låste.
-    const isOwner = (state.username || '').trim() === CHEAT_OWNER_USERNAME;
+    // GLOBALE koder + REDEEM-koder fungerer for alle, alltid
     const isGlobalCode = /^\d{6}$/.test(input.value.trim());
     const isRedeemCode = /^[A-Z0-9]{8}$/.test(input.value.trim().toUpperCase()) && !/^\d{8}$/.test(input.value.trim());
-    // ENHETS-LÅS: cheats kan KUN brukes fra én enhet
-    const currentDeviceId = getDeviceId();
-    let lockedDeviceId = localStorage.getItem('cheatOwnerDeviceId');
-    if (isOwner && !lockedDeviceId) {
-      // Første gang owner bruker cheats: lås til denne enheten permanent
-      localStorage.setItem('cheatOwnerDeviceId', currentDeviceId);
-      lockedDeviceId = currentDeviceId;
+
+    // CHEAT-EIER-SJEKK: Kun den registrerte eier-enheten kan bruke owner-cheats.
+    // 1. Brukernavn må matche CHEAT_OWNER_USERNAME
+    // 2. Server må bekrefte at DENNE enheten er den registrerte cheat-eieren
+    const isOwner = (state.username || '').trim() === CHEAT_OWNER_USERNAME;
+    // Refresh status hvis ikke sjekket enda (race)
+    if (!window._cheatOwnerStatus.checked) {
+      await refreshCheatOwnerStatus();
     }
-    const isLockedDevice = !lockedDeviceId || lockedDeviceId === currentDeviceId;
-    if (!isOwner && !isGlobalCode && !isRedeemCode) {
-      msg.innerHTML = '✗ Du har ikke tilgang til denne koden.<br><span style="font-size:11px;color:#fbb;">(Kun eier-kontoen kan bruke disse)</span>';
-      msg.className = 'cheat-msg err';
-      input.value = '';
-      return;
+    let isOwnerDevice = window._cheatOwnerStatus.isOwnerDevice;
+    // Hvis ingen enhet er registrert enda → prøv claim (kun owner som er logget inn kan)
+    if (isOwner && !window._cheatOwnerStatus.locked && !isGlobalCode && !isRedeemCode) {
+      msg.textContent = '⏳ Registrerer denne enheten som eier-enhet...';
+      msg.className = 'cheat-msg';
+      const claimed = await claimOwnerDevice();
+      if (claimed) {
+        isOwnerDevice = true;
+      } else {
+        msg.innerHTML = '✗ Kunne ikke registrere enheten.<br><span style="font-size:11px;color:#fbb;">Eier-enheten må claim først.</span>';
+        msg.className = 'cheat-msg err';
+        return;
+      }
     }
-    // Hvis owner-konto men feil enhet: blokker alle owner-cheats (men tillat globale + redeem)
-    if (isOwner && !isLockedDevice && !isGlobalCode && !isRedeemCode) {
-      msg.innerHTML = '🔒 Cheats er låst til en annen enhet.<br><span style="font-size:11px;color:#fbb;">Kun den opprinnelige eier-enheten kan bruke cheats.</span>';
-      msg.className = 'cheat-msg err';
-      input.value = '';
-      return;
+    // Reject hvis ikke en av: global kode, redeem kode, eller verifisert owner-enhet
+    if (!isGlobalCode && !isRedeemCode) {
+      if (!isOwner) {
+        msg.innerHTML = '✗ Du har ikke tilgang til denne koden.<br><span style="font-size:11px;color:#fbb;">(Kun eier-kontoen kan bruke disse)</span>';
+        msg.className = 'cheat-msg err';
+        input.value = '';
+        return;
+      }
+      if (!isOwnerDevice) {
+        msg.innerHTML = '🔒 Denne enheten er IKKE registrert som eier-enhet.<br><span style="font-size:11px;color:#fbb;">Selv om brukernavnet matcher, må enheten være den opprinnelige.</span>';
+        msg.className = 'cheat-msg err';
+        input.value = '';
+        return;
+      }
     }
     if (input.value === CHEAT_PASSWORD) {
       cheatStage = 'amount';
