@@ -577,10 +577,27 @@ app.post('/api/trade/ind/send', (req, res) => {
   const d = req.body || {};
   const from = (d.from || '').trim();
   const to   = (d.to   || '').trim();
-  const offer = d.offer || null;  // { uid, id, name, cp, isShiny, ... }
-  const want  = d.want  || null;
+  let offer = d.offer || null;
+  let want  = d.want  || null;
+  // Backward-compat: hvis offer/want er enkelt-objekt med uid, konverter til { individuals: [...], coins: 0 }
+  if (offer && offer.uid && !offer.individuals) {
+    offer = { individuals: [offer], coins: 0 };
+  }
+  if (want && want.uid && !want.individuals) {
+    want = { individuals: [want], coins: 0 };
+  }
   if (!from || !to || from === to || !offer || !want) {
     return res.status(400).json({ ok: false, error: 'Missing fields' });
+  }
+  offer.individuals = Array.isArray(offer.individuals) ? offer.individuals.slice(0, 5) : [];
+  want.individuals = Array.isArray(want.individuals) ? want.individuals.slice(0, 5) : [];
+  offer.coins = Math.max(0, parseInt(offer.coins) || 0);
+  want.coins = Math.max(0, parseInt(want.coins) || 0);
+  if (offer.individuals.length === 0 && offer.coins === 0) {
+    return res.status(400).json({ ok: false, error: 'Empty offer' });
+  }
+  if (want.individuals.length === 0 && want.coins === 0) {
+    return res.status(400).json({ ok: false, error: 'Empty want' });
   }
   const trades = readJson(TRADES_FILE, []);
   const newTrade = {
@@ -596,7 +613,7 @@ app.post('/api/trade/ind/send', (req, res) => {
   res.json({ ok: true, trade: newTrade });
 });
 
-// Aksepter/avslå individuelt trade. Ved accept: bytt individer mellom brukerne.
+// Aksepter/avslå individuelt trade. Ved accept: bytt individer + coins mellom brukerne.
 app.post('/api/trade/ind/respond', (req, res) => {
   const { id, action, username } = req.body || {};
   const trades = readJson(TRADES_FILE, []);
@@ -609,7 +626,14 @@ app.post('/api/trade/ind/respond', (req, res) => {
     return res.json({ ok: true, trade: t });
   }
 
-  // accept: validér og swap
+  // Normaliser legacy format
+  if (t.offer && t.offer.uid && !t.offer.individuals) t.offer = { individuals: [t.offer], coins: 0 };
+  if (t.want && t.want.uid && !t.want.individuals) t.want = { individuals: [t.want], coins: 0 };
+  t.offer.individuals = t.offer.individuals || [];
+  t.want.individuals = t.want.individuals || [];
+  t.offer.coins = parseInt(t.offer.coins) || 0;
+  t.want.coins = parseInt(t.want.coins) || 0;
+
   const users = readJson(USERS_FILE, {});
   if (!users[t.from] || !users[t.to]) {
     t.status = 'failed';
@@ -625,27 +649,55 @@ app.post('/api/trade/ind/respond', (req, res) => {
   }
   stFrom.individuals = Array.isArray(stFrom.individuals) ? stFrom.individuals : [];
   stTo.individuals   = Array.isArray(stTo.individuals)   ? stTo.individuals   : [];
+  stFrom.coins = parseInt(stFrom.coins) || 0;
+  stTo.coins   = parseInt(stTo.coins) || 0;
 
-  const fromIdx = stFrom.individuals.findIndex(i => i.uid === t.offer.uid);
-  const toIdx   = stTo.individuals.findIndex(i => i.uid === t.want.uid);
-  if (fromIdx === -1 || toIdx === -1) {
-    t.status = 'failed';
-    t.error = 'One of the Pokémon is no longer available';
+  // Valider at coins er tilstrekkelig
+  if (stFrom.coins < t.offer.coins) {
+    t.status = 'failed'; t.error = `${t.from} har ikke nok coins (${stFrom.coins} < ${t.offer.coins})`;
+    writeJson(TRADES_FILE, trades);
+    return res.status(409).json({ ok: false, error: t.error });
+  }
+  if (stTo.coins < t.want.coins) {
+    t.status = 'failed'; t.error = `Du har ikke nok coins (${stTo.coins} < ${t.want.coins})`;
     writeJson(TRADES_FILE, trades);
     return res.status(409).json({ ok: false, error: t.error });
   }
 
-  // Faktisk swap
-  const fromInd = stFrom.individuals[fromIdx];
-  const toInd   = stTo.individuals[toIdx];
-  stFrom.individuals.splice(fromIdx, 1);
-  stTo.individuals.splice(toIdx, 1);
-  stFrom.individuals.push(toInd);
-  stTo.individuals.push(fromInd);
+  // Finn indekser for alle individer på begge sider
+  const fromIdxs = t.offer.individuals.map(o => stFrom.individuals.findIndex(i => i.uid === o.uid));
+  const toIdxs = t.want.individuals.map(w => stTo.individuals.findIndex(i => i.uid === w.uid));
+  if (fromIdxs.some(idx => idx === -1) || toIdxs.some(idx => idx === -1)) {
+    t.status = 'failed'; t.error = 'Én eller flere Pokémon er ikke lenger tilgjengelig';
+    writeJson(TRADES_FILE, trades);
+    return res.status(409).json({ ok: false, error: t.error });
+  }
+
+  // Hent individene FØR vi fjerner dem
+  const offerInds = fromIdxs.map(idx => stFrom.individuals[idx]);
+  const wantInds = toIdxs.map(idx => stTo.individuals[idx]);
+
+  // Fjern fra hver side (i synkende index-rekkefølge for å unngå index-shift)
+  fromIdxs.sort((a, b) => b - a).forEach(idx => stFrom.individuals.splice(idx, 1));
+  toIdxs.sort((a, b) => b - a).forEach(idx => stTo.individuals.splice(idx, 1));
+
+  // Legg til den andre sidens individer
+  stFrom.individuals.push(...wantInds);
+  stTo.individuals.push(...offerInds);
+
+  // Overfør coins
+  stFrom.coins = stFrom.coins - t.offer.coins + t.want.coins;
+  stTo.coins = stTo.coins - t.want.coins + t.offer.coins;
 
   users[t.from].state = JSON.stringify(stFrom);
   users[t.to].state   = JSON.stringify(stTo);
   writeJson(USERS_FILE, users);
+
+  // Oppdater scores
+  const scores = readJson(SCORES_FILE, {});
+  if (scores[t.from]) { scores[t.from].coins = stFrom.coins; }
+  if (scores[t.to]) { scores[t.to].coins = stTo.coins; }
+  writeJson(SCORES_FILE, scores);
 
   t.status = 'accepted';
   writeJson(TRADES_FILE, trades);
@@ -1704,7 +1756,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.5';
+const GAME_VERSION = '2026.06.03.6';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
