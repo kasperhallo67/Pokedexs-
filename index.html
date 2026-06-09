@@ -440,7 +440,7 @@
     border: 6px solid #5a3a1a;
     box-shadow: 0 0 20px rgba(0,0,0,0.7), inset 0 0 15px rgba(0,0,0,0.5);
     position: relative;
-    transition: transform 4s cubic-bezier(0.17, 0.67, 0.21, 0.99);
+    transition: transform 7s cubic-bezier(0.12, 0.78, 0.15, 0.99);
     /* background settes dynamisk i renderRoulette() basert på faktiske farger */
   }
   .roulette-pointer {
@@ -13412,8 +13412,8 @@ function spinRoulette() {
   // I conic-gradient ovenfor starter slice 0 på 0deg (toppen). Hver slice tar 360/37 = ~9.73deg.
   // For å få winNum på topp må vi rotere -(winNum * sliceDeg).
   const baseTarget = -winNum * sliceDeg;
-  // Legg på minst 6 hele rotasjoner for dramatikk
-  const spins = 6 + Math.floor(Math.random() * 3);
+  // Mange flere rotasjoner — raskere spin men varer lenger
+  const spins = 14 + Math.floor(Math.random() * 5); // 14-18 hele runder
   rouletteRotation = baseTarget - spins * 360;
   wheel.style.transform = `rotate(${rouletteRotation}deg)`;
 
@@ -13424,7 +13424,7 @@ function spinRoulette() {
     numEl.style.background = col === 'red' ? '#e74c3c' : col === 'black' ? '#2c3e50' : '#2ecc71';
     numEl.style.color = '#fff';
     resolveRoulette(winNum, bet, activeBets);
-  }, 4100);
+  }, 7100);
 }
 
 function resolveRoulette(winNum, bet, activeBets) {
