@@ -5747,10 +5747,11 @@ const BALLS = {
   singularity: {
     name: 'Singularity Ball',
     icon: '🌌',
-    price: 75000,
-    odds: { common: 0, uncommon: 0, rare: 0, epic: 10, legendary: 75, rocket: 15 },
-    shinyChance: 60,
-    desc: '🌌 Quantum AI · 60% shiny · 15% Team Rocket · BEST legendary'
+    price: 100000,
+    odds: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 80, rocket: 20 },
+    shinyChance: 85,
+    multiCatch: 2,
+    desc: '🌌 80% Legendary · 20% Rocket · 85% SHINY · 2x catch · GUARANTEED top tier'
   },
 };
 
@@ -5993,7 +5994,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.3';
+const CLIENT_GAME_VERSION = '2026.06.03.4';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
