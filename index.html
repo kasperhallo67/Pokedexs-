@@ -6181,7 +6181,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.28';
+const CLIENT_GAME_VERSION = '2026.06.03.29';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -15322,8 +15322,18 @@ function coinflipGuess(side) {
   const inner = document.getElementById('coinflipInner');
   coin.classList.remove('flipping');
   void coin.offsetWidth;
-  // Rull resultatet — 50/50
-  const result = Math.random() < 0.5 ? 'heads' : 'tails';
+  // Rull resultatet — TRUE 50/50 med crypto-sikker tilfeldighet
+  // (kan ikke forutsies eller "gamet" av strategier — Math.random() kan teoretisk overstyres
+  // via DevTools, mens crypto.getRandomValues er garantert tilfeldig)
+  let randomBit;
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(1);
+    crypto.getRandomValues(buf);
+    randomBit = buf[0] < 128; // 50/50 — første bit av et tilfeldig byte
+  } else {
+    randomBit = Math.random() < 0.5;
+  }
+  const result = randomBit ? 'heads' : 'tails';
   // Sett rotation slik at riktig side lander opp etter animasjon
   // animation slutter på rotateY(3600deg) som er samme som 0 → heads
   // for tails: rotateY(3780deg)
