@@ -6282,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.34';
+const CLIENT_GAME_VERSION = '2026.06.03.35';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -7578,17 +7578,15 @@ function closeModal(name) {
   document.getElementById(name + 'Modal').classList.remove('active');
 }
 
-// === BALL SALE: 50% off på alle baller frem til i morgen kl 10:00 ===
+// === BALL SALE: 50% off på alle baller ===
+// Hardcoded slutt-timestamp: 36 timer fra deploy (alltid aktiv for de neste 1.5 dagene)
+const BALL_SALE_DEPLOY_TS = 1781280000000; // referansetimestamp
 function getBallSaleEnd() {
-  // Lagre slutt-tidspunkt i localStorage. Hvis ikke satt: i morgen kl 10:00 (lokal/Norge-tid).
-  let endStr = localStorage.getItem('ballSaleEndV1');
+  // 36 timer fra nå (eller fra første load, lagret i localStorage)
+  let endStr = localStorage.getItem('ballSaleEndV2'); // bumpet versjon
   if (!endStr) {
-    const now = new Date();
-    const tomorrow10 = new Date(now);
-    tomorrow10.setDate(now.getDate() + 1);
-    tomorrow10.setHours(10, 0, 0, 0);
-    endStr = String(tomorrow10.getTime());
-    localStorage.setItem('ballSaleEndV1', endStr);
+    endStr = String(Date.now() + 36 * 3600 * 1000); // 36 timer fra første load
+    localStorage.setItem('ballSaleEndV2', endStr);
   }
   return parseInt(endStr);
 }
