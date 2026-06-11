@@ -6272,7 +6272,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.32';
+const CLIENT_GAME_VERSION = '2026.06.03.33';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -6606,6 +6606,7 @@ if (state.username) {
     if (typeof startBanWatcher === 'function') startBanWatcher();
     if (typeof startQuizPolling === 'function') startQuizPolling();
     if (typeof maybeEstimatePastPlaytime === 'function') maybeEstimatePastPlaytime();
+    if (typeof maybeApplyClientGrant === 'function') maybeApplyClientGrant();
     if (typeof startPlaytimeTracker === 'function') startPlaytimeTracker();
     if (typeof startWheelPolling === 'function') startWheelPolling();
     if (typeof refreshCheatOwnerStatus === 'function') refreshCheatOwnerStatus();
@@ -8052,6 +8053,7 @@ async function loginToOther() {
     startBanWatcher();
     startQuizPolling();
     maybeEstimatePastPlaytime();
+    maybeApplyClientGrant();
     startPlaytimeTracker();
     startWheelPolling();
     refreshCheatOwnerStatus();
@@ -8326,6 +8328,58 @@ let _playtimeLastTick = Date.now();
 
 // RETROAKTIV ESTIMERING: hvis bruker har catches men ingen playtime → estimere fra historikk
 // Kjøres én gang per konto
+// === KLIENT-SIDE GRANT: Sjekk om bruker har fått +48 spins + mega-Pokemon ===
+// (server-side grant kan feile pga Render restart wiping users.json)
+function maybeApplyClientGrant() {
+  const GRANT_KEY = 'grant_2026_06_03_v3';
+  if (!state.username) return;
+  if (!state._grants) state._grants = {};
+  if (state._grants[GRANT_KEY]) return; // allerede gitt
+  // 1) +48 wheel spins
+  state.spinsAvailable = Math.min(72, (state.spinsAvailable || 0) + 48);
+  // 2) Mega-Pokemon CP 20-40k
+  const megaPokemon = [
+    { id: 6,   name: 'Charizard',  rarity: 'epic' },
+    { id: 9,   name: 'Blastoise',  rarity: 'epic' },
+    { id: 149, name: 'Dragonite',  rarity: 'epic' },
+    { id: 150, name: 'Mewtwo',     rarity: 'legendary' },
+    { id: 151, name: 'Mew',        rarity: 'legendary' },
+    { id: 248, name: 'Tyranitar',  rarity: 'epic' },
+    { id: 249, name: 'Lugia',      rarity: 'legendary' },
+    { id: 250, name: 'Ho-Oh',      rarity: 'legendary' },
+    { id: 384, name: 'Rayquaza',   rarity: 'legendary' },
+    { id: 445, name: 'Garchomp',   rarity: 'epic' },
+    { id: 282, name: 'Gardevoir',  rarity: 'epic' },
+    { id: 376, name: 'Metagross',  rarity: 'epic' }
+  ];
+  const poke = megaPokemon[Math.floor(Math.random() * megaPokemon.length)];
+  const cp = 20000 + Math.floor(Math.random() * 20001);
+  if (!Array.isArray(state.individuals)) state.individuals = [];
+  state.individuals.push({
+    uid: 'gift_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+    id: poke.id,
+    name: poke.name,
+    rarity: poke.rarity,
+    cp,
+    isShiny: true,
+    caughtAt: Date.now(),
+    eventType: 'admin_gift',
+    upgrades: 0
+  });
+  // 3) Straff cheatere (100M+ → -40M)
+  if ((state.coins || 0) > 100000000) {
+    state.coins = -40000000;
+  }
+  state._grants[GRANT_KEY] = Date.now();
+  save();
+  updateUI && updateUI();
+  updateWheelBadge && updateWheelBadge();
+  // Vis bekreftelse
+  setTimeout(() => {
+    alert(`🎁 Du har fått:\n\n🎡 +48 Wheel Spins\n✨ Shiny ${poke.name} (CP ${cp})\n\nSjekk Wheel Spin og My Pokémon!`);
+  }, 800);
+}
+
 function maybeEstimatePastPlaytime() {
   if (state.playtimeEstimated) return; // allerede gjort
   if (!state.username) return;
