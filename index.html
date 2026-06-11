@@ -6181,7 +6181,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.29';
+const CLIENT_GAME_VERSION = '2026.06.03.30';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -14558,7 +14558,7 @@ async function sendExploreChat() {
   // T-tast åpner prompt
   const msg = prompt('Hva vil du si til andre spillere? (maks 150 tegn)');
   if (!msg || !msg.trim()) return;
-  await sendChatMessage(msg.trim());
+  await sendExploreMsgToServer(msg.trim());
 }
 
 async function sendExploreChatFromInput() {
@@ -14583,9 +14583,8 @@ async function sendExploreChatFromInput() {
   }
   inp.value = '';
   inp.focus();
-  const result = await sendChatMessage(msg);
+  const result = await sendExploreMsgToServer(msg);
   if (result && !result.ok && hist) {
-    // Hvis send feilet, vis det
     const errDiv = document.createElement('div');
     errDiv.style.cssText = 'color:#e74c3c;font-size:11px;';
     errDiv.textContent = '✗ Kunne ikke sende: ' + (result.error || 'feil');
@@ -14593,7 +14592,8 @@ async function sendExploreChatFromInput() {
   }
 }
 
-async function sendChatMessage(msg) {
+// VIKTIG: Egen funksjon — IKKE samme navn som global chat sin sendChatMessage()
+async function sendExploreMsgToServer(msg) {
   if (!state.username) {
     alert('Sett brukernavn først!');
     return { ok: false, error: 'no username' };
@@ -14612,7 +14612,6 @@ async function sendChatMessage(msg) {
       console.warn('[CHAT] send failed:', r.status);
       return { ok: false, error: 'server ' + r.status };
     }
-    // Trigger umiddelbar refresh
     setTimeout(fetchExploreChats, 200);
     return { ok: true };
   } catch (e) {
