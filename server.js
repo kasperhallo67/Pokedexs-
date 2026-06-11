@@ -328,25 +328,23 @@ app.get('/api/admin-event/status', (req, res) => {
   });
 });
 
-// === STARTUP-UNBAN: Disse ble feilaktig banna under den gamle mass-ban-buggen ===
-// Fjern alle med matchende deler av navnet (substring-match for fleksibilitet med staving)
+// === STARTUP: Unban alle EKSISTERENDE bannede, og force-ban Tormod ===
 try {
-  const banned = readJson(BANNED_FILE, []);
-  // Substrenger som kvalifiserer for unban (case-insensitive)
-  const unbanSubstrings = ['seldon', 'copper', 'dawg', 'tormd', 'håkon', 'haakon', 'hakon', 'nicolas', 'nikolas'];
-  let removed = 0;
-  if (Array.isArray(banned)) {
-    const cleaned = banned.filter(b => {
-      const lower = String(b).toLowerCase();
-      return !unbanSubstrings.some(sub => lower.includes(sub));
-    });
-    removed = banned.length - cleaned.length;
-    if (removed > 0) {
-      writeJson(BANNED_FILE, cleaned);
-      console.log(`✓ Unbanned ${removed} wrongly-banned users at startup:`, banned.filter(b => !cleaned.includes(b)));
+  const FORCE_BAN = ['Tormod', 'tormod']; // navn som skal være banned
+  let banned = readJson(BANNED_FILE, []);
+  if (!Array.isArray(banned)) banned = [];
+  const before = banned.length;
+  // 1) Fjern ALLE eksisterende bannede (full unban)
+  banned = [];
+  // 2) Legg til Tormod (og varianter) på ban-listen
+  for (const name of FORCE_BAN) {
+    if (!banned.some(b => String(b).toLowerCase() === name.toLowerCase())) {
+      banned.push(name);
     }
   }
-} catch (e) { console.warn('Startup unban failed:', e.message); }
+  writeJson(BANNED_FILE, banned);
+  console.log(`✓ Cleared ${before} previously-banned users. Force-banned: ${FORCE_BAN.join(', ')}`);
+} catch (e) { console.warn('Startup ban-list update failed:', e.message); }
 ensureFile(DEVICES_FILE, '{}');
 ensureFile(QUIZ_FILE, '{}');
 
@@ -2170,7 +2168,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.35';
+const GAME_VERSION = '2026.06.03.36';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
