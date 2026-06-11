@@ -6181,7 +6181,7 @@ if (state.buddyId === undefined) state.buddyId = null;
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.27';
+const CLIENT_GAME_VERSION = '2026.06.03.28';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -7740,7 +7740,7 @@ let lockoutUntil = 0;
 
 // === VEDLIKEHOLDS-MODUS ===
 // Eier kan bypasse med spesielt passord. Eller hvis localStorage har bypass-flagg.
-const MAINTENANCE_ACTIVE = true;
+const MAINTENANCE_ACTIVE = false;
 const MAINTENANCE_BYPASS_PASSWORD = 'kasperowner2026';
 function bypassMaintenance() {
   const pw = prompt('Eier-passord for å bypasse vedlikeholdsskjermen:');
