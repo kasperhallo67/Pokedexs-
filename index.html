@@ -360,6 +360,16 @@
   .casino-result.win  { color: #2ecc71; text-shadow: 0 0 10px #2ecc71; }
   .casino-result.lose { color: #e74c3c; }
 
+  /* BALL SALE ANIMASJONER */
+  @keyframes saleBadgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes saleBannerPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
   /* MY ROOM */
   .my-room-tabs {
     display: flex;
@@ -6272,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.33';
+const CLIENT_GAME_VERSION = '2026.06.03.34';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -7568,9 +7578,47 @@ function closeModal(name) {
   document.getElementById(name + 'Modal').classList.remove('active');
 }
 
+// === BALL SALE: 50% off på alle baller frem til i morgen kl 10:00 ===
+function getBallSaleEnd() {
+  // Lagre slutt-tidspunkt i localStorage. Hvis ikke satt: i morgen kl 10:00 (lokal/Norge-tid).
+  let endStr = localStorage.getItem('ballSaleEndV1');
+  if (!endStr) {
+    const now = new Date();
+    const tomorrow10 = new Date(now);
+    tomorrow10.setDate(now.getDate() + 1);
+    tomorrow10.setHours(10, 0, 0, 0);
+    endStr = String(tomorrow10.getTime());
+    localStorage.setItem('ballSaleEndV1', endStr);
+  }
+  return parseInt(endStr);
+}
+function isBallSaleActive() {
+  return Date.now() < getBallSaleEnd();
+}
+function getBallPrice(ball) {
+  const original = ball.price || 0;
+  if (isBallSaleActive()) return Math.ceil(original / 2);
+  return original;
+}
+function getBallSaleTimeLeft() {
+  const ms = getBallSaleEnd() - Date.now();
+  if (ms <= 0) return '0';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return `${h}t ${m}m`;
+}
+
 function renderShop() {
   const grid = document.getElementById('shopGrid');
   grid.innerHTML = '';
+  // Sale-banner
+  if (isBallSaleActive()) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'grid-column:1/-1;background:linear-gradient(135deg,#ff0080,#ff6b00,#ffd700);color:white;padding:14px 20px;border-radius:14px;text-align:center;font-weight:bold;font-size:18px;margin-bottom:12px;text-shadow:1px 1px 3px black;box-shadow:0 4px 14px rgba(255,107,0,0.5);animation:saleBannerPulse 1.5s ease-in-out infinite;';
+    banner.innerHTML = `🔥 <b>50% RABATT</b> på ALLE Pokéballer! 🔥<br><span style="font-size:13px;font-weight:normal;">Slutter om: ${getBallSaleTimeLeft()}</span>
+      <style>@keyframes saleBannerPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.03); } }</style>`;
+    grid.appendChild(banner);
+  }
   for (const [key, ball] of Object.entries(BALLS)) {
     const div = document.createElement('div');
     let extraClass = '';
@@ -7609,9 +7657,20 @@ function renderShop() {
     } else if (key === 'free') {
       buyBtn = '<div style="color:#2ecc71;font-weight:bold;margin-top:10px;">Free every 8 seconds</div>';
     } else {
-      buyBtn = `<div class="ball-count">You have: ${state.inventory[key]}</div>
-        <button class="buy-btn" onclick="buyBall('${key}', 1)" ${state.coins < ball.price ? 'disabled' : ''}>Buy 1 (${ball.price}💰)</button>
-        <button class="buy-btn" onclick="buyBall('${key}', 10)" ${state.coins < ball.price*10 ? 'disabled' : ''}>Buy 10 (${ball.price*10}💰)</button>`;
+      const onSale = isBallSaleActive();
+      const salePrice = getBallPrice(ball);
+      const priceLabel1 = onSale
+        ? `<span style="text-decoration:line-through;color:#aaa;font-size:11px;">${ball.price}</span> <b style="color:#ffd700;">${salePrice}💰</b>`
+        : `${ball.price}💰`;
+      const priceLabel10 = onSale
+        ? `<span style="text-decoration:line-through;color:#aaa;font-size:11px;">${ball.price*10}</span> <b style="color:#ffd700;">${salePrice*10}💰</b>`
+        : `${ball.price*10}💰`;
+      const saleBadge = onSale
+        ? `<div style="background:linear-gradient(135deg,#ff0080,#ff6b00);color:white;font-weight:bold;padding:4px 10px;border-radius:10px;display:inline-block;margin:6px 0;font-size:13px;animation:saleBadgePulse 1s ease-in-out infinite;text-shadow:0 0 3px black;box-shadow:0 2px 6px rgba(255,107,0,0.4);">🔥 50% OFF</div>`
+        : '';
+      buyBtn = `${saleBadge}<div class="ball-count">You have: ${state.inventory[key]}</div>
+        <button class="buy-btn" onclick="buyBall('${key}', 1)" ${state.coins < salePrice ? 'disabled' : ''}>Buy 1 (${priceLabel1})</button>
+        <button class="buy-btn" onclick="buyBall('${key}', 10)" ${state.coins < salePrice*10 ? 'disabled' : ''}>Buy 10 (${priceLabel10})</button>`;
     }
     const selBtn = playtimeLocked
       ? ''
@@ -7637,13 +7696,14 @@ function renderShop() {
 function buyBall(key, qty) {
   const ball = BALLS[key];
   if (!ball) return;
-  // Sjekk playtime-lås
   if (ball.unlockPlaytimeMs && (state.playtimeMs || 0) < ball.unlockPlaytimeMs) {
     const remaining = Math.ceil((ball.unlockPlaytimeMs - (state.playtimeMs || 0)) / 60000);
     alert(`🔒 Locked! Play ${remaining} more minutes to unlock ${ball.name}.`);
     return;
   }
-  const cost = ball.price * qty;
+  // 50% rabatt hvis salget er aktivt
+  const unitPrice = getBallPrice(ball);
+  const cost = unitPrice * qty;
   if (state.coins < cost) return;
   state.coins -= cost;
   state.inventory[key] += qty;
