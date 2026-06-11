@@ -6282,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.36';
+const CLIENT_GAME_VERSION = '2026.06.03.37';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -9199,17 +9199,20 @@ const WHEEL_SPIN_INTERVAL_MS = 3600000; // 1 time
 const WHEEL_MAX_SPINS = 24;
 // 11 sektorer rundt hjulet (samme antall som conic-gradient farger)
 const WHEEL_PRIZES = [
-  { key: '10k',     label: '10k 💰',        weight: 30, type: 'coins',   amount: 10000 },
-  { key: '25k',     label: '25k 💰',        weight: 18, type: 'coins',   amount: 25000 },
-  { key: '50k',     label: '50k 💰',        weight: 14, type: 'coins',   amount: 50000 },
-  { key: '100k',    label: '100k 💰',       weight: 10, type: 'coins',   amount: 100000 },
-  { key: '250k',    label: '250k 💰',       weight: 7,  type: 'coins',   amount: 250000 },
-  { key: '500k',    label: '500k 💰',       weight: 5,  type: 'coins',   amount: 500000 },
-  { key: '1M',      label: '1M 💰',         weight: 3,  type: 'coins',   amount: 1000000 },
+  { key: '10k',     label: '10k 💰',        weight: 28, type: 'coins',   amount: 10000 },
+  { key: '25k',     label: '25k 💰',        weight: 16, type: 'coins',   amount: 25000 },
+  { key: '50k',     label: '50k 💰',        weight: 12, type: 'coins',   amount: 50000 },
+  { key: '100k',    label: '100k 💰',       weight: 9,  type: 'coins',   amount: 100000 },
+  { key: '250k',    label: '250k 💰',       weight: 6,  type: 'coins',   amount: 250000 },
+  { key: '500k',    label: '500k 💰',       weight: 4,  type: 'coins',   amount: 500000 },
+  { key: '1M',      label: '1M 💰',         weight: 2.5,type: 'coins',   amount: 1000000 },
   { key: 'JACKPOT', label: '2M 💰 JACKPOT', weight: 1,  type: 'coins',   amount: 2000000 },
-  { key: 'low_p',   label: 'Pokémon ★',     weight: 4,  type: 'pokemon', cpRange: [5000, 7000] },
-  { key: 'mid_p',   label: 'Pokémon ★★',    weight: 2.5,type: 'pokemon', cpRange: [7000, 9000] },
-  { key: 'high_p',  label: 'Pokémon ★★★',   weight: 2.5,type: 'pokemon', cpRange: [9000, 11000] }
+  { key: 'star_1',  label: '★ 5-7k',        weight: 6,  type: 'pokemon', cpRange: [5000, 7000],   tier: 1 },
+  { key: 'star_2',  label: '★★ 7-9k',       weight: 4,  type: 'pokemon', cpRange: [7000, 9000],   tier: 2 },
+  { key: 'star_3',  label: '★★★ 9-11k',     weight: 3,  type: 'pokemon', cpRange: [9000, 11000],  tier: 3 },
+  { key: 'star_4',  label: '★★★★ 11-13k',   weight: 2,  type: 'pokemon', cpRange: [11000, 13000], tier: 4 },
+  { key: 'star_5',  label: '★★★★★ 13-15k',  weight: 1.2,type: 'pokemon', cpRange: [13000, 15000], tier: 5 },
+  { key: 'star_6',  label: '⭐ 15-18k JACKPOT', weight: 0.5, type: 'pokemon', cpRange: [15000, 18000], tier: 6 }
 ];
 
 let wheelSpinning = false;
@@ -9306,15 +9309,25 @@ function renderWheelSpin() {
   if (!content) return;
   const spins = calcWheelSpins();
   const nextMs = timeUntilNextSpin();
-  // Bygg etiketter rundt hjulet — INNI roterende container, så de spinner med
+  const n = WHEEL_PRIZES.length;
+  const sliceDeg = 360 / n;
+  // Generer conic-gradient dynamisk for riktig antall sektorer
+  const WHEEL_COLORS = ['#e74c3c','#f39c12','#f1c40f','#2ecc71','#3498db','#9b59b6','#e91e63','#ff6ec4','#27ae60','#c0392b','#ffd700','#8e44ad','#16a085','#d35400'];
+  const stops = [];
+  for (let i = 0; i < n; i++) {
+    const col = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    stops.push(`${col} ${(i * sliceDeg).toFixed(2)}deg ${((i + 1) * sliceDeg).toFixed(2)}deg`);
+  }
+  const discStyle = `background: conic-gradient(${stops.join(', ')});`;
+
+  // Bygg etiketter rundt hjulet
   const labels = WHEEL_PRIZES.map((p, i) => {
-    const angle = (i + 0.5) * (360 / WHEEL_PRIZES.length);
+    const angle = (i + 0.5) * sliceDeg;
     const rad = (angle - 90) * Math.PI / 180;
     const r = 105;
     const x = 160 + Math.cos(rad) * r - 40;
     const y = 160 + Math.sin(rad) * r - 12;
-    // Roter også teksten så den peker utover (lettere å lese)
-    return `<div class="wheel-label" style="left:${x}px;top:${y}px;transform:rotate(${angle}deg);">${p.label}</div>`;
+    return `<div class="wheel-label" style="left:${x}px;top:${y}px;transform:rotate(${angle}deg);font-size:9px;">${p.label}</div>`;
   }).join('');
 
   content.innerHTML = `
@@ -9325,7 +9338,7 @@ function renderWheelSpin() {
     <div class="wheel-container">
       <div class="wheel-pointer-big"></div>
       <div id="wheelRotor" class="wheel-rotor">
-        <div class="wheel-disc"></div>
+        <div class="wheel-disc" style="${discStyle}"></div>
         ${labels}
       </div>
       <button id="wheelBtnCenter" class="wheel-center-btn" onclick="spinTheWheel()" ${spins === 0 || wheelSpinning ? 'disabled' : ''}>
@@ -9421,9 +9434,12 @@ function resolveWheelPrize(prize) {
     const cp = minCp + Math.floor(Math.random() * (maxCp - minCp + 1));
     // Bestem rarity basert på CP
     let rarity = 'epic';
-    if (cp >= 9000) rarity = 'legendary';
+    if (cp >= 13000) rarity = 'rocket';
+    else if (cp >= 9000) rarity = 'legendary';
     else if (cp >= 6500) rarity = 'epic';
     else rarity = 'rare';
+    // Shiny for høyere tier (4+ stars)
+    const isShiny = (prize.tier || 0) >= 4;
     // Legg til som individ
     if (!Array.isArray(state.individuals)) state.individuals = [];
     if (state.individuals.length >= state.storageMax) {
@@ -9433,12 +9449,18 @@ function resolveWheelPrize(prize) {
     const uid = 'wheel_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     state.individuals.push({
       uid, id: poke.id, name: poke.name, rarity, cp,
-      isShiny: false, caughtAt: Date.now(), eventType: null, upgrades: 0
+      isShiny, caughtAt: Date.now(), eventType: null, upgrades: 0
     });
     if (!state.caught) state.caught = {};
     if (!state.seen) state.seen = {};
     state.caught[poke.id] = (state.caught[poke.id] || 0) + 1;
     state.seen[poke.id] = true;
+    if (isShiny) {
+      if (!state.shinies) state.shinies = {};
+      if (!state.shinySeen) state.shinySeen = {};
+      state.shinies[poke.id] = (state.shinies[poke.id] || 0) + 1;
+      state.shinySeen[poke.id] = true;
+    }
     state.totalCatches = (state.totalCatches || 0) + 1;
     save(); updateUI(); submitScore(); checkAchievements();
     requestAnimationFrame(() => {
@@ -9446,7 +9468,9 @@ function resolveWheelPrize(prize) {
       if (coinEl) coinEl.textContent = state.coins;
     });
     if (resultEl) {
-      resultEl.innerHTML = `🎁 Du vant <b>${poke.name}</b> CP <b>${cp}</b>!<br><img src="${SPRITE_URL(poke.id)}" style="width:80px;height:80px;image-rendering:pixelated;margin-top:6px;">`;
+      const stars = '★'.repeat(prize.tier || 1);
+      const sprite = isShiny ? SHINY_SPRITE_URL(poke.id) : SPRITE_URL(poke.id);
+      resultEl.innerHTML = `🎁 ${stars} Du vant <b>${isShiny ? '✨ ' : ''}${poke.name}</b> CP <b>${cp}</b>!<br><img src="${sprite}" style="width:80px;height:80px;image-rendering:pixelated;margin-top:6px;${isShiny ? 'filter:drop-shadow(0 0 8px gold);' : ''}">`;
     }
   }
   updateWheelBadge();
