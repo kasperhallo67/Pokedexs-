@@ -4016,6 +4016,17 @@
   <button class="logout-btn" onclick="logout()" title="Log out">🚪</button>
 </div>
 
+<!-- ADMIN ABUSE EVENT-banner -->
+<div id="adminEventBanner" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#ff6b00,#ff0080,#7a00ff);color:white;padding:10px 20px;border-radius:14px;font-weight:bold;font-size:14px;z-index:200;box-shadow:0 4px 16px rgba(255,107,0,0.6);text-shadow:0 0 4px black;animation:adminPulse 2s ease-in-out infinite;">
+  🚨 ADMIN ABUSE — KODER I CHATTEN! Følg med på 🗺️ Explore-chat!
+</div>
+<style>
+  @keyframes adminPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+  }
+</style>
+
 <!-- VEDLIKEHOLD/MAINTENANCE-overlay -->
 <div id="maintenanceOverlay" style="position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);z-index:99997;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#fff;font-family:sans-serif;">
   <div style="background:rgba(0,0,0,0.5);border:3px solid #f39c12;border-radius:20px;padding:50px 40px;max-width:600px;box-shadow:0 10px 40px rgba(0,0,0,0.6);">
@@ -6179,9 +6190,25 @@ if (state.username === undefined) state.username = '';
 if (state.password === undefined) state.password = '';
 if (state.buddyId === undefined) state.buddyId = null;
 
+// === ADMIN ABUSE EVENT-sjekk ===
+let _adminEventCheckTimer = null;
+async function checkAdminEvent() {
+  try {
+    const r = await fetch('/api/admin-event/status');
+    const d = await r.json();
+    const banner = document.getElementById('adminEventBanner');
+    if (banner) banner.style.display = d.active ? 'block' : 'none';
+  } catch {}
+}
+function startAdminEventChecker() {
+  if (_adminEventCheckTimer) clearInterval(_adminEventCheckTimer);
+  _adminEventCheckTimer = setInterval(checkAdminEvent, 30000);
+  checkAdminEvent();
+}
+
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.30';
+const CLIENT_GAME_VERSION = '2026.06.03.31';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -6519,6 +6546,7 @@ if (state.username) {
     if (typeof startWheelPolling === 'function') startWheelPolling();
     if (typeof refreshCheatOwnerStatus === 'function') refreshCheatOwnerStatus();
     if (typeof startVersionChecker === 'function') startVersionChecker();
+    if (typeof startAdminEventChecker === 'function') startAdminEventChecker();
   }, 1500);
 }
 // Refresh type for alle individer (slik at nylig utvidet type-map får riktig type også på eksisterende)
@@ -7964,6 +7992,7 @@ async function loginToOther() {
     startWheelPolling();
     refreshCheatOwnerStatus();
     startVersionChecker();
+    startAdminEventChecker();
   } catch (e) {
     err.textContent = '✗ Server unavailable: ' + e.message;
   }

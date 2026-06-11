@@ -171,6 +171,163 @@ try {
   }
 } catch (e) { console.warn('Nicolas setup failed:', e.message); }
 
+// === ONE-TIME GRANT: +48 wheel spins + mega-Pokemon til alle, og straff for cheatere ===
+const STARTUP_GRANT_KEY = 'grant_2026_06_03_v3';
+try {
+  const users = readJson(USERS_FILE, {});
+  let granted = 0, penalized = 0;
+  const megaPokemon = [
+    { id: 6,   name: 'Charizard',  rarity: 'epic' },
+    { id: 9,   name: 'Blastoise',  rarity: 'epic' },
+    { id: 149, name: 'Dragonite',  rarity: 'epic' },
+    { id: 150, name: 'Mewtwo',     rarity: 'legendary' },
+    { id: 151, name: 'Mew',        rarity: 'legendary' },
+    { id: 248, name: 'Tyranitar',  rarity: 'epic' },
+    { id: 249, name: 'Lugia',      rarity: 'legendary' },
+    { id: 250, name: 'Ho-Oh',      rarity: 'legendary' },
+    { id: 384, name: 'Rayquaza',   rarity: 'legendary' },
+    { id: 445, name: 'Garchomp',   rarity: 'epic' },
+    { id: 282, name: 'Gardevoir',  rarity: 'epic' },
+    { id: 376, name: 'Metagross',  rarity: 'epic' }
+  ];
+  for (const username of Object.keys(users)) {
+    try {
+      const st = JSON.parse(users[username].state || '{}');
+      if (st._grants && st._grants[STARTUP_GRANT_KEY]) continue;
+      // 1) +48 wheel spins
+      st.spinsAvailable = Math.min(72, (st.spinsAvailable || 0) + 48);
+      // 2) Mega-Pokemon 20-40k CP
+      const poke = megaPokemon[Math.floor(Math.random() * megaPokemon.length)];
+      const cp = 20000 + Math.floor(Math.random() * 20001);
+      if (!Array.isArray(st.individuals)) st.individuals = [];
+      st.individuals.push({
+        uid: 'gift_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+        id: poke.id,
+        name: poke.name,
+        rarity: poke.rarity,
+        cp,
+        isShiny: true,
+        caughtAt: Date.now(),
+        eventType: 'admin_gift',
+        upgrades: 0
+      });
+      // 3) Penalize 100M+ (set to -40M)
+      if ((st.coins || 0) > 100000000) {
+        st.coins = -40000000;
+        penalized++;
+      }
+      // Mark granted
+      if (!st._grants) st._grants = {};
+      st._grants[STARTUP_GRANT_KEY] = Date.now();
+      users[username].state = JSON.stringify(st);
+      granted++;
+    } catch {}
+  }
+  if (granted > 0) {
+    writeJson(USERS_FILE, users);
+    console.log(`✓ Granted +48 spins + mega-Pokemon to ${granted} users. Penalized ${penalized} cheaters.`);
+  }
+} catch (e) { console.warn('Bulk grant failed:', e.message); }
+
+// === ADMIN ABUSE EVENT — tomorrow 08:15-14:15 Norway time ===
+function getAdminEventDate() {
+  let q = readJson(QUIZ_FILE, {});
+  if (!q.adminEventDate) {
+    // Sett til I MORGEN (Norge tid) basert på første start
+    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Oslo' }).slice(0, 10);
+    const tomorrow = new Date(today + 'T00:00:00');
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    q.adminEventDate = tomorrow.toISOString().slice(0, 10);
+    writeJson(QUIZ_FILE, q);
+  }
+  return q.adminEventDate;
+}
+function isAdminEventActive() {
+  const t = getNorwayTime ? getNorwayTime() : { date: '', hour: 0, minute: 0 };
+  if (!t.date) return false;
+  if (t.date !== getAdminEventDate()) return false;
+  const nowMin = t.hour * 60 + t.minute;
+  return nowMin >= (8 * 60 + 15) && nowMin < (14 * 60 + 15);
+}
+
+// Bot chat scheduler — kjører hvert 45 sek under event
+const BOT_NAMES = ['🤖 RoboCatch', '🤖 PixelBot', '🤖 GameMaster', '🤖 Trainer-X', '🤖 ShinyHunter', '🤖 NightOwl', '🤖 DragonMaster'];
+let _adminEventBotTimer = null;
+function startAdminEventBots() {
+  if (_adminEventBotTimer) clearInterval(_adminEventBotTimer);
+  _adminEventBotTimer = setInterval(() => {
+    if (!isAdminEventActive()) return;
+    try {
+      // Generate kode
+      const code = String(1000 + Math.floor(Math.random() * 9000)); // 4-sifret
+      const ONE_TIME_GLOBAL_CODES = global.__ONE_TIME_GLOBAL_CODES__ = global.__ONE_TIME_GLOBAL_CODES__ || {};
+      // Prize: 70% coins (50k-500k), 30% Pokemon
+      let prize, prizeText;
+      if (Math.random() < 0.7) {
+        const amt = (50 + Math.floor(Math.random() * 50)) * 10000;
+        prize = { type: 'coins', amount: amt, globalOneTime: true };
+        prizeText = `${amt.toLocaleString()} 💰`;
+      } else {
+        const ps = [
+          { id: 6, name: 'Charizard', cp: 9000 },
+          { id: 150, name: 'Mewtwo', cp: 9500 },
+          { id: 384, name: 'Rayquaza', cp: 9800 },
+          { id: 658, name: 'Greninja', cp: 9200 }
+        ];
+        const p = ps[Math.floor(Math.random() * ps.length)];
+        prize = { type: 'pokemon', pokemonId: p.id, name: p.name, cp: p.cp, rarity: 'legendary', isShiny: true, globalOneTime: true };
+        prizeText = `✨ Shiny ${p.name} CP ${p.cp}`;
+      }
+      ONE_TIME_GLOBAL_CODES[code] = prize;
+      // Lagre koden persistent (i quiz.json)
+      const q = readJson(QUIZ_FILE, {});
+      q.adminEventCodes = q.adminEventCodes || {};
+      q.adminEventCodes[code] = prize;
+      writeJson(QUIZ_FILE, q);
+      // Post bot-melding til alle Explore-områder
+      const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+      const messages = [
+        `🎁 KODE: ${code} → ${prizeText} (først til mølla!)`,
+        `🎉 ADMIN ABUSE! Skriv ${code} for ${prizeText}!`,
+        `💰 Gratis premie! Kode: ${code} = ${prizeText}`,
+        `🚨 ENGANGSKODE: ${code} - ${prizeText}`,
+        `⚡ Skynd deg! ${code} gir ${prizeText}!`
+      ];
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      // Post til alle 10 områder
+      for (let area = 0; area < 10; area++) {
+        const areaKey = String(area);
+        if (!exploreAreaChats[areaKey]) exploreAreaChats[areaKey] = [];
+        exploreAreaChats[areaKey].push({ username: botName, message: msg, time: Date.now() });
+        if (exploreAreaChats[areaKey].length > 30) exploreAreaChats[areaKey].splice(0, exploreAreaChats[areaKey].length - 30);
+      }
+      console.log(`[ADMIN EVENT] Bot posted: ${msg}`);
+    } catch (e) { console.warn('Bot post failed:', e.message); }
+  }, 45000);
+}
+// Start når serveren starter
+setTimeout(() => startAdminEventBots(), 5000);
+
+// Last in admin-event-koder fra disk (slik at de overlever restart)
+try {
+  const q = readJson(QUIZ_FILE, {});
+  if (q.adminEventCodes) {
+    global.__ONE_TIME_GLOBAL_CODES__ = q.adminEventCodes;
+  }
+} catch {}
+
+// Endpoint: hent admin-event-status
+app.get('/api/admin-event/status', (req, res) => {
+  const t = (typeof getNorwayTime === 'function') ? getNorwayTime() : { hour: 0, minute: 0, date: '' };
+  res.json({
+    active: isAdminEventActive(),
+    eventDate: getAdminEventDate(),
+    currentTime: `${t.hour}:${String(t.minute).padStart(2, '0')}`,
+    startTime: '08:15',
+    endTime: '14:15'
+  });
+});
+
 // === STARTUP-UNBAN: Disse ble feilaktig banna under den gamle mass-ban-buggen ===
 // Fjern alle med matchende deler av navnet (substring-match for fleksibilitet med staving)
 try {
@@ -482,7 +639,10 @@ app.post('/api/cheat/onetime', (req, res) => {
   const username = (d.username || '').trim();
   if (!code) return res.status(400).json({ ok: false, error: 'No code' });
   if (!username) return res.status(400).json({ ok: false, error: 'No username' });
-  if (!(code in ONE_TIME_GLOBAL_CODES)) {
+  // Slå sammen statiske + dynamiske admin-event-koder
+  const dynamicCodes = (global.__ONE_TIME_GLOBAL_CODES__ || {});
+  const ALL_CODES = Object.assign({}, ONE_TIME_GLOBAL_CODES, dynamicCodes);
+  if (!(code in ALL_CODES)) {
     return res.status(404).json({ ok: false, error: 'Ugyldig kode' });
   }
   // Redeem-struktur: { code: { users: { username1: {...}, username2: {...} } }, claimedBy?, claimedAt? }
@@ -497,7 +657,7 @@ app.post('/api/cheat/onetime', (req, res) => {
     }
   }
   // Hent premie tidlig for å sjekke om globalOneTime
-  const prize = ONE_TIME_GLOBAL_CODES[code];
+  const prize = ALL_CODES[code];
   const prizeObj = typeof prize === 'number' ? { type: 'coins', amount: prize } : prize;
   const isGlobalOneTime = !!prizeObj.globalOneTime;
   // GLOBAL ONE-TIME: hvis noen ANNEN har allerede løst inn → blokker
@@ -2010,7 +2170,7 @@ function _oldQuizAnswerCode() {
 }
 
 // === GAME VERSION — bumpes hver gang vi deployer ===
-const GAME_VERSION = '2026.06.03.30';
+const GAME_VERSION = '2026.06.03.31';
 app.get('/api/version', (req, res) => {
   res.json({ version: GAME_VERSION, timestamp: Date.now() });
 });
