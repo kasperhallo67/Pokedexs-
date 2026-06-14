@@ -6282,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.38';
+const CLIENT_GAME_VERSION = '2026.06.03.39';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -8386,15 +8386,14 @@ let _playtimeLastTick = Date.now();
 
 // RETROAKTIV ESTIMERING: hvis bruker har catches men ingen playtime → estimere fra historikk
 // Kjøres én gang per konto
-// === KLIENT-SIDE GRANT: Sjekk om bruker har fått +48 spins + mega-Pokemon ===
-// (server-side grant kan feile pga Render restart wiping users.json)
+// === KLIENT-SIDE GRANT v4: +128 spins, mega-Pokemon, negative coins → 1M ===
 function maybeApplyClientGrant() {
-  const GRANT_KEY = 'grant_2026_06_03_v3';
+  const GRANT_KEY = 'grant_2026_06_03_v4_128spins';
   if (!state.username) return;
   if (!state._grants) state._grants = {};
   if (state._grants[GRANT_KEY]) return; // allerede gitt
-  // 1) +48 wheel spins
-  state.spinsAvailable = Math.min(72, (state.spinsAvailable || 0) + 48);
+  // 1) +128 wheel spins (boost cap til 200)
+  state.spinsAvailable = Math.min(200, (state.spinsAvailable || 0) + 128);
   // 2) Mega-Pokemon CP 20-40k
   const megaPokemon = [
     { id: 6,   name: 'Charizard',  rarity: 'epic' },
@@ -8428,13 +8427,18 @@ function maybeApplyClientGrant() {
   if ((state.coins || 0) > 100000000) {
     state.coins = -40000000;
   }
+  // 4) Hjelp de med minus saldo — løft opp til 1M
+  if ((state.coins || 0) < 0) {
+    state.coins = 1000000;
+  }
   state._grants[GRANT_KEY] = Date.now();
   save();
   updateUI && updateUI();
   updateWheelBadge && updateWheelBadge();
   // Vis bekreftelse
   setTimeout(() => {
-    alert(`🎁 Du har fått:\n\n🎡 +48 Wheel Spins\n✨ Shiny ${poke.name} (CP ${cp})\n\nSjekk Wheel Spin og My Pokémon!`);
+    const liftedMsg = ((state.coins === 1000000) ? '\n💰 Saldo lyftet til 1 000 000 💰 (minus-balanse løst opp)' : '');
+    alert(`🎁 Du har fått:\n\n🎡 +128 Wheel Spins\n✨ Shiny ${poke.name} (CP ${cp})${liftedMsg}\n\nSjekk Wheel Spin og My Pokémon!\n\n+ Mye bedre sjanse for Pokémon på hjulet nå!`);
   }, 800);
 }
 
@@ -9196,37 +9200,37 @@ function buyFurniture(key) {
 // ========== WHEEL SPIN ==========
 // Hver 1 time får du +1 spinn (cap 24). Premier varierer fra 10k coins til 2M / Pokemon.
 const WHEEL_SPIN_INTERVAL_MS = 3600000; // 1 time
-const WHEEL_MAX_SPINS = 24;
+const WHEEL_MAX_SPINS = 200;
 // 11 sektorer rundt hjulet (samme antall som conic-gradient farger)
 const WHEEL_PRIZES = [
-  // COINS
-  { key: '10k',     label: '10k 💰',        weight: 26, type: 'coins',   amount: 10000 },
-  { key: '25k',     label: '25k 💰',        weight: 14, type: 'coins',   amount: 25000 },
-  { key: '50k',     label: '50k 💰',        weight: 10, type: 'coins',   amount: 50000 },
-  { key: '100k',    label: '100k 💰',       weight: 7,  type: 'coins',   amount: 100000 },
-  { key: '250k',    label: '250k 💰',       weight: 5,  type: 'coins',   amount: 250000 },
-  { key: '500k',    label: '500k 💰',       weight: 3,  type: 'coins',   amount: 500000 },
-  { key: '1M',      label: '1M 💰',         weight: 2,  type: 'coins',   amount: 1000000 },
-  { key: 'JACKPOT', label: '2M 💰',         weight: 1,  type: 'coins',   amount: 2000000 },
-  // STAR-POKEMON (1-18 stars)
-  { key: 'star_1',  label: '★ 5k',          weight: 6,    type: 'pokemon', cpRange: [5000, 7000],   tier: 1 },
-  { key: 'star_2',  label: '★★ 7k',         weight: 4,    type: 'pokemon', cpRange: [7000, 9000],   tier: 2 },
-  { key: 'star_3',  label: '★★★ 9k',        weight: 3,    type: 'pokemon', cpRange: [9000, 11000],  tier: 3 },
-  { key: 'star_4',  label: '★4 11k',        weight: 2,    type: 'pokemon', cpRange: [11000, 13000], tier: 4 },
-  { key: 'star_5',  label: '★5 13k',        weight: 1.5,  type: 'pokemon', cpRange: [13000, 15000], tier: 5 },
-  { key: 'star_6',  label: '★6 15k',        weight: 1.0,  type: 'pokemon', cpRange: [15000, 18000], tier: 6 },
-  { key: 'star_7',  label: '★7 18k',        weight: 0.7,  type: 'pokemon', cpRange: [18000, 22000], tier: 7 },
-  { key: 'star_8',  label: '★8 22k',        weight: 0.5,  type: 'pokemon', cpRange: [22000, 26000], tier: 8 },
-  { key: 'star_9',  label: '★9 26k',        weight: 0.35, type: 'pokemon', cpRange: [26000, 30000], tier: 9 },
-  { key: 'star_10', label: '★10 30k',       weight: 0.25, type: 'pokemon', cpRange: [30000, 35000], tier: 10 },
-  { key: 'star_11', label: '★11 35k',       weight: 0.18, type: 'pokemon', cpRange: [35000, 40000], tier: 11 },
-  { key: 'star_12', label: '★12 40k',       weight: 0.12, type: 'pokemon', cpRange: [40000, 45000], tier: 12 },
-  { key: 'star_13', label: '★13 45k',       weight: 0.08, type: 'pokemon', cpRange: [45000, 50000], tier: 13 },
-  { key: 'star_14', label: '★14 50k',       weight: 0.05, type: 'pokemon', cpRange: [50000, 55000], tier: 14 },
-  { key: 'star_15', label: '★15 55k',       weight: 0.03, type: 'pokemon', cpRange: [55000, 60000], tier: 15 },
-  { key: 'star_16', label: '★16 60k',       weight: 0.02, type: 'pokemon', cpRange: [60000, 65000], tier: 16 },
-  { key: 'star_17', label: '★17 65k',       weight: 0.012,type: 'pokemon', cpRange: [65000, 70000], tier: 17 },
-  { key: 'star_18', label: '★18 70k+',      weight: 0.006,type: 'pokemon', cpRange: [70000, 100000],tier: 18 }
+  // COINS — redusert vekt (mer Pokemon nå!)
+  { key: '10k',     label: '10k 💰',        weight: 14, type: 'coins',   amount: 10000 },
+  { key: '25k',     label: '25k 💰',        weight: 10, type: 'coins',   amount: 25000 },
+  { key: '50k',     label: '50k 💰',        weight: 7,  type: 'coins',   amount: 50000 },
+  { key: '100k',    label: '100k 💰',       weight: 5,  type: 'coins',   amount: 100000 },
+  { key: '250k',    label: '250k 💰',       weight: 3,  type: 'coins',   amount: 250000 },
+  { key: '500k',    label: '500k 💰',       weight: 2,  type: 'coins',   amount: 500000 },
+  { key: '1M',      label: '1M 💰',         weight: 1.5,type: 'coins',   amount: 1000000 },
+  { key: 'JACKPOT', label: '2M 💰',         weight: 0.8,type: 'coins',   amount: 2000000 },
+  // STAR-POKEMON (1-18 stars) — kraftig bedre sjanser
+  { key: 'star_1',  label: '★ 5k',          weight: 12,   type: 'pokemon', cpRange: [5000, 7000],   tier: 1 },
+  { key: 'star_2',  label: '★★ 7k',         weight: 9,    type: 'pokemon', cpRange: [7000, 9000],   tier: 2 },
+  { key: 'star_3',  label: '★★★ 9k',        weight: 7,    type: 'pokemon', cpRange: [9000, 11000],  tier: 3 },
+  { key: 'star_4',  label: '★4 11k',        weight: 5.5,  type: 'pokemon', cpRange: [11000, 13000], tier: 4 },
+  { key: 'star_5',  label: '★5 13k',        weight: 4.2,  type: 'pokemon', cpRange: [13000, 15000], tier: 5 },
+  { key: 'star_6',  label: '★6 15k',        weight: 3.3,  type: 'pokemon', cpRange: [15000, 18000], tier: 6 },
+  { key: 'star_7',  label: '★7 18k',        weight: 2.5,  type: 'pokemon', cpRange: [18000, 22000], tier: 7 },
+  { key: 'star_8',  label: '★8 22k',        weight: 1.9,  type: 'pokemon', cpRange: [22000, 26000], tier: 8 },
+  { key: 'star_9',  label: '★9 26k',        weight: 1.4,  type: 'pokemon', cpRange: [26000, 30000], tier: 9 },
+  { key: 'star_10', label: '★10 30k',       weight: 1.0,  type: 'pokemon', cpRange: [30000, 35000], tier: 10 },
+  { key: 'star_11', label: '★11 35k',       weight: 0.7,  type: 'pokemon', cpRange: [35000, 40000], tier: 11 },
+  { key: 'star_12', label: '★12 40k',       weight: 0.5,  type: 'pokemon', cpRange: [40000, 45000], tier: 12 },
+  { key: 'star_13', label: '★13 45k',       weight: 0.35, type: 'pokemon', cpRange: [45000, 50000], tier: 13 },
+  { key: 'star_14', label: '★14 50k',       weight: 0.25, type: 'pokemon', cpRange: [50000, 55000], tier: 14 },
+  { key: 'star_15', label: '★15 55k',       weight: 0.18, type: 'pokemon', cpRange: [55000, 60000], tier: 15 },
+  { key: 'star_16', label: '★16 60k',       weight: 0.12, type: 'pokemon', cpRange: [60000, 65000], tier: 16 },
+  { key: 'star_17', label: '★17 65k',       weight: 0.08, type: 'pokemon', cpRange: [65000, 70000], tier: 17 },
+  { key: 'star_18', label: '★18 70k+',      weight: 0.04, type: 'pokemon', cpRange: [70000, 100000],tier: 18 }
 ];
 
 let wheelSpinning = false;
