@@ -6282,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.40';
+const CLIENT_GAME_VERSION = '2026.06.03.41';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -9226,11 +9226,11 @@ const WHEEL_PRIZES = [
   { key: 'star_11', label: '★11 35k',       weight: 1.7,  type: 'pokemon', cpRange: [35000, 40000], tier: 11 },
   { key: 'star_12', label: '★12 40k',       weight: 1.3,  type: 'pokemon', cpRange: [40000, 45000], tier: 12 },
   { key: 'star_13', label: '★13 45k',       weight: 1.0,  type: 'pokemon', cpRange: [45000, 50000], tier: 13 },
-  { key: 'star_14', label: '★14 50k',       weight: 0.75, type: 'pokemon', cpRange: [50000, 55000], tier: 14 },
-  { key: 'star_15', label: '★15 55k',       weight: 0.55, type: 'pokemon', cpRange: [55000, 60000], tier: 15 },
-  { key: 'star_16', label: '★16 60k',       weight: 0.4,  type: 'pokemon', cpRange: [60000, 65000], tier: 16 },
-  { key: 'star_17', label: '★17 65k',       weight: 0.3,  type: 'pokemon', cpRange: [65000, 70000], tier: 17 },
-  { key: 'star_18', label: '★18 70k+',      weight: 0.2,  type: 'pokemon', cpRange: [70000, 100000],tier: 18 }
+  { key: 'star_14', label: '★14 50k',       weight: 3.5,  type: 'pokemon', cpRange: [50000, 55000], tier: 14 },
+  { key: 'star_15', label: '★15 55k',       weight: 2.5,  type: 'pokemon', cpRange: [55000, 60000], tier: 15 },
+  { key: 'star_16', label: '★16 60k',       weight: 2.0,  type: 'pokemon', cpRange: [60000, 65000], tier: 16 },
+  { key: 'star_17', label: '★17 65k',       weight: 1.2,  type: 'pokemon', cpRange: [65000, 70000], tier: 17 },
+  { key: 'star_18', label: '★18 70k+',      weight: 0.8,  type: 'pokemon', cpRange: [70000, 100000],tier: 18 }
 ];
 
 let wheelSpinning = false;
