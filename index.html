@@ -6282,7 +6282,7 @@ function startAdminEventChecker() {
 
 // === GAME VERSION-SJEKK ===
 // Må matche GAME_VERSION i server.js. Hvis ikke: bruker tvinges til å refresh.
-const CLIENT_GAME_VERSION = '2026.06.03.41';
+const CLIENT_GAME_VERSION = '2026.06.03.42';
 let _versionCheckTimer = null;
 let _versionOverlayShown = false;
 
@@ -9407,15 +9407,15 @@ function spinTheWheel() {
     rotor.style.transform = 'rotate(0deg)';
     // 2) Tving reflow så at reset blir applied umiddelbart
     void rotor.offsetHeight;
-    // 3) Skru på transisjonen og roter til endelig vinkel
-    rotor.style.transition = 'transform 5s cubic-bezier(0.15, 0.7, 0.25, 1)';
+    // 3) Skru på transisjonen og roter til endelig vinkel (0.5 sek)
+    rotor.style.transition = 'transform 0.5s cubic-bezier(0.15, 0.7, 0.25, 1)';
     wheelRotation = target - spinsExtra * 360;
     rotor.style.transform = `rotate(${wheelRotation}deg)`;
   }
   const btn = document.getElementById('wheelBtnCenter');
   if (btn) { btn.disabled = true; btn.textContent = 'Spinner...'; }
-  setTimeout(() => save(), 100);
-  setTimeout(() => resolveWheelPrize(prize), 5200);
+  setTimeout(() => save(), 50);
+  setTimeout(() => resolveWheelPrize(prize), 500);
 }
 
 function resolveWheelPrize(prize) {
